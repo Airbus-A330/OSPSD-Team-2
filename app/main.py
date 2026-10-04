@@ -3,7 +3,6 @@
 
 def main() -> None:
     """Run the application entry point."""
-    pass
 
 
 if __name__ == "__main__":
