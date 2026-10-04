@@ -572,15 +572,13 @@ Test function names should describe observable behavior.
 Prefer:
 
 ```python
-def test_get_event_returns_public_event_model():
-    ...
+def test_get_event_returns_public_event_model(): ...
 ```
 
 over:
 
 ```python
-def test_get_event():
-    ...
+def test_get_event(): ...
 ```
 
 Use `pytest`.
