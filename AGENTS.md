@@ -4,30 +4,35 @@ Repository-wide instructions for coding agents and contributors.
 
 The goal of this repository is to produce a small, clear, well-tested Python backend service that is easy for another developer to understand, run, extend, and review.
 
-Favor correctness, readability, and simplicity over cleverness or unnecessary abstraction.
-
-## Canonical Documentation
-
-Before implementing a task, consult the relevant source of truth:
-
-- `README.md` — setup and basic usage
-- `docs/CONTRACT.md` — public behavior and domain models
-- `docs/ARCHITECTURE.md` — module responsibilities and dependency boundaries
-- `docs/TESTING.md` — project testing strategy and coverage map
-- `docs/PROVIDER.md` — provider-specific behavior and verified assumptions
-- `docs/DECISIONS.md` — significant technical decisions
-- `docs/TEAM_AGREEMENT.md` — collaboration expectations
-
-Do not duplicate these documents in other files. Link to the canonical source instead.
+Favor **correctness, readability, simplicity, and maintainability** over cleverness or unnecessary abstraction.
 
 ---
 
-## 1. General Principles
+## 1. Canonical Documentation
+
+Before implementing a task, consult the relevant source of truth:
+
+- `README.md` — project setup, usage, and repository overview
+- `docs/CONTRACT.md` — public behavior and domain contracts
+- `docs/ARCHITECTURE.md` — module responsibilities and dependency boundaries
+- `docs/TESTING.md` — testing strategy and coverage map
+- `docs/PROVIDER.md` — provider-specific behavior and verified assumptions
+- `docs/DECISIONS.md` — significant technical decisions
+- `docs/TEAM_AGREEMENT.md` — collaboration expectations
+- `AGENTS.md` — repository-wide development rules
+
+Do not maintain conflicting copies of the same information.
+
+Link to the canonical source instead of duplicating it.
+
+---
+
+## 2. General Principles
 
 When making changes to this repository:
 
 - Read the relevant code and documentation before editing.
-- Understand the public contract before implementing behavior.
+- Understand the applicable contract before implementing behavior.
 - Make the smallest change that correctly satisfies the task.
 - Prefer simple, explicit code over clever or highly abstract code.
 - Do not overengineer.
@@ -49,11 +54,11 @@ When multiple approaches are valid, prefer the one that:
 
 ---
 
-## 2. Python Standards
+## 3. Python Standards
 
 Use modern, idiomatic Python.
 
-### General style
+### General Style
 
 - Follow PEP 8.
 - Use descriptive names.
@@ -64,7 +69,7 @@ Use modern, idiomatic Python.
 - Prefer early returns when they improve readability.
 - Avoid unnecessary global state.
 - Avoid magic values when a named constant improves clarity.
-- Do not use mutable default arguments.
+- Never use mutable default arguments.
 - Avoid `Any` unless there is a clear reason.
 - Avoid broad `except Exception` handlers unless there is a documented justification.
 - Do not silently ignore errors.
@@ -88,17 +93,21 @@ Use:
 
 - Pydantic models for API request and response boundaries;
 - dataclasses or small typed objects for internal domain data when useful;
-- standard collection types such as `list`, `dict`, `set`, and `tuple` appropriately.
+- standard Python collection types appropriately.
 
-Do not create a custom type or class when a normal Python type communicates the intent clearly.
+Do not create a custom type or class when an ordinary Python type communicates the intent clearly.
 
 ---
 
-## 3. Docstrings and Comments
+## 4. Docstrings and Comments
 
 Python uses **docstrings** for structured code documentation.
 
-Use Google-style docstrings for public modules, classes, and non-trivial public functions.
+Use Google-style docstrings for:
+
+- public modules;
+- public classes;
+- non-trivial public functions.
 
 Example:
 
@@ -124,7 +133,7 @@ Good documentation should explain:
 - purpose;
 - important assumptions;
 - non-obvious behavior;
-- important inputs or outputs;
+- meaningful inputs and outputs;
 - meaningful exceptions;
 - architectural reasoning when necessary.
 
@@ -132,7 +141,7 @@ Good documentation should explain:
 
 Comments should primarily explain **why**, not **what**.
 
-Avoid:
+Avoid comments such as:
 
 ```python
 # Increment count by one.
@@ -148,17 +157,17 @@ Do not leave:
 - stale TODOs;
 - large explanatory essays inside implementation files.
 
-If a design decision requires substantial explanation, document it in the appropriate project documentation.
+If a decision requires substantial explanation, document it in the appropriate project documentation.
 
 ---
 
-## 4. Code Structure
+## 5. Code Structure
 
 Keep the repository structure simple and predictable.
 
-Code should generally be separated by responsibility.
+Code should be separated by responsibility where doing so improves clarity.
 
-A typical structure may include:
+A possible structure is:
 
 ```text
 app/
@@ -177,11 +186,11 @@ docs/
 
 This is a guideline, not a requirement to create directories prematurely.
 
-Do not create a package, directory, interface, service, manager, factory, or abstraction until there is enough behavior to justify it.
+Do not create a package, directory, interface, service, manager, factory, or abstraction until actual behavior justifies it.
 
 Prefer fewer well-organized modules over many tiny files.
 
-### Responsibility boundaries
+### Responsibility Boundaries
 
 Keep these responsibilities separate when practical:
 
@@ -200,11 +209,11 @@ A route should generally:
 2. call application behavior;
 3. return the public response.
 
-Do not place large amounts of provider-specific or business logic directly inside route handlers.
+Do not place substantial provider-specific or business logic directly inside route handlers.
 
 ---
 
-## 5. API Design
+## 6. API Design
 
 FastAPI is the HTTP framework for this repository.
 
@@ -233,7 +242,7 @@ If an issue requires a contract change:
 4. update relevant documentation;
 5. clearly mention the change in the pull request.
 
-### Provider boundaries
+### Provider Boundaries
 
 The public API must describe the service's own domain rather than exposing an external provider's SDK representation.
 
@@ -250,18 +259,18 @@ Keep provider-specific code localized.
 
 ---
 
-## 6. Simplicity and Avoiding Overengineering
+## 7. Simplicity and Avoiding Overengineering
 
 This repository should remain intentionally small.
 
-Do not introduce patterns because they are considered best practice in larger systems unless they solve a real problem here.
+Do not introduce patterns simply because they are common in larger production systems.
 
 Avoid unnecessary:
 
 - factory classes;
 - manager classes;
 - repository patterns;
-- service layers that only forward one call;
+- service layers that merely forward one call;
 - dependency-injection frameworks;
 - plugin systems;
 - event buses;
@@ -277,24 +286,26 @@ Before introducing one, ask:
 
 - What duplication or coupling does this remove?
 - What behavior does this make easier to understand?
-- What required change does this support?
+- What current requirement does this support?
 - Is the abstraction simpler than the code it replaces?
 
 If there is no clear answer, keep the implementation simpler.
 
+Do not build infrastructure merely because it may be useful later.
+
 ---
 
-## 7. Readability
+## 8. Readability
 
 Optimize code for the next contributor reading it.
 
 Code should make it easy to understand:
 
-- what the function does;
+- what a function does;
 - what inputs it expects;
 - what it returns;
 - what state it changes;
-- what external systems it talks to;
+- what external systems it communicates with;
 - what failures can occur.
 
 Prefer:
@@ -311,7 +322,7 @@ event = provider_manager.execute_event_retrieval_operation(
 )
 ```
 
-unless the additional structure is genuinely required.
+unless the additional structure provides a real benefit.
 
 Use names that communicate intent.
 
@@ -335,23 +346,23 @@ thing
 
 ---
 
-## 8. Testing Philosophy
+## 9. Testing Philosophy
 
-Tests are part of the implementation and are required evidence that the code satisfies its contract.
+Tests are part of the implementation and are required evidence that code satisfies its contract.
 
 The contributor or agent implementing a feature is responsible for writing or updating the tests for that feature.
 
 Tests should prove behavior, not merely execute code.
 
-### Testing hierarchy
+### Testing Hierarchy
 
 Use the smallest test boundary capable of proving the behavior.
 
 Prefer:
 
 1. **Unit tests** for isolated behavior.
-2. **Integration tests** for meaningful interactions between multiple components.
-3. **End-to-end or real-provider verification** for behavior that must be established against the real external system.
+2. **Integration tests** for meaningful interactions between components.
+3. **End-to-end or real-provider verification** when behavior must be established against the real external system.
 
 Do not replace a focused unit test with a slower integration test when isolation is sufficient.
 
@@ -359,7 +370,7 @@ Do not rely only on unit tests when correctness depends on a boundary between co
 
 ---
 
-## 9. Unit Tests
+## 10. Unit Tests
 
 Unit tests must be:
 
@@ -373,17 +384,17 @@ Unit tests must be:
 
 Each unit test should answer one clear behavioral question.
 
-Prefer several focused tests over one test that exercises many unrelated behaviors.
+Prefer several focused tests over one large test exercising many unrelated behaviors.
 
-Examples of good unit-test questions:
+Examples of appropriate unit-test questions:
 
 - Does valid input produce the expected domain model?
 - Does invalid input fail validation?
 - Does a provider response map correctly into the public representation?
-- Does a specific operation preserve required fields?
+- Does a transformation preserve required fields?
 - Does a controlled dependency response produce the expected application result?
 
-### Unit-test boundaries
+### Unit-Test Boundaries
 
 Mock or fake external boundaries when necessary, including:
 
@@ -397,7 +408,7 @@ Do not mock the function or class whose behavior is actually under test.
 
 Avoid excessive mocking of internal implementation details.
 
-Tests should generally continue to pass after internal refactoring when the public contract remains unchanged.
+Tests should generally continue to pass after an internal refactor that preserves the contract.
 
 ### Assertions
 
@@ -423,7 +434,7 @@ Avoid tests that primarily assert:
 
 ---
 
-## 10. Contract Tests
+## 11. Contract Tests
 
 Public contracts must have explicit tests.
 
@@ -455,7 +466,7 @@ Do not change implementation behavior first and silently adjust the contract aft
 
 ---
 
-## 11. Integration Tests
+## 12. Integration Tests
 
 Integration tests verify that multiple components work correctly together across a meaningful boundary.
 
@@ -487,7 +498,7 @@ HTTP response
 
 Integration tests should focus on meaningful component boundaries rather than retesting every detailed behavior already covered by unit tests.
 
-### Controlled dependencies
+### Controlled Dependencies
 
 Credential-free integration tests should use controlled dependencies such as:
 
@@ -506,7 +517,7 @@ This keeps integration tests:
 
 ---
 
-## 12. Real Provider and End-to-End Tests
+## 13. Real Provider and End-to-End Tests
 
 Real-provider tests serve a different purpose from ordinary unit and integration tests.
 
@@ -531,7 +542,7 @@ Provider tests requiring credentials should be explicitly opt-in or run in a sep
 
 ---
 
-## 13. Test Organization
+## 14. Test Organization
 
 Organize tests around meaningful behavior.
 
@@ -578,7 +589,7 @@ Prefer plain pytest test functions and fixtures over `unittest.TestCase` unless 
 
 ---
 
-## 14. Test Quality
+## 15. Test Quality
 
 A test should have a plausible reason to fail if the implementation becomes incorrect.
 
@@ -609,11 +620,11 @@ Do not invent requirements that the documented contract does not impose.
 
 Coverage is useful as a signal, not as the objective.
 
-Prefer meaningful contract coverage over artificially maximizing the percentage.
+Prefer meaningful contract coverage over artificially maximizing the coverage percentage.
 
 ---
 
-## 15. Regression Tests
+## 16. Regression Tests
 
 When fixing a bug:
 
@@ -627,11 +638,77 @@ A bug fix without a regression test should have an explicit reason when reliable
 
 ---
 
-## 16. Continuous Integration
+## 17. Developer Commands
+
+The repository uses a root-level `Makefile` as the canonical interface for common development tasks.
+
+Run commands from the repository root.
+
+Preferred commands:
+
+```bash
+make format
+make format-check
+make lint
+make typecheck
+make test
+make build
+make check
+```
+
+### Command Meanings
+
+#### `make format`
+
+Formats Python source using the configured formatter.
+
+This command may modify files.
+
+#### `make format-check`
+
+Checks whether source files are correctly formatted without modifying them.
+
+#### `make lint`
+
+Runs configured static lint checks.
+
+#### `make typecheck`
+
+Runs configured static type checking.
+
+#### `make test`
+
+Runs the default automated test suite.
+
+This should include unit tests and credential-free integration tests as appropriate.
+
+#### `make build`
+
+Verifies that the Python project can compile and that its application entrypoint can be imported successfully.
+
+#### `make check`
+
+Runs the complete required local verification suite.
+
+It should represent the checks a contributor is expected to pass before considering work complete.
+
+### Makefile Rules
+
+Agents and contributors should prefer Makefile targets over duplicating raw tool commands in documentation, scripts, or pull-request instructions.
+
+Local development and CI should invoke the same canonical commands where practical.
+
+If the underlying tool or command changes, update the Makefile rather than creating competing command definitions elsewhere.
+
+Do not bypass a Makefile target merely to avoid a failing check.
+
+---
+
+## 18. Continuous Integration
 
 GitHub Actions is the repository's continuous-integration system.
 
-The repository maintains three independent required CI workflows:
+The repository maintains three independent required workflows:
 
 ```text
 .github/workflows/
@@ -640,15 +717,15 @@ The repository maintains three independent required CI workflows:
     tests.yml
 ```
 
-Each workflow should have a single clear responsibility.
-
-The expected required checks are:
+The required checks are:
 
 ```text
 Build
 Format
 Tests
 ```
+
+Each workflow should have a single clear responsibility.
 
 All required checks must pass before a substantive change is considered ready to merge.
 
@@ -658,13 +735,13 @@ Do not:
 - weaken a check without a documented reason;
 - hide failures with `continue-on-error`;
 - silently skip relevant tests;
-- disable lint rules simply to silence valid problems.
+- disable lint rules merely to silence valid problems.
 
 If CI fails, fix the underlying issue or document why the CI configuration itself is incorrect.
 
 ---
 
-## 17. Build CI
+## 19. Build CI
 
 File:
 
@@ -674,14 +751,20 @@ File:
 
 The **Build** workflow verifies that the project can be constructed and loaded successfully from a clean environment.
 
-For Python, this generally means checking that:
+The workflow should delegate to:
 
-- Python can be configured successfully;
-- declared dependencies can be installed;
-- source files compile;
-- the application can be imported or initialized where appropriate.
+```bash
+make build
+```
 
-A typical build workflow should include behavior equivalent to:
+The build should verify, as applicable:
+
+- Python configuration succeeds;
+- declared dependencies install successfully;
+- Python source compiles;
+- the application entrypoint can be imported.
+
+Conceptually:
 
 ```text
 clean checkout
@@ -690,20 +773,18 @@ configure Python
     ↓
 install declared dependencies
     ↓
-compile Python source
-    ↓
-verify application import/startup
+make build
 ```
 
-Do not add unrelated tests, formatting, or linting to the Build workflow.
+Do not add unrelated behavioral tests, formatting checks, or linting to the Build workflow.
 
-The goal of Build is to answer:
+The Build workflow answers:
 
-> Can a clean machine install and load this project successfully?
+> Can a clean environment install and load this project successfully?
 
 ---
 
-## 18. Format CI
+## 20. Format CI
 
 File:
 
@@ -711,36 +792,37 @@ File:
 .github/workflows/format.yml
 ```
 
-The **Format** workflow verifies static code quality.
+The **Format** workflow verifies formatting and static code quality.
+
+It should run the canonical Makefile targets:
+
+```bash
+make format-check
+make lint
+make typecheck
+```
 
 Use Ruff for Python formatting and linting unless the repository explicitly adopts another tool.
 
-Expected checks should include:
+Use mypy for static type checking when configured.
 
-```shell
-ruff format --check .
-ruff check .
+CI must only **check** formatting.
+
+It must not automatically rewrite committed source code.
+
+Formatting changes should be made locally using:
+
+```bash
+make format
 ```
 
-If static type checking is configured for the repository, include it in this quality workflow:
-
-```shell
-mypy .
-```
-
-The Format workflow should **check** formatting.
-
-It should not automatically rewrite committed code in CI.
-
-Formatting changes should happen locally before pushing.
-
-The goal of Format is to answer:
+The Format workflow answers:
 
 > Does the submitted code meet the repository's formatting, linting, and static-quality standards?
 
 ---
 
-## 19. Tests CI
+## 21. Tests CI
 
 File:
 
@@ -752,32 +834,43 @@ The **Tests** workflow verifies program behavior.
 
 It should run:
 
-- unit tests;
-- credential-free integration tests.
-
-At minimum:
-
-```shell
-pytest
+```bash
+make test
 ```
 
-or the repository's documented equivalent.
+The default CI test suite should include:
 
-The normal Tests workflow must not require:
+- focused unit tests;
+- credential-free integration tests.
+
+Normal CI must not require:
 
 - live OAuth credentials;
 - personal provider accounts;
 - external provider availability.
 
-Real-provider tests should be opt-in or isolated from normal CI.
+Real-provider tests should be explicitly opt-in or isolated from normal CI.
 
-The goal of Tests is to answer:
+The Tests workflow answers:
 
 > Does the implementation still satisfy its tested behavioral contracts?
 
 ---
 
-## 20. GitHub Actions Practices
+## 22. GitHub Actions Practices
+
+Required CI workflows should run on:
+
+- pushes;
+- pull requests.
+
+A simple trigger is appropriate:
+
+```yaml
+on:
+  push:
+  pull_request:
+```
 
 Use standard GitHub-hosted Linux runners unless the repository explicitly documents another requirement.
 
@@ -787,40 +880,40 @@ Prefer:
 runs-on: ubuntu-latest
 ```
 
-Do not require a self-hosted runner unless there is a concrete need.
+Do not require a self-hosted runner unless there is a concrete project need.
 
-Keep workflows short and understandable.
+### Keep CI Simple
 
 Avoid unnecessary:
 
 - matrix builds;
 - multiple operating systems;
-- scheduled CI;
+- scheduled runs;
 - deployment automation;
 - large runners;
 - redundant jobs.
 
-unless a repository requirement justifies them.
+CI configuration should remain proportional to the project.
 
-CI configuration should remain proportional to the size and needs of the project.
+### Cancel Outdated Runs
 
-### Triggering CI
+When practical, use GitHub Actions concurrency controls to cancel outdated runs for the same workflow and branch.
 
-Required workflows should run on repository pushes.
-
-A simple trigger is acceptable:
+Example:
 
 ```yaml
-on: push
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 ```
 
-Pull-request triggers may also be added when useful for merge protection.
+This avoids wasting CI resources on obsolete commits.
 
 ### Reproducibility
 
 CI must run correctly from a fresh checkout.
 
-CI must not depend on:
+It must not depend on:
 
 - developer-specific filesystem paths;
 - previous workflow runs;
@@ -829,27 +922,35 @@ CI must not depend on:
 - uncommitted files;
 - test execution order.
 
-Dependencies required by CI should be formally declared by the project rather than existing only on a contributor's machine.
+Dependencies required by CI should be formally declared by the project.
 
 ---
 
-## 21. Local Verification
+## 23. Local Verification
 
 Contributors should run relevant checks locally before pushing when practical.
 
-The local commands should correspond closely to CI.
+For the full local verification suite:
 
-Typical checks include:
-
-```shell
-ruff format --check .
-ruff check .
-mypy .
-pytest
-python -m compileall app
+```bash
+make check
 ```
 
-Use the commands actually configured by the repository.
+Individual checks may be run with:
+
+```bash
+make build
+make format-check
+make lint
+make typecheck
+make test
+```
+
+Formatting source code:
+
+```bash
+make format
+```
 
 Do not claim a change is complete if known required checks are failing.
 
@@ -857,7 +958,7 @@ CI provides clean-environment verification; it does not replace local developmen
 
 ---
 
-## 22. Error Handling
+## 24. Error Handling
 
 Failures should be explicit.
 
@@ -880,7 +981,7 @@ Use specific exception types when they improve clarity.
 
 ---
 
-## 23. Security and Secrets
+## 25. Security and Secrets
 
 Never commit:
 
@@ -905,7 +1006,7 @@ If a feature requires new configuration:
 
 ---
 
-## 24. Dependencies
+## 26. Dependencies
 
 Prefer the Python standard library when it solves the problem clearly.
 
@@ -922,11 +1023,11 @@ Do not add libraries merely to avoid writing a few straightforward lines of Pyth
 
 Pin or lock dependencies according to the project's chosen dependency-management strategy.
 
-Adding a dependency should be mentioned explicitly in the pull request.
+Adding or removing a dependency should be explicitly mentioned in the pull request.
 
 ---
 
-## 25. Git and Pull Request Scope
+## 27. Git and Pull Request Scope
 
 Keep changes small and reviewable.
 
@@ -946,28 +1047,25 @@ Use clear commit messages written or reviewed by the student contributor.
 
 Do not generate large amounts of unrelated code.
 
-### Pull request verification
+### Pull Request Verification
 
 Every implementation pull request should state:
 
-#### Tests added or changed
+#### Tests Added or Changed
 
 Describe which tests verify the implementation.
 
-#### Verification performed
+#### Verification Performed
 
-List the relevant commands executed.
-
-For example:
+Prefer the canonical command:
 
 ```text
-ruff format --check .
-ruff check .
-mypy .
-pytest
+make check
 ```
 
-#### Contract impact
+If only targeted checks were run, list them explicitly.
+
+#### Contract Impact
 
 State either:
 
@@ -977,13 +1075,13 @@ Public contract unchanged.
 
 or clearly identify the intentional contract change.
 
-#### Known limitations
+#### Known Limitations
 
 Document behavior that remains unsupported or unverified.
 
 ---
 
-## 26. Human Review
+## 28. Human Review
 
 Agent-generated code is not automatically trusted.
 
@@ -1011,7 +1109,7 @@ Do not approve a change solely because CI is green.
 
 ---
 
-## 27. Working From GitHub Issues
+## 29. Working From GitHub Issues
 
 When implementing a GitHub issue:
 
@@ -1022,20 +1120,20 @@ When implementing a GitHub issue:
 5. Inspect existing related code before editing.
 6. Implement only what is necessary to satisfy the issue.
 7. Add focused unit tests for the behavior implemented.
-8. Add or update integration tests when the change crosses an important component boundary.
+8. Add or update integration tests when the change crosses a meaningful component boundary.
 9. Run relevant local checks.
 10. Update relevant documentation.
 11. Report assumptions, limitations, or deviations in the pull request.
 
 If the issue contains a contract or acceptance criteria, treat them as authoritative unless they conflict with another documented repository contract or assignment requirement.
 
-If the task is ambiguous in a way that could materially change public behavior, do not guess.
+If a task is ambiguous in a way that could materially change public behavior, do not guess.
 
 Raise the ambiguity for human review.
 
 ---
 
-## 28. Definition of Done
+## 30. Definition of Done
 
 A change is complete when:
 
@@ -1059,8 +1157,18 @@ The required repository checks are:
 ✓ Tests
 ```
 
+Before considering a change complete, contributors should normally be able to run:
+
+```bash
+make check
+```
+
+successfully.
+
 A green CI status does not prove that a design is good, but a change with failing required CI checks is not complete.
 
 The goal is not maximum abstraction, maximum test count, maximum coverage, or maximum lines of code.
 
-The goal is **small, correct, readable, testable, maintainable software**.
+The goal is:
+
+**small, correct, readable, testable, maintainable software.**
