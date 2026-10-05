@@ -68,7 +68,7 @@ CI.
 
 | Service behavior | Provider API/SDK operation | Notes |
 |---|---|---|
-| Construct an authenticated client | `googleapiclient.discovery.build("calendar", "v3", ...)` | No calendar operation is implemented in this issue |
+| Construct an authenticated client | `googleapiclient.discovery.build("calendar", "v3", ...)` | Authentication setup documented above; implementation absent from this checkout |
 
 ## Field Mapping
 
@@ -97,3 +97,57 @@ CI.
 
 - A teammate must complete the documented manual verification with the team's
   Google Cloud project and test calendar; no real credentials are available in CI.
+
+## Event retrieval implementation
+
+The retrieval function accepts an already configured client. The authentication
+setup above is preserved, but the documented build_google_calendar_client
+function and authentication tests are absent from this checkout.
+The google-api-python-client-stubs dependency supplies SDK types for mypy.
+
+- [Events: get](https://developers.google.com/workspace/calendar/api/v3/reference/events/get)
+- [Event resource](https://developers.google.com/workspace/calendar/api/v3/reference/events)
+
+### Provider Operations
+
+| Service behavior | Provider API/SDK operation | Notes |
+|---|---|---|
+| Retrieve one event | `client.events().get(calendarId=calendar_id, eventId=event_id).execute()` | Reads external state without modifying it |
+
+`app.google_calendar.get_event(client, calendar_id=..., event_id=...)` requires
+both identifiers and passes them unchanged to the SDK:
+
+- `calendar_id` identifies the calendar containing the event. Callers may
+  explicitly pass `primary` for the authenticated user's primary calendar or a
+  specific calendar ID. The function does not choose a calendar or read configuration.
+- `event_id` is the Google event resource's `id`, not its `iCalUID`, title, or
+  browser URL. Lookup by `iCalUID` uses `events.list`, outside this issue.
+
+### Field Mapping
+
+The function returns the raw event dictionary to its caller for translation.
+It preserves provider fields without defining a public Event model. Never return
+this dictionary directly from an HTTP route: translate it to the approved public
+response model first. The current checkout has no event HTTP route or translation
+implementation, and [the public contract](CONTRACT.md) is still a template.
+HTTP integration and field mapping therefore remain separate work.
+
+### Provider Limitations
+
+SDK HTTP errors and transport failures propagate to the calling boundary.
+This function does not map failures to HTTP status codes, hide failures behind
+empty results, or add retries, pagination, or other operations.
+
+### Verified Assumptions
+
+Credential-free tests with a mocked Google client verify the `events.get` inputs,
+request execution, unchanged result data, and propagation of a Google HTTP error.
+These tests do not establish live provider behavior.
+
+### Unverified Assumptions
+
+Identifier semantics, `primary` resolution, authorization requirements, and event
+response shape follow Google's documentation and still need verification with a
+real test account. Authentication and the complete HTTP-to-provider-to-public-model
+flow have not been verified by this issue. Once those components exist, Level 2
+requires a real-account end-to-end check by the team.
