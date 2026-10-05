@@ -8,3 +8,4 @@ google-auth-oauthlib
 pytest
 ruff
 mypy
+google-api-python-client-stubs
