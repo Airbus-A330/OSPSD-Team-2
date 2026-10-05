@@ -114,3 +114,6 @@ tempCodeRunnerFile.py
 
 # Secrets
 .streamlit/secrets.toml
+credentials.json
+token.json
+client_secret*.json

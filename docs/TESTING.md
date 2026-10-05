@@ -29,10 +29,16 @@ Normal CI must not require provider credentials.
 
 | Feature / Contract | Unit | Integration | Real Provider | Known Gaps |
 |---|---:|---:|---:|---|
-| TBD | | | | |
+| Google Calendar client construction | Yes | | Manual | Automated tests mock OAuth and API client construction |
 
 Update this table whenever meaningful behavior is added.
 
 ## Commands
 
-Document the canonical commands here once tooling is finalized.
+Run the complete local verification suite from the repository root:
+
+```bash
+make check
+```
+
+Real-provider authentication verification is documented in `PROVIDER.md`.

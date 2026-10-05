@@ -246,6 +246,6 @@ Update this section as implementation is added.
 | Module | Responsibility |
 |---|---|
 | `app/main.py` | Application/FastAPI entry point |
-| TBD | Add modules only when they actually exist |
+| `app/google_calendar.py` | Google Calendar authentication and client construction |
 
 Do not describe files here before they exist.
