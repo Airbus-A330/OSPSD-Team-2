@@ -13,7 +13,7 @@ typecheck:
 	mypy .
 
 test:
-	pytest
+	python -m pytest
 
 build:
 	python -m compileall app
