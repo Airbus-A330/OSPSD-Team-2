@@ -247,5 +247,7 @@ Update this section as implementation is added.
 |---|---|
 | `app/main.py` | Application/FastAPI entry point |
 | `app/google_calendar.py` | Google Calendar authentication and client construction |
+| `app/events.py` | Local event retrieval stub returning the public Event model |
+| `app/models.py` | Public Event response model |
 
 Do not describe files here before they exist.

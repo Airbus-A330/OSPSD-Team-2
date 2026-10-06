@@ -30,6 +30,7 @@ Normal CI must not require provider credentials.
 | Feature / Contract | Unit | Integration | Real Provider | Known Gaps |
 |---|---:|---:|---:|---|
 | Google Calendar client construction | Yes | | Manual | Automated tests mock OAuth and API client construction |
+| FastAPI event endpoint | | Yes | No | Uses stub data; endpoint contract not yet confirmed |
 
 Update this table whenever meaningful behavior is added.
 
