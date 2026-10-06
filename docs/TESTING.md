@@ -31,6 +31,7 @@ Normal CI must not require provider credentials.
 |---|---:|---:|---:|---|
 | Google Calendar client construction | Yes | | Manual | Automated tests mock OAuth and API client construction |
 | FastAPI event endpoint | | Yes | No | Uses stub data; endpoint contract not yet confirmed |
+| Google event translation | Yes | | | Synthetic timed-event fixtures; all-day and sparse responses are unsupported |
 
 Update this table whenever meaningful behavior is added.
 
