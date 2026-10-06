@@ -74,7 +74,38 @@ CI.
 
 | Provider field | Domain field | Notes |
 |---|---|---|
-| TBD | TBD | |
+| `id` | `id` | Preserve the event ID; do not substitute `iCalUID` |
+| `summary` | `title` | Google names the event title `summary` |
+| `start.dateTime` | `start` | Preserve the timestamp string, including its offset |
+| `end.dateTime` | `end` | Preserve the timestamp string, including its offset |
+
+`app.google_calendar.translate_google_event` returns the `Event` model from
+`app.models`. It selects only these four fields. Other provider fields, including
+`kind`, `etag`, organizer data, and nested `timeZone`, are not exposed.
+
+These mappings use the four fields currently listed in `CONTRACT.md`; that table
+is still marked illustrative pending team approval. Translation does not approve
+or expand the public contract. The following input assumptions must be revisited
+when the team finalizes the Event time representation:
+
+- The input is a titled, timed event with `id`, `summary`, `start.dateTime`, and
+  `end.dateTime`. Missing required fields raise `KeyError`; no placeholder title,
+  identifier, or timestamp is invented.
+- Timestamps are preserved as strings without parsing, timezone conversion, or
+  additional format validation. Public model validation checks their string type.
+- Google's all-day events use `start.date` and `end.date` instead of `dateTime`.
+  They are unsupported by this mapper and raise `KeyError`; dates are not silently
+  converted to midnight timestamps.
+- Google's end boundary is exclusive. It is copied unchanged; this mapper does
+  not adjust the duration or define new public interval semantics.
+- Sparse cancelled event responses may lack required fields and are unsupported.
+  This function does not define HTTP error handling.
+
+Provider field names and representations follow the official
+[Events resource reference](https://developers.google.com/workspace/calendar/api/v3/reference/events).
+The fixtures are representative synthetic responses, not real-account captures.
+Translation is tested without SDK calls, credentials, or network access; it has
+not been verified against a real account.
 
 ## Provider Limitations
 

@@ -246,6 +246,7 @@ Update this section as implementation is added.
 | Module | Responsibility |
 |---|---|
 | `app/main.py` | Application/FastAPI entry point |
-| `app/google_calendar.py` | Google Calendar authentication and client construction |
+| `app/models.py` | Public Event data shape |
+| `app/google_calendar.py` | Google Calendar authentication, client construction, and event translation |
 
 Do not describe files here before they exist.
