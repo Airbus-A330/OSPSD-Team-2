@@ -29,6 +29,7 @@ Normal CI must not require provider credentials.
 
 | Feature / Contract | Unit | Integration | Real Provider | Known Gaps |
 |---|---:|---:|---:|---|
+| Public Event model | Yes | | | `tests/test_event_model.py` covers construction, serialization, required string fields, and timestamp preservation |
 | Google Calendar client construction | Yes | | Manual | Automated tests mock OAuth and API client construction |
 | FastAPI event endpoint | | Yes | No | Uses stub data; missing-event and provider-error behavior remain unspecified |
 | Google event translation | Yes | | | Synthetic timed-event fixtures; all-day and sparse responses are unsupported |
