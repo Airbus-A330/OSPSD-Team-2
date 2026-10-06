@@ -1,12 +1,16 @@
-"""Google Calendar authentication and client construction."""
+"""Google Calendar authentication, client construction, and event translation."""
 
 import os
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore[import-untyped]
 from googleapiclient.discovery import Resource, build  # type: ignore[import-untyped]
+
+from app.models import Event
 
 GOOGLE_CALENDAR_SCOPES = ("https://www.googleapis.com/auth/calendar.events.readonly",)
 
@@ -45,3 +49,20 @@ def build_google_calendar_client() -> Resource:
         token_path.write_text(credentials.to_json(), encoding="utf-8")
 
     return build("calendar", "v3", credentials=credentials)
+
+
+def translate_google_event(provider_event: Mapping[str, Any]) -> Event:
+    """Translate a titled, timed Google event without exposing its metadata.
+
+    Args:
+        provider_event: JSON response from the Google Calendar events API.
+
+    Returns:
+        The event's identifier, title, and unchanged dateTime strings.
+    """
+    return Event(
+        id=provider_event["id"],
+        title=provider_event["summary"],
+        start=provider_event["start"]["dateTime"],
+        end=provider_event["end"]["dateTime"],
+    )
