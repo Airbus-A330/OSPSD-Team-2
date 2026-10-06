@@ -83,10 +83,8 @@ CI.
 `app.models`. It selects only these four fields. Other provider fields, including
 `kind`, `etag`, organizer data, and nested `timeZone`, are not exposed.
 
-These mappings use the four fields currently listed in `CONTRACT.md`; that table
-is still marked illustrative pending team approval. Translation does not approve
-or expand the public contract. The following input assumptions must be revisited
-when the team finalizes the Event time representation:
+These mappings implement the four public fields approved in `CONTRACT.md`. The
+following provider assumptions remain relevant to that contract:
 
 - The input is a titled, timed event with `id`, `summary`, `start.dateTime`, and
   `end.dateTime`. Missing required fields raise `KeyError`; no placeholder title,
