@@ -26,46 +26,47 @@ Provider-specific data must be translated into the service's public models befor
 
 ## HTTP API
 
-Document every public operation using the following structure.
-
-### `<Operation Name>`
+### Retrieve Event
 
 **Purpose**
 
-Describe what the operation means to a caller.
+Retrieve one titled, timed event from the calendar configured for this service.
 
 **Method**
 
 ```text
-GET | POST | PATCH | PUT | DELETE
+GET
 ```
 
 **Route**
 
 ```text
-/path
+/events/{event_id}
 ```
 
 **Path parameters**
 
 | Name | Type | Required | Meaning |
 |---|---|---:|---|
-| | | | |
+| `event_id` | `string` | yes | Opaque, service-visible identifier of the event to retrieve |
 
 **Query parameters**
 
-| Name | Type | Required | Default | Meaning |
-|---|---|---:|---|---|
-| | | | | |
+None.
 
 **Request body**
 
-If applicable, document the public request model.
+None.
 
 **Successful response**
 
 ```json
-{}
+{
+  "id": "event-123",
+  "title": "Team Meeting",
+  "start": "2026-10-01T10:00:00-04:00",
+  "end": "2026-10-01T11:00:00-04:00"
+}
 ```
 
 **Success status**
@@ -76,21 +77,21 @@ If applicable, document the public request model.
 
 **Observable behavior**
 
-Document what callers are allowed to rely on.
+- A successful request returns the event identified by `event_id` as an `Event`.
+- The response `id` matches the requested `event_id`.
+- The response contains exactly the public Event fields documented below.
+- Provider-specific metadata is not exposed.
+- Callers must not rely on the example field values shown above.
 
 **State changes**
 
-State whether the operation:
-
-- reads external state;
-- creates state;
-- modifies state;
-- deletes state;
-- has no external side effect.
+This operation reads event state and does not create, modify, or delete an event.
 
 **Errors**
 
-Document only error behavior currently guaranteed by the service.
+No service-specific missing-event or provider-error response is guaranteed in
+Milestone 1. Those behaviors must be defined before they become part of the
+public contract.
 
 ---
 
@@ -106,18 +107,18 @@ For each model, document:
 - meaning;
 - important invariants.
 
-Example:
-
 ### Event
 
 | Field | Type | Required | Meaning |
 |---|---|---:|---|
 | `id` | `string` | yes | Service-visible event identifier |
 | `title` | `string` | yes | Human-readable event title |
-| `start` | `string` | yes | Event start according to the documented time representation |
-| `end` | `string` | yes | Event end according to the documented time representation |
+| `start` | `string` | yes | Inclusive start date and time for a timed event |
+| `end` | `string` | yes | Exclusive end date and time for a timed event |
 
-> This table is illustrative until the team formally approves the Event contract.
+All four fields are required strings. `start` and `end` preserve their source
+date-time strings without timezone conversion or normalization. The current
+contract supports titled, timed events only; all-day events are not supported.
 
 ---
 
@@ -138,13 +139,14 @@ Do not modify the public API merely to match an external provider's representati
 
 ## Assumptions
 
-Record assumptions that affect observable behavior here.
-
-For each assumption, include:
-
-- the assumption;
-- why it currently exists;
-- evidence supporting it, if available;
-- what would cause the team to revisit it.
-
-Do not silently encode uncertain assumptions into implementation.
+- The service operates on one configured calendar. Calendar selection is not a
+  caller-provided parameter in Milestone 1. Revisit this if callers need access
+  to more than one calendar.
+- Event identifiers are opaque strings and must not be parsed by callers. Revisit
+  this only if the service introduces its own identifier scheme.
+- Only titled, timed events are supported. Revisit the Event model before adding
+  all-day or untitled events.
+- Date-time strings are not normalized in Milestone 1. Revisit their exact format
+  before callers need date-time comparison or conversion guarantees.
+- Missing-event and provider-failure behavior is intentionally unspecified until
+  the service implements and tests those cases consistently.
