@@ -246,6 +246,8 @@ Update this section as implementation is added.
 | Module | Responsibility |
 |---|---|
 | `app/main.py` | Application/FastAPI entry point |
-| `app/google_calendar.py` | Retrieve raw Google event data using a supplied Calendar client; translation is required before HTTP use |
+| `app/events.py` | Local event retrieval stub returning the public Event model |
+| `app/models.py` | Public Event data shape |
+| `app/google_calendar.py` | Google Calendar authentication, client construction, event retrieval, and translation |
 
 Do not describe files here before they exist.
