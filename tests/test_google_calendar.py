@@ -4,8 +4,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from googleapiclient.errors import HttpError
-from httplib2 import Response
+from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
+from httplib2 import Response  # type: ignore[import-untyped]
 
 from app.google_calendar import (
     GOOGLE_CALENDAR_SCOPES,

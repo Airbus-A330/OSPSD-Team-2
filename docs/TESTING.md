@@ -33,7 +33,6 @@ Normal CI must not require provider credentials.
 | Google Calendar client construction | Yes | | Manual | Automated tests mock OAuth and API client construction |
 | FastAPI event endpoint | | Yes | No | Uses stub data; missing-event and provider-error behavior remain unspecified |
 | Google event translation | Yes | | | Synthetic timed-event fixtures; all-day and sparse responses are unsupported |
-
 | Google event retrieval | `tests/test_google_calendar.py`: SDK operation, explicit calendar/event IDs, execution, raw result, failure propagation | Not yet wired to HTTP | Not run | HTTP-to-provider integration and live verification remain separate work |
 
 Update this table whenever meaningful behavior is added.

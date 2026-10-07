@@ -13,6 +13,7 @@ Google Calendar API v3, accessed through Google's Python client libraries.
 - [Google Calendar Python quickstart](https://developers.google.com/workspace/calendar/api/quickstart/python)
 - [Google Calendar API scopes](https://developers.google.com/workspace/calendar/api/auth)
 - [Google OAuth security best practices](https://developers.google.com/identity/protocols/oauth2/resources/best-practices)
+- [Events: get](https://developers.google.com/workspace/calendar/api/v3/reference/events/get)
 
 ## Authentication
 
@@ -69,8 +70,26 @@ CI.
 | Service behavior | Provider API/SDK operation | Notes |
 |---|---|---|
 | Construct an authenticated client | `googleapiclient.discovery.build("calendar", "v3", ...)` | Authentication setup documented above |
+| Retrieve one event | `client.events().get(calendarId=calendar_id, eventId=event_id).execute()` | Reads external state without modifying it |
+
+The retrieval function receives an already configured client, which can be built
+with `build_google_calendar_client`. The caller owns the client lifecycle.
+
+`app.google_calendar.get_event(client, calendar_id=..., event_id=...)` requires
+both identifiers and passes them unchanged to the SDK:
+
+- `calendar_id` identifies the calendar containing the event. Callers may
+  explicitly pass `primary` for the authenticated user's primary calendar or a
+  specific calendar ID. The function does not choose a calendar or read configuration.
+- `event_id` is the Google event resource's `id`, not its `iCalUID`, title, or
+  browser URL. Lookup by `iCalUID` uses `events.list`, outside this issue.
 
 ## Field Mapping
+
+The function returns the raw event dictionary to its caller for translation.
+Use `translate_google_event` to produce the public Event model before returning
+data through HTTP. The existing HTTP route still uses local stub data; connecting
+it to the provider remains separate work.
 
 | Provider field | Domain field | Notes |
 |---|---|---|
@@ -113,6 +132,10 @@ not been verified against a real account.
 - Local token storage is suitable for development only; a production deployment
   would require an appropriate secure credential store and authentication design.
 
+SDK HTTP errors and transport failures propagate to the calling boundary.
+This function does not map failures to HTTP status codes, hide failures behind
+empty results, or add retries, pagination, or other operations.
+
 ## Verified Assumptions
 
 - Google's official Python quickstart uses desktop OAuth credentials, caches user
@@ -122,58 +145,16 @@ not been verified against a real account.
 - Unit tests verify the same client-construction branches without real credentials
   or network access.
 
+Credential-free tests with a mocked Google client verify the `events.get` inputs,
+request execution, unchanged result data, and propagation of a Google HTTP error.
+These tests do not establish live provider behavior.
+
 ## Unverified Assumptions
 
 - A teammate must complete the documented manual verification with the team's
   Google Cloud project and test calendar; no real credentials are available in CI.
 
-## Event retrieval implementation
-
-The retrieval function accepts an already configured client. The authentication
-client can be constructed with `build_google_calendar_client` as documented above.
-The google-api-python-client-stubs dependency supplies SDK types for mypy.
-
-- [Events: get](https://developers.google.com/workspace/calendar/api/v3/reference/events/get)
-- [Event resource](https://developers.google.com/workspace/calendar/api/v3/reference/events)
-
-### Provider Operations
-
-| Service behavior | Provider API/SDK operation | Notes |
-|---|---|---|
-| Retrieve one event | `client.events().get(calendarId=calendar_id, eventId=event_id).execute()` | Reads external state without modifying it |
-
-`app.google_calendar.get_event(client, calendar_id=..., event_id=...)` requires
-both identifiers and passes them unchanged to the SDK:
-
-- `calendar_id` identifies the calendar containing the event. Callers may
-  explicitly pass `primary` for the authenticated user's primary calendar or a
-  specific calendar ID. The function does not choose a calendar or read configuration.
-- `event_id` is the Google event resource's `id`, not its `iCalUID`, title, or
-  browser URL. Lookup by `iCalUID` uses `events.list`, outside this issue.
-
-### Field Mapping
-
-The function returns the raw event dictionary to its caller for translation.
-Use `translate_google_event` to produce the public Event model before returning
-data through HTTP. The existing HTTP route still uses local stub data; connecting
-it to the provider remains separate work.
-
-### Provider Limitations
-
-SDK HTTP errors and transport failures propagate to the calling boundary.
-This function does not map failures to HTTP status codes, hide failures behind
-empty results, or add retries, pagination, or other operations.
-
-### Verified Assumptions
-
-Credential-free tests with a mocked Google client verify the `events.get` inputs,
-request execution, unchanged result data, and propagation of a Google HTTP error.
-These tests do not establish live provider behavior.
-
-### Unverified Assumptions
-
 Identifier semantics, `primary` resolution, authorization requirements, and event
-response shape follow Google's documentation and still need verification with a
-real test account. Authentication and the complete HTTP-to-provider-to-public-model
-flow have not been verified by this issue. Once the HTTP route is connected to the provider, Level 2
-requires a real-account end-to-end check by the team.
+response shape still need verification with a real test account. The complete
+HTTP-to-provider-to-public-model flow remains unverified; Level 2 requires a
+real-account end-to-end check once the HTTP route is connected to the provider.
