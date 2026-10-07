@@ -31,9 +31,9 @@ Normal CI must not require provider credentials.
 |---|---:|---:|---:|---|
 | Public Event model | Yes | | | `tests/test_event_model.py` covers construction, serialization, required string fields, and timestamp preservation |
 | Google Calendar client construction | Yes | | Manual | Automated tests mock OAuth and API client construction |
-| FastAPI event endpoint | | Yes | No | Uses stub data; missing-event and provider-error behavior remain unspecified |
+| FastAPI event endpoint | | Yes | Manual | Default tests control the SDK boundary; live verification is documented in `PROVIDER.md` |
 | Google event translation | Yes | | | Synthetic timed-event fixtures; all-day and sparse responses are unsupported |
-| Google event retrieval | `tests/test_google_calendar.py`: SDK operation, explicit calendar/event IDs, execution, raw result, failure propagation | Not yet wired to HTTP | Not run | HTTP-to-provider integration and live verification remain separate work |
+| Google event retrieval | Yes | Yes | Manual | Provider errors remain unspecified; live verification requires team credentials |
 
 Update this table whenever meaningful behavior is added.
 
@@ -48,4 +48,5 @@ Run the complete local verification suite from the repository root:
 make check
 ```
 
-Real-provider authentication verification is documented in `PROVIDER.md`.
+Real-provider authentication and end-to-end verification are documented in
+`PROVIDER.md`.
