@@ -179,13 +179,6 @@ request execution, unchanged result data, and propagation of a Google HTTP error
 HTTP integration tests verify provider retrieval, translation, and response
 serialization with the Google SDK boundary controlled.
 
-## Unverified Assumptions
-
-- Two teammates must complete the documented end-to-end verification with the
-  team's Google Cloud project and test calendar; no real credentials are available
-  in CI.
-
-Identifier semantics, `primary` resolution, authorization requirements, and event
-response shape still need verification with a real test account. The complete
-HTTP-to-provider-to-public-model flow is implemented but remains unverified against
-the real provider.
+On October 6, 2026, [Airbus-A330](https://github.com/Airbus-A330/OSPSD-Team-2/pull/21#issuecomment-6028772243)
+and [LeonLiu0204](https://github.com/Airbus-A330/OSPSD-Team-2/pull/21#issuecomment-6028796751)
+reported successful end-to-end verification against the real provider.
