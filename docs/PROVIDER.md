@@ -45,6 +45,7 @@ Alternative locations can be supplied with these environment variables:
 |---|---|---|
 | `GOOGLE_CALENDAR_CREDENTIALS_FILE` | `credentials.json` | Downloaded desktop OAuth client configuration |
 | `GOOGLE_CALENDAR_TOKEN_FILE` | `token.json` | Generated user access and refresh token data |
+| `GOOGLE_CALENDAR_ID` | `primary` | Calendar used by the public event operation |
 
 Both default files, `.env` files, and downloaded `client_secret*.json` files are
 ignored by Git. Never commit or share these files. Store them securely and revoke
@@ -64,6 +65,36 @@ The first run should open Google's consent flow. A successful request prints the
 confirmation message and creates the configured token file. This command
 contacts the real provider and is intentionally excluded from automated tests and
 CI.
+
+### End-to-end event verification
+
+After completing authentication, verify the full HTTP path against a titled,
+timed event in the configured test calendar:
+
+1. Set `GOOGLE_CALENDAR_ID` if the event is not in the authenticated account's
+   primary calendar.
+2. Find a usable Google event ID:
+
+   ```bash
+   python -c "import os; from app.google_calendar import build_google_calendar_client; c=build_google_calendar_client(); events=c.events().list(calendarId=os.getenv('GOOGLE_CALENDAR_ID', 'primary'), maxResults=10, singleEvents=True).execute().get('items', []); print(*[(e.get('id'), e.get('summary')) for e in events], sep='\\n')"
+   ```
+
+3. Start the service in one terminal:
+
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+
+4. Request the selected event in another terminal:
+
+   ```bash
+   curl http://127.0.0.1:8000/events/<EVENT_ID>
+   ```
+
+A successful response has HTTP status 200 and exactly the `id`, `title`, `start`,
+and `end` fields from `CONTRACT.md`. Two teammates must run these steps with the
+team's test calendar and record their names, dates, event IDs, and successful
+responses in the pull request without posting credentials or tokens.
 
 ## Provider Operations
 
@@ -86,10 +117,8 @@ both identifiers and passes them unchanged to the SDK:
 
 ## Field Mapping
 
-The function returns the raw event dictionary to its caller for translation.
-Use `translate_google_event` to produce the public Event model before returning
-data through HTTP. The existing HTTP route still uses local stub data; connecting
-it to the provider remains separate work.
+The provider function returns its raw event dictionary to the application layer,
+which uses `translate_google_event` before returning data through HTTP.
 
 | Provider field | Domain field | Notes |
 |---|---|---|
@@ -147,14 +176,9 @@ empty results, or add retries, pagination, or other operations.
 
 Credential-free tests with a mocked Google client verify the `events.get` inputs,
 request execution, unchanged result data, and propagation of a Google HTTP error.
-These tests do not establish live provider behavior.
+HTTP integration tests verify provider retrieval, translation, and response
+serialization with the Google SDK boundary controlled.
 
-## Unverified Assumptions
-
-- A teammate must complete the documented manual verification with the team's
-  Google Cloud project and test calendar; no real credentials are available in CI.
-
-Identifier semantics, `primary` resolution, authorization requirements, and event
-response shape still need verification with a real test account. The complete
-HTTP-to-provider-to-public-model flow remains unverified; Level 2 requires a
-real-account end-to-end check once the HTTP route is connected to the provider.
+On October 6, 2026, [Airbus-A330](https://github.com/Airbus-A330/OSPSD-Team-2/pull/21#issuecomment-6028772243)
+and [LeonLiu0204](https://github.com/Airbus-A330/OSPSD-Team-2/pull/21#issuecomment-6028796751)
+reported successful end-to-end verification against the real provider.
