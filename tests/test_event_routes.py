@@ -9,12 +9,21 @@ from app.main import app
 
 
 @pytest.mark.parametrize("event_id", ["event-001", "Review_Event-002"])
+@pytest.mark.parametrize(
+    ("calendar_id", "configured_calendar_id"),
+    [("team-calendar@example.com", "team-calendar@example.com"), ("primary", None)],
+)
 def test_get_event_returns_google_event_in_public_shape(
-    event_id: str, monkeypatch: pytest.MonkeyPatch
+    event_id: str,
+    calendar_id: str,
+    configured_calendar_id: str | None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Return translated provider data without contacting Google."""
-    calendar_id = "team-calendar@example.com"
-    monkeypatch.setenv("GOOGLE_CALENDAR_ID", calendar_id)
+    if configured_calendar_id is None:
+        monkeypatch.delenv("GOOGLE_CALENDAR_ID", raising=False)
+    else:
+        monkeypatch.setenv("GOOGLE_CALENDAR_ID", configured_calendar_id)
     google_client = MagicMock()
     google_client.events.return_value.get.return_value.execute.return_value = {
         "id": event_id,
