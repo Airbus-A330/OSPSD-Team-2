@@ -10,7 +10,7 @@ app = FastAPI()
 
 @app.get("/events/{event_id}", response_model=Event)
 def read_event(event_id: str) -> Event:
-    """Return an event using the local stub data source.
+    """Return an event from the configured calendar.
 
     Args:
         event_id: Identifier supplied in the request path.

@@ -1,20 +1,25 @@
-"""Local event data used until the provider integration is connected."""
+"""Application behavior for retrieving calendar events."""
 
+import os
+
+from app.google_calendar import build_google_calendar_client, translate_google_event
+from app.google_calendar import get_event as get_google_event
 from app.models import Event
 
 
 def get_event(event_id: str) -> Event:
-    """Build a fixed example event for the requested identifier.
+    """Retrieve an event from the configured Google calendar.
 
     Args:
-        event_id: Identifier to preserve in the returned event.
+        event_id: Google Calendar event identifier.
 
     Returns:
-        An event with fixed details; no existence lookup is performed.
+        The event in the service's public representation.
     """
-    return Event(
-        id=event_id,
-        title="Team Meeting",
-        start="2026-10-01T10:00:00-04:00",
-        end="2026-10-01T11:00:00-04:00",
+    client = build_google_calendar_client()
+    provider_event = get_google_event(
+        client,
+        calendar_id=os.getenv("GOOGLE_CALENDAR_ID", "primary"),
+        event_id=event_id,
     )
+    return translate_google_event(provider_event)
