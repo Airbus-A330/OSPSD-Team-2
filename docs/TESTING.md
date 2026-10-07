@@ -31,9 +31,13 @@ Normal CI must not require provider credentials.
 |---|---:|---:|---:|---|
 | Public Event model | Yes | | | `tests/test_event_model.py` covers construction, serialization, required string fields, and timestamp preservation |
 | Google Calendar client construction | Yes | | Manual | Automated tests mock OAuth and API client construction |
+| FastAPI event endpoint | | Yes | No | Uses stub data; missing-event and provider-error behavior remain unspecified |
 | Google event translation | Yes | | | Synthetic timed-event fixtures; all-day and sparse responses are unsupported |
 
 Update this table whenever meaningful behavior is added.
+
+Event route tests also cover `/events` and `/events/` without the required ID.
+Their 404 responses reflect unmatched routes, not a lookup for a nonexistent event.
 
 ## Commands
 
