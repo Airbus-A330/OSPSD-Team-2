@@ -38,7 +38,7 @@ The project intentionally favors **clarity and simplicity over unnecessary abstr
 
 ## Technology
 
-- **Python**
+- **Python 3.12**
 - **FastAPI**
 - **Pydantic**
 - **pytest**
@@ -56,31 +56,14 @@ The repository is organized by responsibility.
 
 ```text
 .
-├── .github/
-│   └── workflows/
-│       ├── build.yml
-│       ├── format.yml
-│       └── tests.yml
-│
-├── app/
-│   └── ...
-│
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── ...
-│
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── CONTRACT.md
-│   ├── DECISIONS.md
-│   ├── PROVIDER.md
-│   ├── TEAM_AGREEMENT.md
-│   └── TESTING.md
-│
-├── AGENTS.md
-├── README.md
-└── ...
+|-- .github/workflows/   # Build, Format, and Tests CI
+|-- app/                 # FastAPI, application, model, and Google integration code
+|-- docs/                # Contract, architecture, provider, testing, and team docs
+|-- tests/               # Unit and credential-free integration tests
+|-- AGENTS.md            # Repository-wide contribution rules
+|-- Makefile             # Canonical development commands
+|-- README.md
+`-- requirements.txt     # Pinned Python dependencies
 ```
 
 The exact source structure may evolve as the implementation develops.
@@ -108,6 +91,13 @@ Before implementing a feature, read `AGENTS.md` and the documentation relevant t
 ---
 
 ## Setup
+
+The supported Python version is **Python 3.12**, matching CI. Confirm the active
+interpreter before creating the environment:
+
+```bash
+python --version
+```
 
 ### 1. Clone the repository
 
@@ -140,10 +130,10 @@ Windows PowerShell:
 
 ```bash
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-The supported Python version and dependency versions should remain consistent with the project configuration and CI.
+Dependencies are pinned in `requirements.txt` for reproducible installation.
 
 ---
 
@@ -173,7 +163,7 @@ Local credentials must remain outside version control.
 From the repository root:
 
 ```bash
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload
 ```
 
 By default, FastAPI exposes interactive API documentation through Swagger UI at:
@@ -190,33 +180,32 @@ The exact public API contract is documented in:
 
 ## Testing
 
-The project uses `pytest`.
-
-Run the complete default test suite with:
+The project uses `pytest`. Run the complete fast test suite through the canonical
+Makefile target:
 
 ```bash
-pytest
+make test
 ```
 
-Tests are organized by purpose.
+If GNU Make is unavailable, run the equivalent Python command:
+
+```bash
+python -m pytest
+```
+
+The focused test files under `tests/` cover the public model, provider mapping,
+Google client behavior, and the HTTP integration path. The detailed coverage map
+is maintained in [`docs/TESTING.md`](docs/TESTING.md).
 
 ### Unit Tests
 
 Unit tests verify small, focused pieces of behavior in isolation.
-
-```bash
-pytest tests/unit
-```
 
 Unit tests must be fast, deterministic, and independent of real provider credentials or network access.
 
 ### Integration Tests
 
 Integration tests verify meaningful boundaries between components.
-
-```bash
-pytest tests/integration
-```
 
 Normal integration tests should use controlled dependencies and should not require access to the real provider.
 
@@ -238,28 +227,34 @@ for current instructions.
 
 ## Code Quality
 
+Run every required local check with:
+
+```bash
+make check
+```
+
 ### Check formatting
 
 ```bash
-ruff format --check .
+make format-check
 ```
 
 ### Format code
 
 ```bash
-ruff format .
+make format
 ```
 
 ### Lint
 
 ```bash
-ruff check .
+make lint
 ```
 
 ### Type check
 
 ```bash
-mypy .
+make typecheck
 ```
 
 Contributors should run the relevant checks locally before pushing.

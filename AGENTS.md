@@ -640,6 +640,10 @@ A bug fix without a regression test should have an explicit reason when reliable
 
 The repository uses a root-level `Makefile` as the canonical interface for common development tasks.
 
+Complete the environment setup in [README.md](README.md#setup) before running
+these commands. Provider credentials and permissions are configured separately
+as documented in [docs/PROVIDER.md](docs/PROVIDER.md#local-setup).
+
 Run commands from the repository root.
 
 Preferred commands:

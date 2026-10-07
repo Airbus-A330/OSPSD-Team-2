@@ -35,7 +35,7 @@ scope needed for the planned event retrieval operation.
 3. Create an OAuth client with the **Desktop app** application type.
 4. Download the client configuration and save it outside version control. By
    default, the code reads `credentials.json` from the repository root.
-5. Install dependencies with `pip install -r requirements.txt`.
+5. Install dependencies with `python -m pip install -r requirements.txt`.
 6. Run the manual verification command below. On first use, a browser opens for
    consent and the resulting authorization is stored in `token.json`.
 
@@ -82,7 +82,7 @@ timed event in the configured test calendar:
 3. Start the service in one terminal:
 
    ```bash
-   uvicorn app.main:app --reload
+   python -m uvicorn app.main:app --reload
    ```
 
 4. Request the selected event in another terminal:
@@ -95,6 +95,13 @@ A successful response has HTTP status 200 and exactly the `id`, `title`, `start`
 and `end` fields from `CONTRACT.md`. Two teammates must run these steps with the
 team's test calendar and record their names, dates, event IDs, and successful
 responses in the pull request without posting credentials or tokens.
+
+### Cleanup
+
+The Milestone 1 operation is read-only, so it creates no calendar resources that
+need cleanup. Stop the local service when verification is complete. To remove
+local authorization, delete the configured token file and revoke the app's access
+from the Google account; do not commit or share either credential file.
 
 ## Provider Operations
 
@@ -150,8 +157,9 @@ following provider assumptions remain relevant to that contract:
 Provider field names and representations follow the official
 [Events resource reference](https://developers.google.com/workspace/calendar/api/v3/reference/events).
 The fixtures are representative synthetic responses, not real-account captures.
-Translation is tested without SDK calls, credentials, or network access; it has
-not been verified against a real account.
+Translation is tested without SDK calls, credentials, or network access in the
+default suite and was also exercised by the end-to-end verification recorded
+below.
 
 ## Provider Limitations
 

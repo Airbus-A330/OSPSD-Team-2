@@ -1,6 +1,6 @@
 name: Build
 
-on: 
+on:
   push:
   pull_request:
 
@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install -r requirements.txt
 
-      - name: Compile Python source
-        run: python -m compileall app
+      - name: Build application
+        run: make build
