@@ -67,6 +67,19 @@ The issue owner is responsible for keeping its status and blockers current. Work
 that cannot fit in the current milestone is returned to the backlog with its
 remaining scope documented rather than silently carried forward.
 
+### Milestone 2 Task Selection
+
+Ready issues may be self-selected on a first-claim basis, with one primary owner
+for each substantial issue and a reasonably balanced workload across the team.
+If two members want the same issue, they resolve ownership in team chat before
+implementation begins. The team may assign unclaimed work by agreement when
+needed.
+
+Every substantive change still requires review by someone other than its primary
+owner. Contributors must not independently change the frozen `EventProvider`
+contract in `ARCHITECTURE.md`; any proposed change requires team agreement before
+implementation.
+
 ## Contracts and Technical Decisions
 
 Public API and shared domain contracts must be agreed upon before dependent work

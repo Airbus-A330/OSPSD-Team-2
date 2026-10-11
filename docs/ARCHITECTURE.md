@@ -212,6 +212,64 @@ Real-provider verification is separate.
 
 ---
 
+## Milestone 2 Provider Boundary
+
+Milestone 2 uses this provider-independent contract:
+
+```python
+class EventProvider(Protocol):
+    def get_event(self, event_id: str) -> Event: ...
+```
+
+`get_event` retrieves one event by its service-visible identifier. The
+`event_id` input is an opaque string supplied by the caller, and the return
+value is the existing service-domain `Event` model. The operation is read-only:
+it does not create, update, or delete provider state. Callers may depend on
+these properties, but not on Google identifiers, request shapes, response
+objects, or SDK types.
+
+Normal execution follows this dependency direction:
+
+```text
+FastAPI route
+    ↓
+application get_event operation
+    ↓
+EventProvider
+    ↓
+GoogleCalendarProvider
+    ↓
+Google Calendar SDK/API
+```
+
+Tests replace the provider at the same boundary:
+
+```text
+test
+    ↓
+application get_event operation
+    ↓
+EventProvider
+    ↓
+ControlledEventProvider
+```
+
+Application code depends only on `EventProvider` and domain models, while HTTP
+code remains provider-independent. Google SDK calls, request construction,
+response parsing and translation, and Google-specific configuration remain
+inside the concrete Google provider. Neither raw provider dictionaries nor
+Google SDK objects cross the interface. Startup or other composition code
+selects and supplies the concrete provider; application logic must not import or
+construct it.
+
+This is the frozen target boundary for Levels 3–4, not a claim that the current
+implementation already satisfies those levels. It intentionally contains only
+the `get_event` operation needed now and does not imply support for multiple
+real providers or runtime provider switching. Implementing it must preserve the
+existing `GET /events/{event_id}` public contract in `CONTRACT.md`.
+
+---
+
 ## Architectural Changes
 
 Before introducing a new:

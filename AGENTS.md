@@ -257,6 +257,21 @@ Translate provider data into the service's own public models.
 
 Keep provider-specific code localized.
 
+### Levels 3–4 Provider Boundary
+
+`docs/ARCHITECTURE.md` is the source of truth for the Milestone 2
+`EventProvider` contract. Do not change that interface inside an implementation
+issue without team agreement; if it proves insufficient, raise the problem with
+the team before editing it. Application code must not import or construct the
+concrete Google provider. Provider SDK types, request construction, response
+translation, and Google-specific configuration belong behind the provider
+boundary.
+
+Use the smallest design that satisfies Levels 3–4. Do not introduce a
+dependency-injection framework, provider registry, factory hierarchy, plugin
+system, multiple-provider runtime switching, retries, pagination, or Level 5
+failure architecture.
+
 ---
 
 ## 7. Simplicity and Avoiding Overengineering
