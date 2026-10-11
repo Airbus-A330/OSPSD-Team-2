@@ -69,11 +69,9 @@ remaining scope documented rather than silently carried forward.
 
 ### Milestone 2 Task Selection
 
-Ready issues may be self-selected on a first-claim basis, with one primary owner
-for each substantial issue and a reasonably balanced workload across the team.
-If two members want the same issue, they resolve ownership in team chat before
-implementation begins. The team may assign unclaimed work by agreement when
-needed.
+Ready issues may be self-selected on a first-claim basis, provided the team
+confirms that the resulting ownership remains reasonably balanced before
+implementation begins.
 
 Every substantive change still requires review by someone other than its primary
 owner. Contributors must not independently change the frozen `EventProvider`
