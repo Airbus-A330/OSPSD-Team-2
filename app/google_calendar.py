@@ -86,3 +86,28 @@ def get_event(client: Any, *, calendar_id: str, event_id: str) -> dict[str, obje
             Transport failures also propagate to the caller.
     """
     return client.events().get(calendarId=calendar_id, eventId=event_id).execute()
+
+
+class GoogleCalendarProvider:
+    """Retrieve domain events through a configured Google Calendar client."""
+
+    def __init__(self, client: Resource, *, calendar_id: str) -> None:
+        """Store the client and calendar configuration without performing I/O."""
+        self._client = client
+        self._calendar_id = calendar_id
+
+    def get_event(self, event_id: str) -> Event:
+        """Retrieve a Google event and translate it into the domain model.
+
+        Args:
+            event_id: Identifier of the event to retrieve.
+
+        Returns:
+            The event in the service's public representation.
+        """
+        provider_event = get_event(
+            self._client,
+            calendar_id=self._calendar_id,
+            event_id=event_id,
+        )
+        return translate_google_event(provider_event)

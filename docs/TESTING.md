@@ -27,6 +27,23 @@ A controlled provider should implement only the behavior required by its tests;
 it is not intended to simulate Google Calendar. Real-provider verification
 remains separate from the fast automated suite.
 
+## Google Provider Tests
+
+`tests/test_google_calendar_provider.py` tests the concrete
+`GoogleCalendarProvider` with a controlled SDK client. Its four cases cover:
+
+- Two calendar/event ID pairs: construction makes no SDK calls, retrieval uses
+  the supplied identifiers, and the result is an `Event` with exactly the four
+  public fields and unchanged timestamp strings.
+- A Google HTTP error: the original exception propagates to the caller.
+- An unsupported all-day response: translation raises `KeyError` instead of
+  returning raw Google data or inventing timestamps.
+
+These tests run without credentials or network access. Existing mapping and
+model tests cover additional missing-field and invalid-type cases. This coverage
+does not establish application-level provider substitution (#27) or live Google
+connectivity; real-provider verification is documented in `PROVIDER.md`.
+
 ## CI
 
 Required GitHub Actions checks:
@@ -47,7 +64,7 @@ Normal CI must not require provider credentials.
 | Google event translation | Yes | | | Synthetic timed-event fixtures; all-day and sparse responses are unsupported |
 | Google event retrieval | Yes | Yes | Manual | Provider errors remain unspecified; live verification requires team credentials |
 | `EventProvider` contract | Planned | | | Required for Milestone 2; verify its domain input and `Event` output without Google SDK types |
-| Google provider implementation | Planned | Planned | Planned | Must implement `EventProvider` and keep Google-specific behavior behind the boundary |
+| Google provider implementation | Yes | | Manual | Live timed-event retrieval verified on October 12, 2026; see `PROVIDER.md`. Application wiring through #25/#26 remains pending |
 | Application event retrieval through `EventProvider` | | Planned | | Must receive the provider rather than construct or import the Google implementation |
 | Controlled provider substitution | | Planned | No | Must exercise application behavior without credentials, network access, or Google SDK patching |
 
