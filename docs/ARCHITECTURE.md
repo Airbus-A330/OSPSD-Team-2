@@ -299,14 +299,14 @@ Do not add architectural machinery based only on anticipated future needs.
 
 ## Current Code Map
 
-The entries below describe the repository before the Milestone 2 refactor.
-They should be updated as the Level 3-4 implementation is merged.
+The concrete Google provider is implemented; application migration and wiring
+remain pending in #25/#26. The entries below describe the current implementation.
 
 | Module | Current Responsibility |
 |---|---|
 | `app/main.py` | Application/FastAPI entry point |
 | `app/events.py` | Currently coordinates Google-backed event retrieval; target Milestone 2 design moves concrete-provider selection outside application logic |
 | `app/models.py` | Public `Event` domain model |
-| `app/google_calendar.py` | Current Google Calendar authentication, client construction, retrieval, and translation |
+| `app/google_calendar.py` | Google authentication, client construction, retrieval, and translation; `GoogleCalendarProvider` combines retrieval and translation behind `get_event(event_id) -> Event` |
 
 Do not describe files here before they exist.

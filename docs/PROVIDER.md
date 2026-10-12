@@ -122,10 +122,35 @@ both identifiers and passes them unchanged to the SDK:
 - `event_id` is the Google event resource's `id`, not its `iCalUID`, title, or
   browser URL. Lookup by `iCalUID` uses `events.list`, outside this issue.
 
+### Domain-facing Google provider
+
+`app.google_calendar.GoogleCalendarProvider` implements the documented
+`get_event(event_id: str) -> Event` signature from
+[`ARCHITECTURE.md`](ARCHITECTURE.md#milestone-2-provider-boundary).
+Supply an already configured client and an explicit calendar ID:
+
+```python
+from app.google_calendar import GoogleCalendarProvider
+
+provider = GoogleCalendarProvider(client, calendar_id="primary")
+event = provider.get_event(event_id)
+```
+
+The caller owns client construction, authentication, and lifecycle. The
+constructor stores the client and calendar ID without performing I/O. Each
+`get_event` call uses the existing retrieval and translation functions within
+this module, returning the domain `Event` rather than a raw Google dictionary.
+SDK and translation errors propagate unchanged; no new error mapping is added.
+
+Application migration and FastAPI wiring belong to #25/#26. Until those changes
+are integrated, `app/events.py` continues to use the existing functions directly.
+
 ## Field Mapping
 
-The provider function returns its raw event dictionary to the application layer,
-which uses `translate_google_event` before returning data through HTTP.
+The existing function-based application path receives a raw event dictionary
+and calls `translate_google_event` before returning data through HTTP. The new
+`GoogleCalendarProvider` performs that translation internally before returning
+across its domain-facing boundary. Both paths use the same mapping:
 
 | Provider field | Domain field | Notes |
 |---|---|---|
@@ -190,3 +215,26 @@ serialization with the Google SDK boundary controlled.
 On October 6, 2026, [Airbus-A330](https://github.com/Airbus-A330/OSPSD-Team-2/pull/21#issuecomment-6028772243)
 and [LeonLiu0204](https://github.com/Airbus-A330/OSPSD-Team-2/pull/21#issuecomment-6028796751)
 reported successful end-to-end verification against the real provider.
+
+On October 12, 2026, a separate live verification for #24 was run locally for
+LeonLiu0204 using desktop OAuth with the read-only event scope. A test event was
+created in the authenticated account's primary calendar through Google Calendar:
+`OSPSD Provider Test`, 16:00–16:30 America/New_York, with no guests.
+
+Using the real client from `build_google_calendar_client()`,
+`GoogleCalendarProvider(client, calendar_id="primary").get_event(event_id)`
+returned an `Event`. Assertions verified exactly these four fields against the
+created event and confirmed that the provider timestamps were preserved:
+
+```json
+{
+  "id": "28bd3p9jnnl2qojjmdpbb7ld1q",
+  "title": "OSPSD Provider Test",
+  "start": "2026-10-12T16:00:00-04:00",
+  "end": "2026-10-12T16:30:00-04:00"
+}
+```
+
+This verifies the concrete provider independently of application wiring. Repeat
+the HTTP verification after #25/#26 integrate the provider. Credentials and
+tokens remain in ignored local files and are not part of this evidence.
