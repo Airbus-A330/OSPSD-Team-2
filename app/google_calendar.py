@@ -3,7 +3,7 @@
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -13,6 +13,53 @@ from googleapiclient.discovery import Resource, build  # type: ignore[import-unt
 from app.models import Event
 
 GOOGLE_CALENDAR_SCOPES = ("https://www.googleapis.com/auth/calendar.events.readonly",)
+
+
+class EventProvider(Protocol):
+    """Provider-independent interface for event retrieval.
+
+    Application code depends on this protocol, not on concrete provider
+    implementations. The GoogleCalendarProvider satisfies this contract.
+    """
+
+    def get_event(self, event_id: str) -> Event: ...
+
+
+class GoogleCalendarProvider:
+    """Concrete provider that implements EventProvider using Google Calendar SDK.
+
+    Responsible for:
+    - Google Calendar SDK client construction and authentication
+    - Provider-specific event retrieval
+    - Translating provider responses into the service's domain Event model
+
+    Google-specific types and SDK calls remain encapsulated behind this boundary.
+    """
+
+    def __init__(self, calendar_id: str | None = None) -> None:
+        configured_calendar_id = os.getenv("GOOGLE_CALENDAR_ID")
+        self.calendar_id: str = (
+            calendar_id
+            if calendar_id is not None
+            else configured_calendar_id or "primary"
+        )
+
+    def get_event(self, event_id: str) -> Event:
+        """Retrieve and translate a Google Calendar event.
+
+        Args:
+            event_id: Google Calendar event identifier.
+
+        Returns:
+            The event in the service's public representation.
+        """
+        client = build_google_calendar_client()
+        provider_event = get_event(
+            client,
+            calendar_id=self.calendar_id,
+            event_id=event_id,
+        )
+        return translate_google_event(provider_event)
 
 
 def build_google_calendar_client() -> Resource:

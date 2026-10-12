@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from app.events import get_event as retrieve_event
 from app.main import app
 
 
@@ -34,7 +35,10 @@ def test_get_event_returns_google_event_in_public_shape(
     }
 
     with (
-        patch("app.events.build_google_calendar_client", return_value=google_client),
+        patch(
+            "app.google_calendar.build_google_calendar_client",
+            return_value=google_client,
+        ),
         TestClient(app) as client,
     ):
         response = client.get(f"/events/{event_id}")
@@ -58,6 +62,12 @@ def test_get_event_without_required_id_returns_not_found(path: str) -> None:
         response = client.get(path, follow_redirects=False)
 
     assert response.status_code == 404
+
+
+def test_application_logic_requires_explicit_provider() -> None:
+    """The application layer must not decide which concrete provider to use."""
+    with pytest.raises(ValueError, match="provider"):
+        retrieve_event("event-001", provider=None)
 
 
 def test_post_event_returns_method_not_allowed() -> None:
