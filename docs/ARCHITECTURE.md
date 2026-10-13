@@ -299,15 +299,15 @@ Do not add architectural machinery based only on anticipated future needs.
 
 ## Current Code Map
 
-The entries below describe the current implementation and should be updated as
-the Level 3-4 implementation is merged.
+The provider-independent contract, application operation, Google provider, and
+FastAPI composition are implemented as described above.
 
 | Module | Current Responsibility |
 |---|---|
-| `app/main.py` | Application/FastAPI entry point |
-| `app/events.py` | Currently coordinates Google-backed event retrieval; target Milestone 2 design moves concrete-provider selection outside application logic |
+| `app/main.py` | FastAPI entry point and composition of the configured Google provider |
+| `app/events.py` | Provider-independent application operation for retrieving an event |
+| `app/providers.py` | Provider-independent `EventProvider` protocol |
 | `app/models.py` | Public `Event` domain model |
-| `app/providers.py` | Provider-independent `EventProvider` protocol for read-only event retrieval |
-| `app/google_calendar.py` | Current Google Calendar authentication, client construction, retrieval, and translation |
+| `app/google_calendar.py` | Google authentication, client construction, retrieval, translation, and concrete `GoogleCalendarProvider` |
 
 Do not describe files here before they exist.
