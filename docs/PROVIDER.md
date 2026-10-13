@@ -58,7 +58,7 @@ If the requested scopes change, delete the local token file and authorize again.
 From the repository root, run:
 
 ```bash
-uv run python -c "from app.google_calendar import build_google_calendar_client; client = build_google_calendar_client(); client.events().list(calendarId='primary', maxResults=1).execute(); print('Authentication successful')"
+uv run --locked python -c "from app.google_calendar import build_google_calendar_client; client = build_google_calendar_client(); client.events().list(calendarId='primary', maxResults=1).execute(); print('Authentication successful')"
 ```
 
 The first run should open Google's consent flow. A successful request prints the
@@ -76,13 +76,13 @@ timed event in the configured test calendar:
 2. Find a usable Google event ID:
 
    ```bash
-   uv run python -c "import os; from app.google_calendar import build_google_calendar_client; c=build_google_calendar_client(); events=c.events().list(calendarId=os.getenv('GOOGLE_CALENDAR_ID', 'primary'), maxResults=10, singleEvents=True).execute().get('items', []); print(*[(e.get('id'), e.get('summary')) for e in events], sep='\\n')"
+   uv run --locked python -c "import os; from app.google_calendar import build_google_calendar_client; c=build_google_calendar_client(); events=c.events().list(calendarId=os.getenv('GOOGLE_CALENDAR_ID', 'primary'), maxResults=10, singleEvents=True).execute().get('items', []); print(*[(e.get('id'), e.get('summary')) for e in events], sep='\\n')"
    ```
 
 3. Start the service in one terminal:
 
    ```bash
-   uv run uvicorn app.main:app --reload
+   uv run --locked uvicorn app.main:app --reload
    ```
 
 4. Request the selected event in another terminal:
