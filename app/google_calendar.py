@@ -11,6 +11,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore[import-un
 from googleapiclient.discovery import Resource, build  # type: ignore[import-untyped]
 
 from app.models import Event
+from app.providers import EventProvider
 
 GOOGLE_CALENDAR_SCOPES = ("https://www.googleapis.com/auth/calendar.events.readonly",)
 
@@ -88,7 +89,7 @@ def get_event(client: Any, *, calendar_id: str, event_id: str) -> dict[str, obje
     return client.events().get(calendarId=calendar_id, eventId=event_id).execute()
 
 
-class GoogleCalendarProvider:
+class GoogleCalendarProvider(EventProvider):
     """Retrieve domain events through a configured Google Calendar client."""
 
     def __init__(self, client: Resource, *, calendar_id: str) -> None:
