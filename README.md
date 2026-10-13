@@ -107,13 +107,30 @@ cd <repository-name>
 
 ### 2. Install uv
 
-Follow uv's
-[official installation instructions](https://docs.astral.sh/uv/getting-started/installation/),
-then confirm it is available:
+Install the repository's required uv version using the appropriate official
+standalone installer.
+
+macOS and Linux:
+
+```bash
+curl -LsSf https://astral.sh/uv/0.12.17/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/0.12.17/install.ps1 | iex"
+```
+
+Other supported installation methods are listed in uv's
+[official installation instructions](https://docs.astral.sh/uv/getting-started/installation/).
+Confirm the required version is available:
 
 ```bash
 uv --version
 ```
+
+The command should report `uv 0.12.17`.
 
 ### 3. Install Python and dependencies
 
@@ -154,7 +171,7 @@ Local credentials must remain outside version control.
 From the repository root:
 
 ```bash
-uv run uvicorn app.main:app --reload
+uv run --locked uvicorn app.main:app --reload
 ```
 
 By default, FastAPI exposes interactive API documentation through Swagger UI at:
@@ -171,17 +188,17 @@ The exact public API contract is documented in:
 
 ## Testing
 
-The project uses `pytest`. Run the complete fast test suite through the canonical
-Makefile target:
+The project uses `pytest`. Run the complete fast test suite on any supported
+platform with:
+
+```bash
+uv run --locked python -m pytest
+```
+
+If GNU Make is installed, `make test` runs the same command through uv:
 
 ```bash
 make test
-```
-
-If GNU Make is unavailable, run the equivalent Python command:
-
-```bash
-uv run pytest
 ```
 
 The focused test files under `tests/` cover the public model, provider mapping,
@@ -218,34 +235,41 @@ for current instructions.
 
 ## Code Quality
 
-Run every required local check with:
+Run every required local check on any supported platform with:
 
 ```bash
-make check
+uv run --locked ruff format --check .
+uv run --locked ruff check .
+uv run --locked mypy .
+uv run --locked python -m pytest
+uv run --locked python -m compileall app
+uv run --locked python -c "import app.main"
 ```
+
+If GNU Make is installed, `make check` runs this complete sequence.
 
 ### Check formatting
 
 ```bash
-make format-check
+uv run --locked ruff format --check .
 ```
 
 ### Format code
 
 ```bash
-make format
+uv run --locked ruff format .
 ```
 
 ### Lint
 
 ```bash
-make lint
+uv run --locked ruff check .
 ```
 
 ### Type check
 
 ```bash
-make typecheck
+uv run --locked mypy .
 ```
 
 Contributors should run the relevant checks locally before pushing.
