@@ -64,7 +64,7 @@ Normal CI must not require provider credentials.
 | Provider composition | Yes | | | `tests/test_event_routes.py` verifies configured and default calendar IDs with a controlled SDK client |
 | Google event translation | Yes | | | Synthetic timed-event fixtures; all-day and sparse responses are unsupported |
 | Google event retrieval | Yes | Yes | Manual | Provider errors remain unspecified; live verification requires team credentials |
-| `EventProvider` contract | | Yes | | `app/providers.py` defines the provider-independent `get_event(event_id) -> Event` protocol used by application and Google provider code |
+| `EventProvider` contract | Yes | Yes | | `tests/test_event_provider.py` verifies structural compatibility and domain input/output; the HTTP test verifies substitution through `app/providers.py` |
 | Google provider implementation | Yes | | Manual | Provider unit tests use a controlled SDK client; live timed-event retrieval is documented in `PROVIDER.md` |
 | Application event retrieval through `EventProvider` | | Yes | | `app/events.py` receives a provider and calls its `get_event` operation |
 | Controlled provider substitution | | Yes | No | HTTP integration test uses `app.dependency_overrides`; requires no credentials, network access, or Google SDK patching |
