@@ -1,7 +1,7 @@
 """Application behavior for retrieving calendar events."""
 
-from app.google_calendar import EventProvider
 from app.models import Event
+from app.providers import EventProvider
 
 
 def get_event(event_id: str, provider: EventProvider | None = None) -> Event:

@@ -142,15 +142,15 @@ constructor stores the client and calendar ID without performing I/O. Each
 this module, returning the domain `Event` rather than a raw Google dictionary.
 SDK and translation errors propagate unchanged; no new error mapping is added.
 
-Application migration and FastAPI wiring belong to #25/#26. Until those changes
-are integrated, `app/events.py` continues to use the existing functions directly.
+`app.main.get_event_provider` is the composition point. It builds the configured
+Google client and supplies it with `GOOGLE_CALENDAR_ID` (defaulting to `primary`)
+to `GoogleCalendarProvider`. Application logic uses only the
+provider-independent `EventProvider` contract in `app.providers`.
 
 ## Field Mapping
 
-The existing function-based application path receives a raw event dictionary
-and calls `translate_google_event` before returning data through HTTP. The new
-`GoogleCalendarProvider` performs that translation internally before returning
-across its domain-facing boundary. Both paths use the same mapping:
+`GoogleCalendarProvider` translates the raw Google event before returning across
+its domain-facing boundary. The mapping is:
 
 | Provider field | Domain field | Notes |
 |---|---|---|
@@ -235,6 +235,7 @@ created event and confirmed that the provider timestamps were preserved:
 }
 ```
 
-This verifies the concrete provider independently of application wiring. Repeat
-the HTTP verification after #25/#26 integrate the provider. Credentials and
-tokens remain in ignored local files and are not part of this evidence.
+This verifies the concrete provider independently of HTTP wiring. The
+credential-free HTTP integration test separately verifies application
+substitution with a controlled provider. Credentials and tokens remain in
+ignored local files and are not part of this evidence.

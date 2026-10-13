@@ -40,9 +40,9 @@ remains separate from the fast automated suite.
   returning raw Google data or inventing timestamps.
 
 These tests run without credentials or network access. Existing mapping and
-model tests cover additional missing-field and invalid-type cases. This coverage
-does not establish application-level provider substitution (#27) or live Google
-connectivity; real-provider verification is documented in `PROVIDER.md`.
+model tests cover additional missing-field and invalid-type cases. The separate
+HTTP integration test covers controlled provider substitution; live Google
+connectivity is documented in `PROVIDER.md`.
 
 ## CI
 
@@ -60,13 +60,14 @@ Normal CI must not require provider credentials.
 |---|---:|---:|---:|---|
 | Public Event model | Yes | | | `tests/test_event_model.py` covers construction, serialization, required string fields, and timestamp preservation |
 | Google Calendar client construction | Yes | | Manual | Automated tests mock OAuth and API client construction |
-| FastAPI event endpoint | | Yes | Manual | Default tests control the SDK boundary; live verification is documented in `PROVIDER.md` |
+| FastAPI event endpoint | | Yes | Manual | `tests/test_event_routes.py` overrides `get_event_provider` with a controlled provider and verifies the exact four-field response; live verification is documented in `PROVIDER.md` |
+| Provider composition | Yes | | | `tests/test_event_routes.py` verifies configured and default calendar IDs with a controlled SDK client |
 | Google event translation | Yes | | | Synthetic timed-event fixtures; all-day and sparse responses are unsupported |
 | Google event retrieval | Yes | Yes | Manual | Provider errors remain unspecified; live verification requires team credentials |
-| `EventProvider` contract | Planned | | | Required for Milestone 2; verify its domain input and `Event` output without Google SDK types |
-| Google provider implementation | Yes | | Manual | Live timed-event retrieval verified on October 12, 2026; see `PROVIDER.md`. Application wiring through #25/#26 remains pending |
-| Application event retrieval through `EventProvider` | | Planned | | Must receive the provider rather than construct or import the Google implementation |
-| Controlled provider substitution | | Planned | No | Must exercise application behavior without credentials, network access, or Google SDK patching |
+| `EventProvider` contract | | Yes | | `app/providers.py` defines the provider-independent `get_event(event_id) -> Event` protocol used by application and Google provider code |
+| Google provider implementation | Yes | | Manual | Provider unit tests use a controlled SDK client; live timed-event retrieval is documented in `PROVIDER.md` |
+| Application event retrieval through `EventProvider` | | Yes | | `app/events.py` receives a provider and calls its `get_event` operation |
+| Controlled provider substitution | | Yes | No | HTTP integration test uses `app.dependency_overrides`; requires no credentials, network access, or Google SDK patching |
 
 Update this table whenever meaningful behavior is added.
 
