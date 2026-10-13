@@ -1,22 +1,22 @@
 .PHONY: format format-check lint typecheck test build check
 
 format:
-	ruff format .
+	uv run --locked ruff format .
 
 format-check:
-	ruff format --check .
+	uv run --locked ruff format --check .
 
 lint:
-	ruff check .
+	uv run --locked ruff check .
 
 typecheck:
-	mypy .
+	uv run --locked mypy .
 
 test:
-	python -m pytest
+	uv run --locked python -m pytest
 
 build:
-	python -m compileall app
-	python -c "import app.main"
+	uv run --locked python -m compileall app
+	uv run --locked python -c "import app.main"
 
 check: format-check lint typecheck test build

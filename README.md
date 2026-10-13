@@ -44,6 +44,7 @@ The project intentionally favors **clarity and simplicity over unnecessary abstr
 - **pytest**
 - **Ruff**
 - **mypy**
+- **uv**
 - **GitHub Actions**
 
 Additional provider-specific dependencies are documented with the provider integration.
@@ -62,8 +63,9 @@ The repository is organized by responsibility.
 |-- tests/               # Unit and credential-free integration tests
 |-- AGENTS.md            # Repository-wide contribution rules
 |-- Makefile             # Canonical development commands
+|-- pyproject.toml       # Project metadata and direct dependencies
 |-- README.md
-`-- requirements.txt     # Pinned Python dependencies
+`-- uv.lock              # Cross-platform dependency lockfile
 ```
 
 The exact source structure may evolve as the implementation develops.
@@ -92,12 +94,9 @@ Before implementing a feature, read `AGENTS.md` and the documentation relevant t
 
 ## Setup
 
-The supported Python version is **Python 3.12**, matching CI. Confirm the active
-interpreter before creating the environment:
-
-```bash
-python --version
-```
+The supported Python version is **Python 3.12**, matching CI. The repository uses
+[uv](https://docs.astral.sh/uv/getting-started/installation/) to manage Python,
+the virtual environment, and locked dependencies consistently across platforms.
 
 ### 1. Clone the repository
 
@@ -106,34 +105,26 @@ git clone <repository-url>
 cd <repository-name>
 ```
 
-### 2. Create a virtual environment
+### 2. Install uv
+
+Follow uv's
+[official installation instructions](https://docs.astral.sh/uv/getting-started/installation/),
+then confirm it is available:
 
 ```bash
-python -m venv .venv
+uv --version
 ```
 
-Activate it.
-
-macOS/Linux:
+### 3. Install Python and dependencies
 
 ```bash
-source .venv/bin/activate
+uv python install 3.12
+uv sync --locked
 ```
 
-Windows PowerShell:
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-### 3. Install dependencies
-
-```bash
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
-
-Dependencies are pinned in `requirements.txt` for reproducible installation.
+No virtual-environment activation is required; use `uv run` for project
+commands. Direct dependencies are declared in `pyproject.toml`, and all resolved
+dependencies are pinned in `uv.lock` for reproducible installation.
 
 ---
 
@@ -163,7 +154,7 @@ Local credentials must remain outside version control.
 From the repository root:
 
 ```bash
-python -m uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
 By default, FastAPI exposes interactive API documentation through Swagger UI at:
@@ -190,7 +181,7 @@ make test
 If GNU Make is unavailable, run the equivalent Python command:
 
 ```bash
-python -m pytest
+uv run pytest
 ```
 
 The focused test files under `tests/` cover the public model, provider mapping,
