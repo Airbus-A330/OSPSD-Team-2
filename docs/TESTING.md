@@ -46,7 +46,7 @@ Normal CI must not require provider credentials.
 | FastAPI event endpoint | | Yes | Manual | Default tests control the SDK boundary; live verification is documented in `PROVIDER.md` |
 | Google event translation | Yes | | | Synthetic timed-event fixtures; all-day and sparse responses are unsupported |
 | Google event retrieval | Yes | Yes | Manual | Provider errors remain unspecified; live verification requires team credentials |
-| `EventProvider` contract | Planned | | | Required for Milestone 2; verify its domain input and `Event` output without Google SDK types |
+| `EventProvider` contract | Yes | | | `tests/test_event_provider.py` demonstrates structural compatibility through a typed assignment checked by mypy and a credential-free domain input/output test; application wiring remains separate |
 | Google provider implementation | Planned | Planned | Planned | Must implement `EventProvider` and keep Google-specific behavior behind the boundary |
 | Application event retrieval through `EventProvider` | | Planned | | Must receive the provider rather than construct or import the Google implementation |
 | Controlled provider substitution | | Planned | No | Must exercise application behavior without credentials, network access, or Google SDK patching |
