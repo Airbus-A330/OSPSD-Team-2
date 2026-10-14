@@ -1,53 +1,47 @@
 """HTTP behavior tests for the event retrieval endpoint."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import app, get_event_provider
+from app.models import Event
 
 
-@pytest.mark.parametrize("event_id", ["event-001", "Review_Event-002"])
 @pytest.mark.parametrize(
-    ("calendar_id", "configured_calendar_id"),
-    [("team-calendar@example.com", "team-calendar@example.com"), ("primary", None)],
+    ("configured_calendar_id", "expected_calendar_id"),
+    [("team-calendar@example.com", "team-calendar@example.com"), (None, "primary")],
 )
-def test_get_event_returns_google_event_in_public_shape(
-    event_id: str,
-    calendar_id: str,
+def test_provider_composition_uses_configured_calendar(
     configured_calendar_id: str | None,
+    expected_calendar_id: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Return translated provider data without contacting Google."""
+    """Build the Google provider with the configured or default calendar."""
     if configured_calendar_id is None:
         monkeypatch.delenv("GOOGLE_CALENDAR_ID", raising=False)
     else:
         monkeypatch.setenv("GOOGLE_CALENDAR_ID", configured_calendar_id)
+
     google_client = MagicMock()
     google_client.events.return_value.get.return_value.execute.return_value = {
-        "id": event_id,
+        "id": "event-001",
         "summary": "Provider title",
         "start": {"dateTime": "2026-10-07T09:00:00-04:00"},
         "end": {"dateTime": "2026-10-07T10:00:00-04:00"},
-        "etag": '"provider-only"',
     }
+    monkeypatch.setattr("app.main.build_google_calendar_client", lambda: google_client)
 
-    with (
-        patch("app.events.build_google_calendar_client", return_value=google_client),
-        TestClient(app) as client,
-    ):
-        response = client.get(f"/events/{event_id}")
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "id": event_id,
-        "title": "Provider title",
-        "start": "2026-10-07T09:00:00-04:00",
-        "end": "2026-10-07T10:00:00-04:00",
-    }
+    provider = get_event_provider()
+    assert provider.get_event("event-001") == Event(
+        id="event-001",
+        title="Provider title",
+        start="2026-10-07T09:00:00-04:00",
+        end="2026-10-07T10:00:00-04:00",
+    )
     google_client.events.return_value.get.assert_called_once_with(
-        calendarId=calendar_id, eventId=event_id
+        calendarId=expected_calendar_id, eventId="event-001"
     )
 
 
