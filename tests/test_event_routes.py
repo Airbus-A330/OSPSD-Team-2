@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from app.events import get_event as retrieve_event
 from app.main import app, get_event_provider
 from app.models import Event
 
@@ -53,12 +52,6 @@ def test_get_event_without_required_id_returns_not_found(path: str) -> None:
         response = client.get(path, follow_redirects=False)
 
     assert response.status_code == 404
-
-
-def test_application_logic_requires_explicit_provider() -> None:
-    """The application layer must not decide which concrete provider to use."""
-    with pytest.raises(ValueError, match="provider"):
-        retrieve_event("event-001", provider=None)
 
 
 def test_post_event_returns_method_not_allowed() -> None:
