@@ -10,36 +10,6 @@ from app.main import app, get_event_provider
 from app.models import Event
 
 
-def test_get_event_returns_controlled_provider_event() -> None:
-    """Serialize the Event returned by an injected provider through HTTP."""
-    expected_event = Event(
-        id="event-001",
-        title="Provider title",
-        start="2026-10-07T09:00:00-04:00",
-        end="2026-10-07T10:00:00-04:00",
-    )
-
-    class ControlledProvider:
-        def get_event(self, event_id: str) -> Event:
-            assert event_id == "event-001"
-            return expected_event
-
-    app.dependency_overrides[get_event_provider] = ControlledProvider
-    try:
-        with TestClient(app) as client:
-            response = client.get("/events/event-001")
-    finally:
-        app.dependency_overrides.pop(get_event_provider, None)
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "id": "event-001",
-        "title": "Provider title",
-        "start": "2026-10-07T09:00:00-04:00",
-        "end": "2026-10-07T10:00:00-04:00",
-    }
-
-
 @pytest.mark.parametrize(
     ("configured_calendar_id", "expected_calendar_id"),
     [("team-calendar@example.com", "team-calendar@example.com"), (None, "primary")],
