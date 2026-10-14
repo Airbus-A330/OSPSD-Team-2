@@ -23,9 +23,23 @@ nor live network access. Patching only the Google SDK network call does not
 demonstrate that application logic can accept a substitute for the provider
 interface.
 
-A controlled provider should implement only the behavior required by its tests;
-it is not intended to simulate Google Calendar. Real-provider verification
-remains separate from the fast automated suite.
+`tests/test_provider_substitution.py` defines `ControlledEventProvider`, a small
+mapping from requested identifiers to configured `Event` instances. Its fixture
+returns `EventProvider`, so mypy checks structural compatibility with the frozen
+interface without requiring inheritance or Google SDK types.
+
+Application tests pass the controlled provider to `app.events.get_event` and
+verify two distinct identifiers and repeated reads without state changes. HTTP
+tests override `app.main.get_event_provider`, the same FastAPI dependency used
+by normal execution, and verify the complete response and unchanged timestamps.
+Pytest's `monkeypatch` restores the dependency override after each test, including
+on failure. The tests patch neither application behavior nor Google SDK calls.
+
+The fixture creates fresh events per test and can be configured with any required
+identifier-to-Event mapping. It contains no authentication, network access, or
+Google behavior simulation. Only configured identifiers are used; incidental
+missing-key behavior is not a promised application error contract. Real-provider
+verification remains separate and documented in [PROVIDER.md](PROVIDER.md).
 
 ## Google Provider Tests
 
@@ -60,14 +74,14 @@ Normal CI must not require provider credentials.
 |---|---:|---:|---:|---|
 | Public Event model | Yes | | | `tests/test_event_model.py` covers construction, serialization, required string fields, and timestamp preservation |
 | Google Calendar client construction | Yes | | Manual | Automated tests mock OAuth and API client construction |
-| FastAPI event endpoint | | Yes | Manual | `tests/test_event_routes.py` overrides `get_event_provider` with a controlled provider and verifies the exact four-field response; live verification is documented in `PROVIDER.md` |
+| FastAPI event endpoint | | Yes | Manual | `tests/test_provider_substitution.py` overrides `get_event_provider` with a controlled provider and verifies the exact four-field response; live verification is documented in `PROVIDER.md` |
 | Provider composition | Yes | | | `tests/test_event_routes.py` verifies configured and default calendar IDs with a controlled SDK client |
 | Google event translation | Yes | | | Synthetic timed-event fixtures; all-day and sparse responses are unsupported |
 | Google event retrieval | Yes | Yes | Manual | Provider errors remain unspecified; live verification requires team credentials |
 | `EventProvider` contract | Yes | Yes | | `tests/test_event_provider.py` verifies structural compatibility and domain input/output; the HTTP test verifies substitution through `app/providers.py` |
 | Google provider implementation | Yes | | Manual | Provider unit tests use a controlled SDK client; live timed-event retrieval is documented in `PROVIDER.md` |
-| Application event retrieval through `EventProvider` | | Yes | | `app/events.py` receives a provider and calls its `get_event` operation |
-| Controlled provider substitution | | Yes | No | HTTP integration test uses `app.dependency_overrides`; requires no credentials, network access, or Google SDK patching |
+| Application event retrieval through `EventProvider` | Yes | Yes | | Controlled events verify identifier selection, response preservation, and repeated reads |
+| Controlled provider substitution | Yes | Yes | No | Five cases in `tests/test_provider_substitution.py` use a configurable provider through application arguments and `app.dependency_overrides` |
 
 Update this table whenever meaningful behavior is added.
 
