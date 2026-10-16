@@ -142,10 +142,12 @@ constructor stores the client and calendar ID without performing I/O. Each
 this module, returning the domain `Event` rather than a raw Google dictionary.
 SDK and translation errors propagate unchanged; no new error mapping is added.
 
-`app.main.get_event_provider` is the composition point. It builds the configured
-Google client and supplies it with `GOOGLE_CALENDAR_ID` (defaulting to `primary`)
-to `GoogleCalendarProvider`. Application logic uses only the
-provider-independent `EventProvider` contract in `app.providers`.
+`app.main.get_event_provider` is the composition point. For each HTTP request, it
+builds the configured Google client, supplies it with `GOOGLE_CALENDAR_ID`
+(defaulting to `primary`) to `GoogleCalendarProvider`, and closes the client after
+the request. This request-scoped ownership avoids sharing the client's
+non-thread-safe HTTP transport across worker threads. Application logic uses only
+the provider-independent `EventProvider` contract in `app.providers`.
 
 ## Field Mapping
 
