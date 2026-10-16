@@ -33,16 +33,23 @@ def test_provider_composition_uses_configured_calendar(
     }
     monkeypatch.setattr("app.main.build_google_calendar_client", lambda: google_client)
 
-    provider = get_event_provider()
-    assert provider.get_event("event-001") == Event(
-        id="event-001",
-        title="Provider title",
-        start="2026-10-07T09:00:00-04:00",
-        end="2026-10-07T10:00:00-04:00",
-    )
-    google_client.events.return_value.get.assert_called_once_with(
-        calendarId=expected_calendar_id, eventId="event-001"
-    )
+    dependency = get_event_provider()
+    provider = next(dependency)
+    try:
+        assert provider.get_event("event-001") == Event(
+            id="event-001",
+            title="Provider title",
+            start="2026-10-07T09:00:00-04:00",
+            end="2026-10-07T10:00:00-04:00",
+        )
+        google_client.events.return_value.get.assert_called_once_with(
+            calendarId=expected_calendar_id, eventId="event-001"
+        )
+    finally:
+        with pytest.raises(StopIteration):
+            next(dependency)
+
+    google_client.close.assert_called_once_with()
 
 
 @pytest.mark.parametrize("path", ["/events", "/events/"])
