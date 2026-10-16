@@ -1,6 +1,7 @@
 """Application entry point for the Calendar Service."""
 
 import os
+from collections.abc import Iterator
 
 from fastapi import Depends, FastAPI
 
@@ -12,15 +13,19 @@ from app.providers import EventProvider
 app = FastAPI()
 
 
-def get_event_provider() -> EventProvider:
+def get_event_provider() -> Iterator[EventProvider]:
     """FastAPI dependency that supplies the configured GoogleCalendarProvider.
 
     This is the explicit composition point where the concrete provider is chosen.
-    The application layer depends only on the EventProvider protocol.
+    The application layer depends only on the EventProvider protocol. The Google
+    client is scoped to one request and closed afterward.
     """
     client = build_google_calendar_client()
     calendar_id = os.getenv("GOOGLE_CALENDAR_ID") or "primary"
-    return GoogleCalendarProvider(client, calendar_id=calendar_id)
+    try:
+        yield GoogleCalendarProvider(client, calendar_id=calendar_id)
+    finally:
+        client.close()
 
 
 @app.get("/events/{event_id}", response_model=Event)
