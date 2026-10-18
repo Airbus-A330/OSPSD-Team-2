@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import pytest
 from fastapi.testclient import TestClient
 
+from app.errors import InvalidInputError
 from app.events import get_event
 from app.main import app, get_event_provider
 from app.models import Event
@@ -43,6 +44,28 @@ def configured_events() -> dict[str, Event]:
 @pytest.fixture
 def controlled_provider(configured_events: dict[str, Event]) -> EventProvider:
     return ControlledEventProvider(configured_events)
+
+
+@pytest.mark.parametrize("event_id", ["", "   ", "\t\n", "\r\n \t", "\u2003"])
+def test_invalid_event_id_is_rejected_without_provider_call(event_id: str) -> None:
+    class UnusedProvider:
+        def get_event(self, event_id: str) -> Event:
+            pytest.fail("Invalid input must not invoke the provider")
+
+    with pytest.raises(InvalidInputError):
+        get_event(event_id, provider=UnusedProvider())
+
+
+@pytest.mark.parametrize(
+    "event_id", ["abc123", " abc123 ", "\tabc123\n", "unusual:/?@!", "会議"]
+)
+def test_nonblank_event_id_is_passed_unchanged(
+    event_id: str, configured_events: dict[str, Event]
+) -> None:
+    expected = configured_events["event-002"].model_copy(update={"id": event_id})
+    provider = ControlledEventProvider({event_id: expected})
+
+    assert get_event(event_id, provider=provider) is expected
 
 
 @pytest.mark.parametrize("event_id", ["Review_Event-001", "event-002"])

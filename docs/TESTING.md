@@ -73,6 +73,8 @@ Normal CI must not require provider credentials.
 | Feature / Contract | Unit | Integration | Real Provider | Known Gaps |
 |---|---:|---:|---:|---|
 | Public Event model | Yes | | | `tests/test_event_model.py` covers construction, serialization, required string fields, and timestamp preservation |
+| Service error types | Yes | | | `tests/test_errors.py` verifies exception construction and catching through `ServiceError`; provider translation and HTTP rendering remain separate |
+| Local event-ID validation | Yes | | | `tests/test_provider_substitution.py` verifies blank IDs never invoke the provider and nonblank IDs pass unchanged, including whitespace and unusual characters |
 | Google Calendar client construction | Yes | | Manual | Automated tests mock OAuth and API client construction |
 | FastAPI event endpoint | | Yes | Manual | `tests/test_provider_substitution.py` overrides `get_event_provider` with a controlled provider and verifies the exact four-field response; live verification is documented in `PROVIDER.md` |
 | Provider composition | Yes | | | `tests/test_event_routes.py` verifies configured and default calendar IDs with a controlled SDK client |
@@ -81,7 +83,7 @@ Normal CI must not require provider credentials.
 | `EventProvider` contract | Yes | Yes | | `tests/test_event_provider.py` verifies structural compatibility and domain input/output; the HTTP test verifies substitution through `app/providers.py` |
 | Google provider implementation | Yes | | Manual | Provider unit tests use a controlled SDK client; live timed-event retrieval is documented in `PROVIDER.md` |
 | Application event retrieval through `EventProvider` | Yes | Yes | | Controlled events verify identifier selection, response preservation, and repeated reads |
-| Controlled provider substitution | Yes | Yes | No | Five cases in `tests/test_provider_substitution.py` use a configurable provider through application arguments and `app.dependency_overrides` |
+| Controlled provider substitution | Yes | Yes | No | `tests/test_provider_substitution.py` uses a configurable provider through application arguments and `app.dependency_overrides` |
 
 Update this table whenever meaningful behavior is added.
 

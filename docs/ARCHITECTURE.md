@@ -306,6 +306,7 @@ FastAPI composition are implemented as described above.
 |---|---|
 | `app/main.py` | FastAPI entry point and composition of the configured Google provider |
 | `app/events.py` | Provider-independent application operation for retrieving an event |
+| `app/errors.py` | Provider-independent service exceptions defined by the Level 5 contract in `CONTRACT.md` |
 | `app/providers.py` | Provider-independent `EventProvider` protocol |
 | `app/models.py` | Public `Event` domain model |
 | `app/google_calendar.py` | Google authentication, client construction, retrieval, translation, and concrete `GoogleCalendarProvider` |
