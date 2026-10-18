@@ -89,9 +89,43 @@ This operation reads event state and does not create, modify, or delete an event
 
 **Errors**
 
-No service-specific missing-event or provider-error response is guaranteed in
-Milestone 1. Those behaviors must be defined before they become part of the
-public contract.
+The team-approved Level 5 contract uses service exceptions from `app.errors`.
+All four categories inherit from `ServiceError` and use normal `Exception`
+construction, such as `InvalidInputError("internal context")`. Exception messages
+are internal/debugging context only; HTTP responses must use the fixed public
+messages below, never arbitrary exception text or Google error messages.
+
+| Service exception | When it occurs | Code | HTTP status | Public message | Retry |
+|---|---|---|---:|---|---|
+| `InvalidInputError` | Event ID is empty or whitespace-only | `invalid_input` | 400 | `Invalid event ID` | No, unless the caller changes the input |
+| `NotFoundError` | Requested event does not exist | `not_found` | 404 | `Event not found` | No, unless the identifier/resource changes |
+| `PermissionDeniedError` | Access to the event is denied | `permission_denied` | 403 | `Permission denied` | No, unless access/authorization changes |
+| `ProviderFailureError` | Provider failure prevents retrieval | `provider_error` | 502 | `Calendar provider request failed` | Potentially, depending on the underlying failure |
+
+Public error responses have exactly this shape:
+
+```json
+{
+  "error": {
+    "code": "invalid_input",
+    "message": "Invalid event ID"
+  }
+}
+```
+
+Local validation rejects empty and whitespace-only strings before invoking
+`EventProvider.get_event`. Every other string is passed unchanged, including
+leading/trailing whitespace and unusual characters. There is no local Google
+event-ID syntax validation or trimming. Existence and provider-specific validity
+remain the provider's responsibility.
+
+`/events` and `/events/` without an ID remain ordinary unmatched-route 404s,
+not Level 5 `invalid_input` errors.
+
+Implementation status: service exceptions and application-level validation are
+implemented. Google failure translation, HTTP error rendering, and failure
+logging belong to separate issues; the complete HTTP error behavior above is
+the agreed integration contract, not yet an end-to-end implementation guarantee.
 
 ---
 
@@ -148,5 +182,5 @@ Do not modify the public API merely to match an external provider's representati
   all-day or untitled events.
 - Date-time strings are not normalized in Milestone 1. Revisit their exact format
   before callers need date-time comparison or conversion guarantees.
-- Missing-event and provider-failure behavior is intentionally unspecified until
-  the service implements and tests those cases consistently.
+- The Level 5 error contract above is frozen; provider translation and HTTP
+  integration must implement it without exposing provider-specific details.
