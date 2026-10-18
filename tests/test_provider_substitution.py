@@ -1,11 +1,18 @@
 """Application and HTTP behavior with a controlled EventProvider."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.errors import InvalidInputError
+from app.errors import (
+    InvalidInputError,
+    NotFoundError,
+    PermissionDeniedError,
+    ProviderFailureError,
+    ServiceError,
+)
 from app.events import get_event
 from app.main import app, get_event_provider
 from app.models import Event
@@ -14,13 +21,16 @@ from app.providers import EventProvider
 
 @dataclass
 class ControlledEventProvider:
-    """Return configured domain events without credentials or external I/O."""
+    """Return configured events or service failures without external I/O."""
 
-    events: dict[str, Event]
+    outcomes: Mapping[str, Event | ServiceError]
 
     def get_event(self, event_id: str) -> Event:
-        """Return the configured event for the requested identifier."""
-        return self.events[event_id]
+        """Return or raise the configured outcome for the requested identifier."""
+        outcome = self.outcomes[event_id]
+        if isinstance(outcome, ServiceError):
+            raise outcome
+        return outcome
 
 
 @pytest.fixture
@@ -118,3 +128,66 @@ def test_http_returns_configured_provider_event(
         "start": expected.start,
         "end": expected.end,
     }
+
+
+@pytest.mark.parametrize(
+    ("error_type", "status", "code", "message"),
+    [
+        pytest.param(
+            NotFoundError, 404, "not_found", "Event not found", id="not_found"
+        ),
+        pytest.param(
+            PermissionDeniedError,
+            403,
+            "permission_denied",
+            "Permission denied",
+            id="permission_denied",
+        ),
+        pytest.param(
+            ProviderFailureError,
+            502,
+            "provider_error",
+            "Calendar provider request failed",
+            id="provider_error",
+        ),
+    ],
+)
+def test_http_failures_do_not_affect_subsequent_retrieval(
+    error_type: type[ServiceError],
+    status: int,
+    code: str,
+    message: str,
+    configured_events: dict[str, Event],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider: EventProvider = ControlledEventProvider(
+        {**configured_events, "failing-event": error_type("synthetic internal context")}
+    )
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    event_id = "Review_Event-001"
+    event = configured_events[event_id]
+    expected = {
+        "id": event.id,
+        "title": event.title,
+        "start": event.start,
+        "end": event.end,
+    }
+
+    with TestClient(app) as client:
+        response = client.get(f"/events/{event_id}")
+        assert response.status_code == 200
+        assert response.json() == expected
+
+        response = client.get("/events/%20%20%20")
+        assert response.status_code == 400
+        assert response.json() == {
+            "error": {"code": "invalid_input", "message": "Invalid event ID"}
+        }
+
+        response = client.get("/events/failing-event")
+        assert response.status_code == status
+        assert response.json() == {"error": {"code": code, "message": message}}
+
+        response = client.get(f"/events/{event_id}")
+        assert response.status_code == 200
+        assert response.json() == expected
