@@ -305,6 +305,7 @@ FastAPI composition are implemented as described above.
 | Module | Current Responsibility |
 |---|---|
 | `app/main.py` | FastAPI entry point and composition of the configured Google provider |
+| `app/http_errors.py` | Fixed HTTP responses for shared service exceptions and sanitized failure logging |
 | `app/events.py` | Provider-independent application operation for retrieving an event |
 | `app/errors.py` | Provider-independent service exceptions defined by the Level 5 contract in `CONTRACT.md` |
 | `app/providers.py` | Provider-independent `EventProvider` protocol |
@@ -312,3 +313,25 @@ FastAPI composition are implemented as described above.
 | `app/google_calendar.py` | Google authentication, client construction, retrieval, translation, and concrete `GoogleCalendarProvider` |
 
 Do not describe files here before they exist.
+
+## Level 5 HTTP Failure Boundary
+
+FastAPI registers handlers for the four service exceptions from `app.errors`.
+`app/http_errors.py` maps them to the exact public responses in
+[CONTRACT.md](CONTRACT.md); it neither inspects Google exceptions nor returns
+exception text. Other exceptions remain distinguishable from expected failures.
+
+The route runs shared `app.events.validate_event_id` validation before resolving
+the provider dependency. The application operation also uses this validator for
+non-HTTP callers. This preserves #37's rule without duplicating it: blank IDs
+fail locally, and every other identifier passes through unchanged.
+
+Failure logs contain operation, service error code, HTTP status, and request-local
+`provider_involved` context. This flag means provider setup or retrieval was
+attempted, not that a remote call completed. It is false for locally rejected
+input and true when composition or retrieval begins; unavailable context is
+recorded as unknown. Logs exclude exception text, request headers, event IDs,
+provider payloads, and expected-failure tracebacks.
+
+The Google client remains request-scoped and is closed in the composition
+dependency's `finally`, including when retrieval raises a handled service error.

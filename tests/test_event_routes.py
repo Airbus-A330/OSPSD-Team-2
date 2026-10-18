@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 
 from app.main import app, get_event_provider
@@ -33,7 +34,7 @@ def test_provider_composition_uses_configured_calendar(
     }
     monkeypatch.setattr("app.main.build_google_calendar_client", lambda: google_client)
 
-    dependency = get_event_provider()
+    dependency = get_event_provider(Request({"type": "http"}))
     provider = next(dependency)
     try:
         assert provider.get_event("event-001") == Event(
