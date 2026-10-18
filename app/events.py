@@ -1,5 +1,6 @@
 """Application behavior for retrieving calendar events."""
 
+from app.errors import InvalidInputError
 from app.models import Event
 from app.providers import EventProvider
 
@@ -16,5 +17,10 @@ def get_event(event_id: str, provider: EventProvider) -> Event:
 
     Returns:
         The event in the service's public representation.
+
+    Raises:
+        InvalidInputError: If event_id is empty or whitespace-only.
     """
+    if not event_id.strip():
+        raise InvalidInputError("Event ID must contain a non-whitespace character")
     return provider.get_event(event_id)
