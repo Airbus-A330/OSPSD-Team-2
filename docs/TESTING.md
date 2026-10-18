@@ -45,12 +45,14 @@ Real-provider verification remains separate and documented in [PROVIDER.md](PROV
 ## Google Provider Tests
 
 `tests/test_google_calendar_provider.py` tests the concrete
-`GoogleCalendarProvider` with a controlled SDK client. Its four cases cover:
+`GoogleCalendarProvider` with a controlled SDK client. Its seven cases cover:
 
 - Two calendar/event ID pairs: construction makes no SDK calls, retrieval uses
   the supplied identifiers, and the result is an `Event` with exactly the four
   public fields and unchanged timestamp strings.
-- A Google HTTP error: the original exception propagates to the caller.
+- Google HTTP errors: status 404 translates to `NotFoundError`, 403 to
+  `PermissionDeniedError`, and 400/500 to `ProviderFailureError`. The raised
+  service error is not the SDK exception and contains no provider error text.
 - An unsupported all-day response: translation raises `KeyError` instead of
   returning raw Google data or inventing timestamps.
 
@@ -145,7 +147,7 @@ Normal CI must not require provider credentials.
 | Level 5 HTTP failures | | Yes | Not verified | Exact shared-error responses, sanitized logs, and repeated success/failure/recovery through controlled provider substitution; Google-specific translation and live failures are separate |
 | Provider composition | Yes | | | `tests/test_event_routes.py` verifies configured and default calendar IDs with a controlled SDK client |
 | Google event translation | Yes | | | Synthetic timed-event fixtures; all-day and sparse responses are unsupported |
-| Google event retrieval | Yes | Yes | Manual | Provider errors remain unspecified; live verification requires team credentials |
+| Google event retrieval | Yes | Yes | Manual | Provider HTTP errors translate to service errors (#38); live failure verification requires team credentials |
 | `EventProvider` contract | Yes | Yes | | `tests/test_event_provider.py` verifies structural compatibility and domain input/output; the HTTP test verifies substitution through `app/providers.py` |
 | Google provider implementation | Yes | | Manual | Provider unit tests use a controlled SDK client; live timed-event retrieval is documented in `PROVIDER.md` |
 | Application event retrieval through `EventProvider` | Yes | Yes | | Controlled events verify identifier selection, response preservation, and repeated reads |

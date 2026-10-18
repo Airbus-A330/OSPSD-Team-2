@@ -6,6 +6,12 @@ import pytest
 from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
 from httplib2 import Response  # type: ignore[import-untyped]
 
+from app.errors import (
+    NotFoundError,
+    PermissionDeniedError,
+    ProviderFailureError,
+    ServiceError,
+)
 from app.google_calendar import GoogleCalendarProvider
 from app.models import Event
 
@@ -47,17 +53,32 @@ def test_provider_queries_configured_calendar_and_returns_domain_event(
     }
 
 
-def test_provider_propagates_google_failure() -> None:
-    """Preserve the SDK exception rather than fabricate a successful event."""
+@pytest.mark.parametrize(
+    ("status", "service_error"),
+    [
+        ("404", NotFoundError),
+        ("403", PermissionDeniedError),
+        ("400", ProviderFailureError),
+        ("500", ProviderFailureError),
+    ],
+)
+def test_provider_translates_google_failure(
+    status: str, service_error: type[ServiceError]
+) -> None:
+    """Map Google HTTP failures to service errors at the provider boundary."""
     client = Mock()
-    error = HttpError(Response({"status": "404"}), b'{"error": "Not Found"}')
+    error = HttpError(
+        Response({"status": status}), b'{"error": "provider-only detail"}'
+    )
     client.events.return_value.get.return_value.execute.side_effect = error
     provider = GoogleCalendarProvider(client, calendar_id="primary")
 
-    with pytest.raises(HttpError) as caught:
-        provider.get_event("missing123")
+    with pytest.raises(service_error) as caught:
+        provider.get_event("event123")
 
-    assert caught.value is error
+    assert isinstance(caught.value, ServiceError)
+    assert not isinstance(caught.value, HttpError)
+    assert "provider-only detail" not in str(caught.value)
 
 
 def test_provider_does_not_return_untranslatable_google_data() -> None:

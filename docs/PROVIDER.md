@@ -140,7 +140,13 @@ The caller owns client construction, authentication, and lifecycle. The
 constructor stores the client and calendar ID without performing I/O. Each
 `get_event` call uses the existing retrieval and translation functions within
 this module, returning the domain `Event` rather than a raw Google dictionary.
-SDK and translation errors propagate unchanged; no new error mapping is added.
+Google HTTP failures are translated into the service errors from `app.errors`
+before they leave this module: status 404 becomes `NotFoundError`, status 403
+becomes `PermissionDeniedError`, and any other status becomes
+`ProviderFailureError`. Only the response status is interpreted; Google error
+messages and response bodies never cross the provider boundary. Translation
+failures for unsupported response shapes, such as all-day events, still raise
+`KeyError` as documented below.
 
 `app.main.get_event_provider` is the composition point. For each HTTP request, it
 builds the configured Google client, supplies it with `GOOGLE_CALENDAR_ID`
@@ -196,9 +202,11 @@ below.
 - Local token storage is suitable for development only; a production deployment
   would require an appropriate secure credential store and authentication design.
 
-SDK HTTP errors and transport failures propagate to the calling boundary.
-This function does not map failures to HTTP status codes, hide failures behind
-empty results, or add retries, pagination, or other operations.
+The retrieval function propagates SDK errors unchanged; the domain-facing
+provider translates Google HTTP error responses into the service errors
+defined in [CONTRACT.md](CONTRACT.md). Neither maps failures to HTTP status
+codes directly, hides failures behind empty results, or adds retries,
+pagination, or other operations.
 
 ## Verified Assumptions
 

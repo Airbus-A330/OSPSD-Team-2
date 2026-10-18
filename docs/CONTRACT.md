@@ -126,8 +126,8 @@ Implementation status: service exceptions, application-level validation, HTTP
 rendering of the four shared exceptions, and sanitized failure logging are
 implemented. HTTP validation runs before provider setup; the application operation
 also validates non-HTTP calls. Controlled-provider tests verify these responses.
-Google-specific failure translation belongs to #38; live-provider failure behavior
-has not been verified by #39.
+Google-specific failure translation is implemented in the Google provider
+(#38). Live-provider failure behavior has not been verified.
 
 ---
 
