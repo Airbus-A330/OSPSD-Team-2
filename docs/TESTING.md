@@ -58,6 +58,32 @@ model tests cover additional missing-field and invalid-type cases. The separate
 HTTP integration test covers controlled provider substitution; live Google
 connectivity is documented in `PROVIDER.md`.
 
+## Level 5 HTTP Failures (#39)
+
+`tests/test_http_errors.py` sends requests through FastAPI and the application
+operation. A controlled `EventProvider` supplies the four shared service failures;
+tests assert exact HTTP statuses, codes, fixed messages, and the complete JSON
+shape defined in [CONTRACT.md](CONTRACT.md). Synthetic exception and authorization
+values must not appear in responses or logs. Each expected failure produces one
+warning containing operation, error category, status, and provider involvement,
+without exception or stack information.
+
+Additional cases verify that:
+
+- Whitespace-only IDs return 400 before Google client construction or OAuth.
+- Valid IDs containing surrounding spaces or Unicode reach the provider unchanged,
+  return the four public Event fields, and produce no failure warning.
+- Request-scoped clients close on missing-event, permission, and provider failures.
+- A shared service failure during provider setup is rendered and logged.
+- Unexpected programming errors and unsupported base `ServiceError` instances
+  are not disguised as a supported public error category.
+
+The tests require neither credentials nor live network. Production composition
+checks replace client construction and the concrete provider with controlled
+objects. They do not verify Google-specific exception translation, which belongs
+to #38, or live-provider failures. Existing tests retain the unmatched-route 404s
+for `/events` and `/events/` and the Levels 1–4 success/substitution guarantees.
+
 ## CI
 
 Required GitHub Actions checks:
@@ -77,6 +103,7 @@ Normal CI must not require provider credentials.
 | Local event-ID validation | Yes | | | `tests/test_provider_substitution.py` verifies blank IDs never invoke the provider and nonblank IDs pass unchanged, including whitespace and unusual characters |
 | Google Calendar client construction | Yes | | Manual | Automated tests mock OAuth and API client construction |
 | FastAPI event endpoint | | Yes | Manual | `tests/test_provider_substitution.py` overrides `get_event_provider` with a controlled provider and verifies the exact four-field response; live verification is documented in `PROVIDER.md` |
+| Level 5 HTTP failures | | Yes | Not verified | Exact shared-error responses and sanitized logs; Google-specific translation and live failures are separate |
 | Provider composition | Yes | | | `tests/test_event_routes.py` verifies configured and default calendar IDs with a controlled SDK client |
 | Google event translation | Yes | | | Synthetic timed-event fixtures; all-day and sparse responses are unsupported |
 | Google event retrieval | Yes | Yes | Manual | Provider errors remain unspecified; live verification requires team credentials |

@@ -122,10 +122,12 @@ remain the provider's responsibility.
 `/events` and `/events/` without an ID remain ordinary unmatched-route 404s,
 not Level 5 `invalid_input` errors.
 
-Implementation status: service exceptions and application-level validation are
-implemented. Google failure translation, HTTP error rendering, and failure
-logging belong to separate issues; the complete HTTP error behavior above is
-the agreed integration contract, not yet an end-to-end implementation guarantee.
+Implementation status: service exceptions, application-level validation, HTTP
+rendering of the four shared exceptions, and sanitized failure logging are
+implemented. HTTP validation runs before provider setup; the application operation
+also validates non-HTTP calls. Controlled-provider tests verify these responses.
+Google-specific failure translation belongs to #38; live-provider failure behavior
+has not been verified by #39.
 
 ---
 
