@@ -140,7 +140,19 @@ The caller owns client construction, authentication, and lifecycle. The
 constructor stores the client and calendar ID without performing I/O. Each
 `get_event` call uses the existing retrieval and translation functions within
 this module, returning the domain `Event` rather than a raw Google dictionary.
-SDK and translation errors propagate unchanged; no new error mapping is added.
+Google failures are translated into the service errors from `app.errors`
+before they leave this module. A 404 becomes `NotFoundError`. A 403 becomes
+`PermissionDeniedError`, except when Google's machine-readable error reason
+(`error.errors[].reason`) reports a quota or rate limit — `quotaExceeded`,
+`rateLimitExceeded`, or `userRateLimitExceeded` — because Google also returns
+403 for those provider limits; they become `ProviderFailureError`, as do 429
+and any other status. Documented transport failures while executing the
+request (`httplib2.HttpLib2Error`, Google authentication `TransportError`)
+also become `ProviderFailureError`. Only the status and the machine-readable
+reasons are interpreted; Google error messages never cross the provider
+boundary, and the raw provider exception is not retained as the translated
+error's cause. Translation failures for unsupported response shapes, such as
+all-day events, still raise `KeyError` as documented below.
 
 `app.main.get_event_provider` is the composition point. For each HTTP request, it
 builds the configured Google client, supplies it with `GOOGLE_CALENDAR_ID`
@@ -196,9 +208,11 @@ below.
 - Local token storage is suitable for development only; a production deployment
   would require an appropriate secure credential store and authentication design.
 
-SDK HTTP errors and transport failures propagate to the calling boundary.
-This function does not map failures to HTTP status codes, hide failures behind
-empty results, or add retries, pagination, or other operations.
+The retrieval function propagates SDK errors unchanged; the domain-facing
+provider translates Google HTTP error responses into the service errors
+defined in [CONTRACT.md](CONTRACT.md). Neither maps failures to HTTP status
+codes directly, hides failures behind empty results, or adds retries,
+pagination, or other operations.
 
 ## Verified Assumptions
 

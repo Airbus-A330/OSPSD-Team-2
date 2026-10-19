@@ -1,19 +1,36 @@
 """Google Calendar authentication, event retrieval, and translation."""
 
+import json
 import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from google.auth.exceptions import TransportError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore[import-untyped]
 from googleapiclient.discovery import Resource, build  # type: ignore[import-untyped]
+from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
+from httplib2 import HttpLib2Error  # type: ignore[import-untyped]
 
+from app.errors import (
+    NotFoundError,
+    PermissionDeniedError,
+    ProviderFailureError,
+    ServiceError,
+)
 from app.models import Event
 from app.providers import EventProvider
 
 GOOGLE_CALENDAR_SCOPES = ("https://www.googleapis.com/auth/calendar.events.readonly",)
+
+# Machine-readable Google error reasons that report a quota or rate limit
+# rather than a permission failure. Google returns them with HTTP 403 (and
+# rateLimitExceeded also with 429); see the Calendar API error guide.
+_LIMIT_REASONS = frozenset(
+    {"quotaExceeded", "rateLimitExceeded", "userRateLimitExceeded"}
+)
 
 
 def build_google_calendar_client() -> Resource:
@@ -89,6 +106,58 @@ def get_event(client: Any, *, calendar_id: str, event_id: str) -> dict[str, obje
     return client.events().get(calendarId=calendar_id, eventId=event_id).execute()
 
 
+def _google_error_reasons(error: HttpError) -> set[str]:
+    """Extract Google's machine-readable error reasons from a failure body.
+
+    Args:
+        error: The HTTP failure raised by the Google Calendar SDK.
+
+    Returns:
+        The ``reason`` values from the structured error response, or an
+        empty set when the body has no structured reasons.
+    """
+    try:
+        payload = json.loads(error.content)
+    except (TypeError, ValueError):
+        return set()
+    if not isinstance(payload, dict):
+        return set()
+    detail = payload.get("error")
+    if not isinstance(detail, dict):
+        return set()
+    entries = detail.get("errors")
+    if not isinstance(entries, list):
+        return set()
+    reasons: set[str] = set()
+    for entry in entries:
+        if isinstance(entry, dict):
+            reason = entry.get("reason")
+            if isinstance(reason, str):
+                reasons.add(reason)
+    return reasons
+
+
+def _translate_google_error(error: HttpError) -> ServiceError:
+    """Translate a Google HTTP failure into the matching service error.
+
+    Classification uses the response status and, for 403, Google's
+    machine-readable error reasons: Google also returns 403 for quota and
+    rate-limit failures, and those are provider failures, not permission
+    failures. Human-readable messages never cross the provider boundary.
+
+    Args:
+        error: The HTTP failure raised by the Google Calendar SDK.
+
+    Returns:
+        The service error defined by the Level 5 contract for the failure.
+    """
+    if error.status_code == 404:
+        return NotFoundError("Google Calendar reported that the event does not exist")
+    if error.status_code == 403 and not (_google_error_reasons(error) & _LIMIT_REASONS):
+        return PermissionDeniedError("Google Calendar denied access to the event")
+    return ProviderFailureError("Google Calendar request failed")
+
+
 class GoogleCalendarProvider(EventProvider):
     """Retrieve domain events through a configured Google Calendar client."""
 
@@ -105,10 +174,21 @@ class GoogleCalendarProvider(EventProvider):
 
         Returns:
             The event in the service's public representation.
+
+        Raises:
+            NotFoundError: If Google reports that the event does not exist.
+            PermissionDeniedError: If Google denies access to the event.
+            ProviderFailureError: If another Google failure, a quota or
+                rate-limit failure, or a transport failure prevents retrieval.
         """
-        provider_event = get_event(
-            self._client,
-            calendar_id=self._calendar_id,
-            event_id=event_id,
-        )
+        try:
+            provider_event = get_event(
+                self._client,
+                calendar_id=self._calendar_id,
+                event_id=event_id,
+            )
+        except HttpError as error:
+            raise _translate_google_error(error) from None
+        except (HttpLib2Error, TransportError):
+            raise ProviderFailureError("Google Calendar request failed") from None
         return translate_google_event(provider_event)
