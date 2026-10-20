@@ -94,8 +94,9 @@ Additional cases verify that:
 The tests require neither credentials nor live network. Production composition
 checks replace client construction and the concrete provider with controlled
 objects. They do not verify Google-specific exception translation, which belongs
-to #38, or live-provider failures. Existing tests retain the unmatched-route 404s
-for `/events` and `/events/` and the Levels 1–4 success/substitution guarantees.
+to #38, or live-provider failures. Levels 1–4 GET-one success/substitution
+guarantees remain. Under #51, `/events` is now the listing route and `/events/`
+redirects to it rather than representing an unmatched event-ID route.
 
 ## Integrated Level 5 Verification (#40)
 
@@ -135,6 +136,33 @@ Real-provider verification: **NOT PERFORMED**. Google failure translation remain
 separate (#38); passing controlled-provider tests is not final live-provider or
 release verification.
 
+## Event Listing (#51, Maksym)
+
+The existing controlled provider in `tests/test_provider_substitution.py` now
+implements `list_events` as well as GET-one. HTTP cases verify the default limit
+of 10, boundaries 1 and 100, exact public Event fields, empty calendars, rejection
+of malformed/out-of-range limits before client setup, and shared provider-failure
+responses with `list_events` log context. Application tests also check bounds for
+non-HTTP callers. The old `/events` missing-ID 404 test is replaced because that
+path intentionally becomes the collection operation.
+
+`tests/test_google_calendar_listing.py` controls the SDK to verify calendar/limit
+parameters, recurrence expansion, bounded translation, hidden page tokens, empty
+pages, service-error translation, and unsupported all-day responses.
+`tests/test_event_routes.py` exercises the real listing composition with a mocked
+SDK client and confirms request-scoped cleanup. Get-only test doubles add the
+listing method solely to stay compatible with the expanded shared protocol.
+
+Run `make check` for the full suite, or focus on listing:
+
+```bash
+uv run --locked python -m pytest tests/test_google_calendar_listing.py tests/test_provider_substitution.py tests/test_event_routes.py -k 'list or collection'
+```
+
+Tests need no credentials, live network, or sleeps. Live listing verification is
+**NOT PERFORMED**; its manual procedure is in
+[PROVIDER.md](PROVIDER.md#list-events-verification).
+
 ## CI
 
 Required GitHub Actions checks:
@@ -149,6 +177,7 @@ Normal CI must not require provider credentials.
 
 | Feature / Contract | Unit | Integration | Real Provider | Known Gaps |
 |---|---:|---:|---:|---|
+| Event listing | Yes | Yes | Not verified | Default/bounded limits, empty pages, fixed errors, SDK translation, and client cleanup; see the listing section above |
 | Public Event model | Yes | | | `tests/test_event_model.py` covers construction, serialization, required string fields, and timestamp preservation |
 | Service error types | Yes | | | `tests/test_errors.py` verifies exception construction and catching through `ServiceError`; provider translation and HTTP rendering remain separate |
 | Local event-ID validation | Yes | | | `tests/test_provider_substitution.py` verifies blank IDs never invoke the provider and nonblank IDs pass unchanged, including whitespace and unusual characters |

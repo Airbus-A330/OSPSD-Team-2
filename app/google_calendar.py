@@ -13,6 +13,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore[import-un
 from googleapiclient.discovery import Resource, build  # type: ignore[import-untyped]
 from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
 from httplib2 import HttpLib2Error  # type: ignore[import-untyped]
+from pydantic import ValidationError
 
 from app.errors import (
     NotFoundError,
@@ -165,6 +166,30 @@ class GoogleCalendarProvider(EventProvider):
         """Store the client and calendar configuration without performing I/O."""
         self._client = client
         self._calendar_id = calendar_id
+
+    def list_events(self, limit: int) -> list[Event]:
+        """Read one bounded page of titled, timed events as domain values.
+
+        Recurrences are expanded. No page token or provider metadata escapes;
+        unsupported event shapes and provider failures use service errors.
+        """
+        try:
+            response = (
+                self._client.events()
+                .list(calendarId=self._calendar_id, maxResults=limit, singleEvents=True)
+                .execute()
+            )
+        except HttpError as error:
+            raise _translate_google_error(error) from None
+        except (HttpLib2Error, TransportError):
+            raise ProviderFailureError("Google Calendar request failed") from None
+        try:
+            return [
+                translate_google_event(item)
+                for item in response.get("items", [])[:limit]
+            ]
+        except (KeyError, TypeError, ValidationError):
+            raise ProviderFailureError("Unsupported Google event data") from None
 
     def get_event(self, event_id: str) -> Event:
         """Retrieve a Google event and translate it into the domain model.

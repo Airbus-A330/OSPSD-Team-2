@@ -53,13 +53,13 @@ def test_provider_composition_uses_configured_calendar(
     google_client.close.assert_called_once_with()
 
 
-@pytest.mark.parametrize("path", ["/events", "/events/"])
-def test_get_event_without_required_id_returns_not_found(path: str) -> None:
-    """Reject paths that omit the required event ID without redirecting."""
+def test_collection_trailing_slash_redirects_to_listing() -> None:
+    """The collection route now lists events rather than representing a missing ID."""
     with TestClient(app) as client:
-        response = client.get(path, follow_redirects=False)
+        response = client.get("/events/", follow_redirects=False)
 
-    assert response.status_code == 404
+    assert response.status_code == 307
+    assert response.headers["location"].endswith("/events")
 
 
 def test_post_event_returns_method_not_allowed() -> None:
@@ -68,3 +68,36 @@ def test_post_event_returns_method_not_allowed() -> None:
         response = client.post("/events/event-001")
 
     assert response.status_code == 405
+
+
+def test_listing_uses_google_composition_and_closes_request_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    google_client = MagicMock()
+    google_client.events.return_value.list.return_value.execute.return_value = {
+        "items": [
+            {
+                "id": "listed-event",
+                "summary": "Listed event",
+                "start": {"dateTime": "2026-10-20T09:00:00Z"},
+                "end": {"dateTime": "2026-10-20T10:00:00Z"},
+            }
+        ]
+    }
+    monkeypatch.setattr("app.main.build_google_calendar_client", lambda: google_client)
+    monkeypatch.setenv("GOOGLE_CALENDAR_ID", "listing-calendar")
+    with TestClient(app) as client:
+        response = client.get("/events?limit=1")
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "id": "listed-event",
+            "title": "Listed event",
+            "start": "2026-10-20T09:00:00Z",
+            "end": "2026-10-20T10:00:00Z",
+        }
+    ]
+    google_client.events.return_value.list.assert_called_once_with(
+        calendarId="listing-calendar", maxResults=1, singleEvents=True
+    )
+    google_client.close.assert_called_once_with()

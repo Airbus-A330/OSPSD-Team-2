@@ -3,7 +3,8 @@
 import os
 from collections.abc import Iterator
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Query, Request
+from pydantic import TypeAdapter, ValidationError
 
 from app.errors import (
     InvalidInputError,
@@ -11,7 +12,7 @@ from app.errors import (
     PermissionDeniedError,
     ProviderFailureError,
 )
-from app.events import get_event, validate_event_id
+from app.events import get_event, list_events, validate_event_id, validate_event_limit
 from app.google_calendar import GoogleCalendarProvider, build_google_calendar_client
 from app.http_errors import service_error_response
 from app.models import Event
@@ -34,6 +35,19 @@ def validate_event_request(event_id: str, request: Request) -> None:
     validate_event_id(event_id)
 
 
+def validate_list_request(request: Request) -> None:
+    """Reject invalid limits before resolving the Google provider dependency."""
+    request.state.operation = "list_events"
+    request.state.provider_involved = False
+    try:
+        limit = TypeAdapter(int).validate_python(
+            request.query_params.get("limit", "10")
+        )
+    except ValidationError:
+        raise InvalidInputError("Event limit must be an integer") from None
+    validate_event_limit(limit)
+
+
 def get_event_provider(request: Request) -> Iterator[EventProvider]:
     """FastAPI dependency that supplies the configured GoogleCalendarProvider.
 
@@ -48,6 +62,21 @@ def get_event_provider(request: Request) -> Iterator[EventProvider]:
         yield GoogleCalendarProvider(client, calendar_id=calendar_id)
     finally:
         client.close()
+
+
+@app.get(
+    "/events",
+    response_model=list[Event],
+    dependencies=[Depends(validate_list_request)],
+)
+def read_events(
+    request: Request,
+    limit: int = Query(default=10, ge=1, le=100),
+    provider: EventProvider = Depends(get_event_provider),
+) -> list[Event]:
+    """Return at most limit public events from the configured calendar."""
+    request.state.provider_involved = True
+    return list_events(limit, provider=provider)
 
 
 @app.get(

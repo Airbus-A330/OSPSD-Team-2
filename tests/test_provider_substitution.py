@@ -13,7 +13,7 @@ from app.errors import (
     ProviderFailureError,
     ServiceError,
 )
-from app.events import get_event
+from app.events import get_event, list_events
 from app.main import app, get_event_provider
 from app.models import Event
 from app.providers import EventProvider
@@ -31,6 +31,9 @@ class ControlledEventProvider:
         if isinstance(outcome, ServiceError):
             raise outcome
         return outcome
+
+    def list_events(self, limit: int) -> list[Event]:
+        return [self.get_event(event_id) for event_id in list(self.outcomes)[:limit]]
 
 
 @pytest.fixture
@@ -60,6 +63,9 @@ def controlled_provider(configured_events: dict[str, Event]) -> EventProvider:
 def test_invalid_event_id_is_rejected_without_provider_call(event_id: str) -> None:
     class UnusedProvider:
         def get_event(self, event_id: str) -> Event:
+            pytest.fail("Invalid input must not invoke the provider")
+
+        def list_events(self, limit: int) -> list[Event]:
             pytest.fail("Invalid input must not invoke the provider")
 
     with pytest.raises(InvalidInputError):
@@ -191,3 +197,91 @@ def test_http_failures_do_not_affect_subsequent_retrieval(
         response = client.get(f"/events/{event_id}")
         assert response.status_code == 200
         assert response.json() == expected
+
+
+@pytest.mark.parametrize(("limit", "expected_count"), [(None, 10), (1, 1), (100, 12)])
+def test_http_lists_public_events_with_default_and_bounded_limits(
+    limit: int | None,
+    expected_count: int,
+    configured_events: dict[str, Event],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    template = configured_events["event-002"]
+    events = {
+        f"event-{index}": template.model_copy(update={"id": f"event-{index}"})
+        for index in range(12)
+    }
+    provider: EventProvider = ControlledEventProvider(events)
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    with TestClient(app) as client:
+        response = client.get(
+            "/events", params={} if limit is None else {"limit": limit}
+        )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "id": f"event-{index}",
+            "title": template.title,
+            "start": template.start,
+            "end": template.end,
+        }
+        for index in range(expected_count)
+    ]
+
+
+def test_http_list_of_empty_calendar_returns_empty_array(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider: EventProvider = ControlledEventProvider({})
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    with TestClient(app) as client:
+        response = client.get("/events")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.parametrize("limit", ["0", "101", "abc", "1.5", ""])
+def test_http_invalid_list_limit_is_rejected_before_google_setup(
+    limit: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def unexpected_client() -> None:
+        pytest.fail(
+            "Invalid limits must not construct a client or contact the provider"
+        )
+
+    monkeypatch.setattr("app.main.build_google_calendar_client", unexpected_client)
+    with TestClient(app) as client:
+        response = client.get("/events", params={"limit": limit})
+    assert response.status_code == 400
+    assert response.json() == {
+        "error": {"code": "invalid_input", "message": "Invalid event limit"}
+    }
+
+
+@pytest.mark.parametrize("limit", [0, 101])
+def test_application_rejects_invalid_list_limit(limit: int) -> None:
+    with pytest.raises(InvalidInputError):
+        list_events(limit, provider=ControlledEventProvider({}))
+
+
+def test_http_list_provider_failure_uses_shared_response_and_operation_log(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    provider: EventProvider = ControlledEventProvider(
+        {"failure": ProviderFailureError("synthetic private provider detail")}
+    )
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    with TestClient(app) as client:
+        response = client.get("/events")
+    assert response.status_code == 502
+    assert response.json() == {
+        "error": {
+            "code": "provider_error",
+            "message": "Calendar provider request failed",
+        }
+    }
+    records = [record for record in caplog.records if record.name == "app.http_errors"]
+    assert len(records) == 1
+    assert records[0].__dict__["operation"] == "list_events"
+    assert "synthetic private provider detail" not in caplog.text

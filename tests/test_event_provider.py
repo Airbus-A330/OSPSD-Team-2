@@ -14,6 +14,9 @@ def test_implementation_satisfies_provider_without_inheritance() -> None:
                 end="2026-10-01T11:00:00-04:00",
             )
 
+        def list_events(self, limit: int) -> list[Event]:
+            return [self.get_event("opaque-event-123")][:limit]
+
     provider: EventProvider = ExampleProvider()
 
     assert provider.get_event(event_id="opaque-event-123") == Event(

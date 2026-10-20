@@ -219,6 +219,7 @@ Milestone 2 uses this provider-independent contract:
 ```python
 class EventProvider(Protocol):
     def get_event(self, event_id: str) -> Event: ...
+    def list_events(self, limit: int) -> list[Event]: ...
 ```
 
 `get_event` retrieves one event by its service-visible identifier. The
@@ -262,11 +263,12 @@ Google SDK objects cross the interface. Startup or other composition code
 selects and supplies the concrete provider; application logic must not import or
 construct it.
 
-This is the frozen target boundary for Levels 3–4, not a claim that the current
-implementation already satisfies those levels. It intentionally contains only
-the `get_event` operation needed now and does not imply support for multiple
-real providers or runtime provider switching. Implementing it must preserve the
-existing `GET /events/{event_id}` public contract in `CONTRACT.md`.
+Issue #51 explicitly extends the original Levels 3–4 interface with
+`list_events(limit: int) -> list[Event]`; the GET-one signature is unchanged.
+Listing accepts a validated limit from 1 to 100, returns a possibly short or empty
+list in provider order, and changes no calendar state. Both operations use the
+same composition boundary and service errors. This does not imply multiple real
+providers or runtime provider switching.
 
 ---
 
@@ -306,7 +308,7 @@ FastAPI composition are implemented as described above.
 |---|---|
 | `app/main.py` | FastAPI entry point and composition of the configured Google provider |
 | `app/http_errors.py` | Fixed HTTP responses for shared service exceptions and sanitized failure logging |
-| `app/events.py` | Provider-independent application operation for retrieving an event |
+| `app/events.py` | Provider-independent retrieval/listing operations and shared input validation |
 | `app/errors.py` | Provider-independent service exceptions defined by the Level 5 contract in `CONTRACT.md` |
 | `app/providers.py` | Provider-independent `EventProvider` protocol |
 | `app/models.py` | Public `Event` domain model |
@@ -335,3 +337,22 @@ provider payloads, and expected-failure tracebacks.
 
 The Google client remains request-scoped and is closed in the composition
 dependency's `finally`, including when retrieval raises a handled service error.
+
+## Bounded Event Listing (#51)
+
+The list route validates its limit before provider resolution, using the same
+integer parser as FastAPI and the shared application bounds. Non-HTTP listing
+also checks the bounds. The existing error handler uses request-local operation
+context for listing logs and its fixed `Invalid event limit` message; GET-one
+messages and the shared error structure remain unchanged.
+
+`GoogleCalendarProvider.list_events` performs one `events.list` call, expands
+recurrences, and translates at most `limit` items into domain Events. Google
+failure classification is reused; unsupported event shapes become
+`ProviderFailureError`. No public pagination or listing cache is introduced.
+
+For G provider records fetched and N = min(G, limit) returned, the SDK holds the
+raw page and translation builds N domain objects. Local work and memory are
+O(G + N) for fixed-size records (actual payload bytes also matter), with exactly
+one provider request and no traversal of later pages. Google normally returns
+G <= limit and may return fewer. Its internal query cost is unknown.

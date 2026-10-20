@@ -33,6 +33,11 @@ class ControlledProvider:
             raise self.outcome
         return self.outcome
 
+    def list_events(self, limit: int) -> list[Event]:
+        if isinstance(self.outcome, Exception):
+            raise self.outcome
+        return [self.outcome][:limit]
+
 
 def override_provider(provider: EventProvider, monkeypatch: pytest.MonkeyPatch) -> None:
     """Use the production dependency override and restore it after the test."""

@@ -11,6 +11,18 @@ def validate_event_id(event_id: str) -> None:
         raise InvalidInputError("Event ID must contain a non-whitespace character")
 
 
+def validate_event_limit(limit: int) -> None:
+    """Reject listing limits outside the public 1–100 range."""
+    if not 1 <= limit <= 100:
+        raise InvalidInputError("Event limit must be between 1 and 100")
+
+
+def list_events(limit: int, provider: EventProvider) -> list[Event]:
+    """Read a bounded collection without changing provider state."""
+    validate_event_limit(limit)
+    return provider.list_events(limit)
+
+
 def get_event(event_id: str, provider: EventProvider) -> Event:
     """Retrieve an event from the configured calendar.
 

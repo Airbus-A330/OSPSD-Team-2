@@ -14,6 +14,7 @@ Google Calendar API v3, accessed through Google's Python client libraries.
 - [Google Calendar API scopes](https://developers.google.com/workspace/calendar/api/auth)
 - [Google OAuth security best practices](https://developers.google.com/identity/protocols/oauth2/resources/best-practices)
 - [Events: get](https://developers.google.com/workspace/calendar/api/v3/reference/events/get)
+- [Events: list](https://developers.google.com/workspace/calendar/api/v3/reference/events/list)
 
 ## Authentication
 
@@ -109,6 +110,7 @@ from the Google account; do not commit or share either credential file.
 |---|---|---|
 | Construct an authenticated client | `googleapiclient.discovery.build("calendar", "v3", ...)` | Authentication setup documented above |
 | Retrieve one event | `client.events().get(calendarId=calendar_id, eventId=event_id).execute()` | Reads external state without modifying it |
+| List events | `client.events().list(calendarId=calendar_id, maxResults=limit, singleEvents=True).execute()` | One read-only page; returns at most the requested number of domain Events |
 
 The retrieval function receives an already configured client, which can be built
 with `build_google_calendar_client`. The caller owns the client lifecycle.
@@ -160,6 +162,35 @@ builds the configured Google client, supplies it with `GOOGLE_CALENDAR_ID`
 the request. This request-scoped ownership avoids sharing the client's
 non-thread-safe HTTP transport across worker threads. Application logic uses only
 the provider-independent `EventProvider` contract in `app.providers`.
+
+### List events verification
+
+`GoogleCalendarProvider.list_events(limit)` uses the configured calendar and
+existing read scope. Google documents `maxResults` as a per-page maximum: pages
+can be short or empty even when a `nextPageToken` exists. This service deliberately
+returns only the first page and does not expose or follow that token. Recurrences
+are expanded with `singleEvents=True`; no chronological ordering is requested.
+Each result uses the existing four-field mapping below. Unsupported untitled or
+all-day events cause a shared provider failure, not a partial/silently filtered
+response. HTTP/transport failures use the existing Google error classifier.
+
+After completing local OAuth setup and starting the service as documented above:
+
+```bash
+curl -i 'http://127.0.0.1:8000/events?limit=2'
+curl -i 'http://127.0.0.1:8000/events?limit=0'
+```
+
+Expected: the first request returns 200 with zero to two four-field Events whose
+values match the configured test calendar; verify a returned ID with
+`GET /events/<EVENT_ID>`. The second returns 400 `invalid_input` with message
+`Invalid event limit`, without a provider request. Use a test calendar containing
+titled, timed events; listing is read-only and needs no resource cleanup. Stop the
+server afterward. Record the date, commit, expected/observed results, and comparison
+without posting credentials or private calendar data.
+
+**REAL PROVIDER VERIFICATION NOT PERFORMED** for listing. Controlled SDK and HTTP
+tests establish request construction, translation, and public behavior only.
 
 ## Field Mapping
 

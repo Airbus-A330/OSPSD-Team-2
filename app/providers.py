@@ -18,3 +18,13 @@ class EventProvider(Protocol):
             The event in the service's existing domain representation.
         """
         ...
+
+    def list_events(self, limit: int) -> list[Event]:
+        """Read at most limit events from the configured calendar.
+
+        The application supplies a limit from 1 to 100. Return domain Events
+        in provider order without changing calendar state. A short or empty
+        list is allowed; completeness and pagination are not promised.
+        Provider failures use the shared service errors, never SDK exceptions.
+        """
+        ...

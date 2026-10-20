@@ -184,6 +184,15 @@ The exact public API contract is documented in:
 
 [`docs/CONTRACT.md`](docs/CONTRACT.md)
 
+List up to two events from the configured calendar (200 with a JSON array):
+
+```bash
+curl -i 'http://127.0.0.1:8000/events?limit=2'
+```
+
+Listing defaults to 10 events and accepts limits from 1 to 100. See the contract
+for supported event shapes and provider-page limitations.
+
 ---
 
 ## Testing

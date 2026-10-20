@@ -119,8 +119,8 @@ leading/trailing whitespace and unusual characters. There is no local Google
 event-ID syntax validation or trimming. Existence and provider-specific validity
 remain the provider's responsibility.
 
-`/events` and `/events/` without an ID remain ordinary unmatched-route 404s,
-not Level 5 `invalid_input` errors.
+`GET /events` is the listing operation below. `GET /events/` redirects to
+`/events`; neither is a missing-ID `invalid_input` error.
 
 Implementation status: service exceptions, application-level validation, HTTP
 rendering of the four shared exceptions, and sanitized failure logging are
@@ -128,6 +128,48 @@ implemented. HTTP validation runs before provider setup; the application operati
 also validates non-HTTP calls. Controlled-provider tests verify these responses.
 Google-specific failure translation is implemented in the Google provider
 (#38). Live-provider failure behavior has not been verified.
+
+---
+
+### List Events
+
+**Owner:** Maksym Yemelianenko (#51, Operation 2).
+
+`GET /events` reads a small collection from the configured calendar. It accepts
+one optional integer query parameter, `limit`: default **10**, minimum **1**,
+maximum **100**. There is no request body. Invalid limits are rejected before
+provider setup or retrieval with HTTP 400:
+
+```json
+{"error": {"code": "invalid_input", "message": "Invalid event limit"}}
+```
+
+Success is HTTP **200** with a JSON array of zero to `limit` public `Event`
+objects, each containing exactly `id`, `title`, `start`, and `end`. Timestamp
+strings retain their provider offsets. IDs can be used with GET-one. The
+operation is read-only and safe to repeat; separate requests are not a snapshot.
+
+This first version returns one provider page in provider order. It does not
+promise chronological order, a full calendar traversal, or a full page. No Google
+page tokens or collection metadata are exposed. Only titled, timed events are
+supported, as for GET-one; an unsupported event in the page produces the shared
+502 `provider_error` response instead of silently dropping it or inventing fields.
+
+Other provider failures reuse the existing shared response shape and status/code
+mapping above (403 permission denial, 404 provider-reported missing resource, 502
+provider failure). Retry advice remains the same; this service does not retry
+requests automatically. Locally rejected limits cause no provider work.
+
+With provider setup complete, run:
+
+```bash
+curl -i 'http://127.0.0.1:8000/events?limit=2'
+```
+
+Expected: 200 and an array such as `[{"id":"event-123","title":"Team Meeting",
+"start":"2026-10-01T10:00:00-04:00","end":"2026-10-01T11:00:00-04:00"}]`,
+or `[]` if the page has no events. No calendar state changes or cleanup are needed.
+See [PROVIDER.md](PROVIDER.md#list-events-verification) for live verification.
 
 ---
 
