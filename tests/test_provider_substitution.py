@@ -412,7 +412,7 @@ def test_http_lists_public_events_with_default_and_bounded_limits(
         f"event-{index}": template.model_copy(update={"id": f"event-{index}"})
         for index in range(12)
     }
-    provider: EventProvider = ControlledEventProvider(events)
+    provider: EventProvider = ControlledEventProvider({**events})
     monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
     with TestClient(app) as client:
         response = client.get(

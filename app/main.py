@@ -4,11 +4,10 @@ import os
 from collections.abc import Iterator
 
 from fastapi import Depends, FastAPI, Query, Request, Body
-from pydantic import TypeAdapter, ValidationError
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from app.errors import (
     InvalidInputError,
@@ -16,7 +15,13 @@ from app.errors import (
     PermissionDeniedError,
     ProviderFailureError,
 )
-from app.events import get_event, list_events, validate_event_id, validate_event_limit, replace_event
+from app.events import (
+    get_event,
+    list_events,
+    validate_event_id,
+    validate_event_limit,
+    replace_event,
+)
 from app.google_calendar import GoogleCalendarProvider, build_google_calendar_client
 from app.http_errors import service_error_response
 from app.models import Event, EventReplacement
