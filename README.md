@@ -8,16 +8,16 @@ The repository is designed to be easy for another developer to install, run, tes
 
 ---
 
-## Team Members
+## Team Members and Operation Ownership
 
-| NetID | Name |
-|---|---|
-| dxz207 | Dorien Zhang |
-| my2658 | Maksym Yemelianenko |
-| anf3003 | Alexander Freedman |
-| ymh9084 | Yasmin Hassoobh |
-| no2172 | Nicolas Ollivier |
-| xl6081 | Xingjian Liu |
+| NetID | Name | Owned operation |
+|---|---|---|
+| dxz207 | Dorien Zhang | Retrieve an event (`GET /events/{event_id}`) |
+| my2658 | Maksym Yemelianenko | List events (`GET /events`) |
+| anf3003 | Alexander Freedman | Create an event (`POST /events`) |
+| no2172 | Nicolas Ollivier | Replace an event (`PUT /events/{event_id}`) |
+| ymh9084 | Yasmin Hassoobh | Partially update an event (`PATCH /events/{event_id}`) |
+| xl6081 | Xingjian Liu | Delete an event (`DELETE /events/{event_id}`) |
 
 ---
 
@@ -184,7 +184,60 @@ The exact public API contract is documented in:
 
 [`docs/CONTRACT.md`](docs/CONTRACT.md)
 
+List up to two events from the configured calendar (200 with a JSON array):
+
+```bash
+curl -i 'http://127.0.0.1:8000/events?limit=2'
+```
+
+Listing defaults to 10 events and accepts limits from 1 to 100. See the contract
+for supported event shapes and provider-page limitations.
+For Nicolas's complete event replacement operation, see the runnable
+[`PUT /events/{event_id}` example](docs/CONTRACT.md#replace-event--nicolas-ollivier-operation-4).
+All editable fields are required. Write access and renewed OAuth consent are
+described in [provider setup](docs/PROVIDER.md#authentication).
+
+### Partially update an event
+
+Yasmin's `PATCH /events/{event_id}` changes only supplied fields:
+
+```bash
+curl -i -X PATCH http://127.0.0.1:8000/events/your-test-event-id \
+  -H 'Content-Type: application/json' -d '{"title":"Updated meeting"}'
+```
+
+Expect 200 with the updated Event and unchanged omitted fields. See the
+[PATCH contract](docs/CONTRACT.md#partially-update-event--yasmin-hassoobh-operation-5)
+and [verification/cleanup instructions](docs/PROVIDER.md#partial-update-verification).
+
+### Create an event
+
+After completing provider configuration, create a titled, timed event with:
+
+```bash
+curl -i -X POST http://127.0.0.1:8000/events \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Team Meeting","start":"2026-10-22T10:00:00-04:00","end":"2026-10-22T11:00:00-04:00"}'
+```
+
+The expected response is HTTP 201 with the created event's generated `id`,
+`title`, `start`, and `end`. See [`docs/PROVIDER.md`](docs/PROVIDER.md) for
+real-provider verification and cleanup.
+
 ---
+
+### Delete a disposable event
+
+Xingjian's `DELETE /events/{event_id}` removes one event from the configured
+calendar. Use the ID returned when creating a disposable test event:
+
+```bash
+curl -i -X DELETE http://127.0.0.1:8000/events/your-disposable-event-id
+```
+
+Success is **204 with an empty body**. Missing events and failures use the shared
+error envelope. See the [DELETE contract](docs/CONTRACT.md#delete-event--xingjian-liu-operation-6)
+and [real-provider procedure](docs/PROVIDER.md#delete-verification).
 
 ## Testing
 

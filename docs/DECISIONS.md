@@ -41,6 +41,16 @@ operations may require deliberate extension.
 A required operation cannot be expressed cleanly through this interface, or a
 second real provider reveals a genuine incompatibility.
 
+**Revisited 2026-10-20**
+
+The final API requires six public calendar operations. The interface now contains
+only their provider-independent signatures: retrieve, list, create, replace,
+partial update, and delete. Request models describe service-domain values, and
+all returned events use the same four-field `Event` model. The team retained this
+single small protocol and ordinary FastAPI dependency replacement instead of
+introducing a broader provider abstraction, provider registry, or dependency-
+injection framework.
+
 ---
 
 ## Decision Template

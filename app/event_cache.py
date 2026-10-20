@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from threading import Lock
 from time import monotonic
 
-from app.models import Event
+from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
 
 EVENT_CACHE_TTL_SECONDS = 60.0
@@ -71,6 +71,11 @@ class EventCache:
                 expires_at=now + self._ttl_seconds,
             )
 
+    def remove(self, namespace: str, event_id: str) -> None:
+        """Remove an event if it is currently cached."""
+        with self._lock:
+            self._entries.pop((namespace, event_id), None)
+
 
 class CachedEventProvider:
     """Cache successful reads from another provider using domain Events only."""
@@ -96,3 +101,32 @@ class CachedEventProvider:
         event = self._provider.get_event(event_id)
         self._cache.put(self._namespace, event_id, event)
         return event
+
+    def list_events(self, limit: int) -> list[Event]:
+        """List events directly because the cache stores single-event reads."""
+        return self._provider.list_events(limit)
+
+    def create_event(self, event: CreateEventRequest) -> Event:
+        """Create an event and cache the provider's resulting representation."""
+        created = self._provider.create_event(event)
+        self._cache.put(self._namespace, created.id, created)
+        return created
+
+    def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
+        """Discard stale data and cache a successful complete replacement."""
+        self._cache.remove(self._namespace, event_id)
+        replaced = self._provider.replace_event(event_id, replacement)
+        self._cache.put(self._namespace, replaced.id, replaced)
+        return replaced
+
+    def patch_event(self, event_id: str, changes: EventPatch) -> Event:
+        """Discard stale data and cache a successful partial update."""
+        self._cache.remove(self._namespace, event_id)
+        patched = self._provider.patch_event(event_id, changes)
+        self._cache.put(self._namespace, patched.id, patched)
+        return patched
+
+    def delete_event(self, event_id: str) -> None:
+        """Discard cached data before attempting deletion."""
+        self._cache.remove(self._namespace, event_id)
+        self._provider.delete_event(event_id)

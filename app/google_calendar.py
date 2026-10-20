@@ -1,4 +1,4 @@
-"""Google Calendar authentication, event retrieval, and translation."""
+"""Google Calendar authentication, event operations, and translation."""
 
 import json
 import os
@@ -13,6 +13,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore[import-un
 from googleapiclient.discovery import Resource, build  # type: ignore[import-untyped]
 from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
 from httplib2 import HttpLib2Error  # type: ignore[import-untyped]
+from pydantic import ValidationError
 
 from app.errors import (
     NotFoundError,
@@ -20,10 +21,10 @@ from app.errors import (
     ProviderFailureError,
     ServiceError,
 )
-from app.models import Event
+from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
 
-GOOGLE_CALENDAR_SCOPES = ("https://www.googleapis.com/auth/calendar.events.readonly",)
+GOOGLE_CALENDAR_SCOPES = ("https://www.googleapis.com/auth/calendar.events",)
 
 # Machine-readable Google error reasons that report a quota or rate limit
 # rather than a permission failure. Google returns them with HTTP 403 (and
@@ -106,6 +107,27 @@ def get_event(client: Any, *, calendar_id: str, event_id: str) -> dict[str, obje
     return client.events().get(calendarId=calendar_id, eventId=event_id).execute()
 
 
+def create_event(
+    client: Any, *, calendar_id: str, event: CreateEventRequest
+) -> dict[str, object]:
+    """Create one timed Google Calendar event using domain request values.
+
+    Args:
+        client: Authenticated client owned and configured by the caller.
+        calendar_id: Google calendar identifier, or ``primary``.
+        event: Provider-independent event creation request.
+
+    Returns:
+        Raw Google event data for translation inside this module.
+    """
+    body = {
+        "summary": event.title,
+        "start": {"dateTime": event.start},
+        "end": {"dateTime": event.end},
+    }
+    return client.events().insert(calendarId=calendar_id, body=body).execute()
+
+
 def _google_error_reasons(error: HttpError) -> set[str]:
     """Extract Google's machine-readable error reasons from a failure body.
 
@@ -159,12 +181,91 @@ def _translate_google_error(error: HttpError) -> ServiceError:
 
 
 class GoogleCalendarProvider(EventProvider):
-    """Retrieve domain events through a configured Google Calendar client."""
+    """Perform domain event operations through a Google Calendar client."""
 
     def __init__(self, client: Resource, *, calendar_id: str) -> None:
         """Store the client and calendar configuration without performing I/O."""
         self._client = client
         self._calendar_id = calendar_id
+
+    def delete_event(self, event_id: str) -> None:
+        """Delete one event using Google events.delete, without retries.
+
+        Args:
+            event_id: Unchanged identifier within the configured calendar.
+
+        Raises:
+            NotFoundError: If Google reports a missing or already deleted event.
+            PermissionDeniedError: If Google denies access.
+            ProviderFailureError: If another Google or transport failure occurs.
+                A lost response may leave the deletion outcome uncertain.
+        """
+        try:
+            self._client.events().delete(
+                calendarId=self._calendar_id, eventId=event_id
+            ).execute()
+        except HttpError as error:
+            if error.status_code == 410 and "deleted" in _google_error_reasons(error):
+                raise NotFoundError(
+                    "Google Calendar event is already deleted"
+                ) from None
+            raise _translate_google_error(error) from None
+        except (HttpLib2Error, TransportError):
+            raise ProviderFailureError("Google Calendar request failed") from None
+
+    def patch_event(self, event_id: str, changes: EventPatch) -> Event:
+        """Send only caller-supplied changes using Google patch semantics."""
+        body: dict[str, object] = {}
+        if changes.title is not None:
+            body["summary"] = changes.title
+        if changes.start is not None:
+            body["start"] = {"dateTime": changes.start}
+        if changes.end is not None:
+            body["end"] = {"dateTime": changes.end}
+        try:
+            result = (
+                self._client.events()
+                .patch(
+                    calendarId=self._calendar_id,
+                    eventId=event_id,
+                    body=body,
+                )
+                .execute()
+            )
+        except HttpError as error:
+            raise _translate_google_error(error) from None
+        except (HttpLib2Error, TransportError):
+            raise ProviderFailureError("Google Calendar request failed") from None
+        try:
+            return translate_google_event(result)
+        except (KeyError, TypeError, ValidationError):
+            raise ProviderFailureError(
+                "Invalid Google Calendar patch response"
+            ) from None
+
+    def list_events(self, limit: int) -> list[Event]:
+        """Read one bounded page of titled, timed events as domain values.
+
+        Recurrences are expanded. No page token or provider metadata escapes;
+        unsupported event shapes and provider failures use service errors.
+        """
+        try:
+            response = (
+                self._client.events()
+                .list(calendarId=self._calendar_id, maxResults=limit, singleEvents=True)
+                .execute()
+            )
+        except HttpError as error:
+            raise _translate_google_error(error) from None
+        except (HttpLib2Error, TransportError):
+            raise ProviderFailureError("Google Calendar request failed") from None
+        try:
+            return [
+                translate_google_event(item)
+                for item in response.get("items", [])[:limit]
+            ]
+        except (KeyError, TypeError, ValidationError):
+            raise ProviderFailureError("Unsupported Google event data") from None
 
     def get_event(self, event_id: str) -> Event:
         """Retrieve a Google event and translate it into the domain model.
@@ -191,4 +292,72 @@ class GoogleCalendarProvider(EventProvider):
             raise _translate_google_error(error) from None
         except (HttpLib2Error, TransportError):
             raise ProviderFailureError("Google Calendar request failed") from None
-        return translate_google_event(provider_event)
+        if provider_event.get("status") == "cancelled":
+            raise NotFoundError("Google Calendar event is cancelled")
+        try:
+            return translate_google_event(provider_event)
+        except (KeyError, TypeError, ValidationError):
+            raise ProviderFailureError(
+                "Invalid Google Calendar retrieval response"
+            ) from None
+
+    def create_event(self, event: CreateEventRequest) -> Event:
+        """Create a Google event and return its translated domain representation.
+
+        Args:
+            event: Provider-independent event creation request.
+
+        Returns:
+            The created event with its Google-generated identifier.
+
+        Raises:
+            PermissionDeniedError: If Google denies the event creation.
+            ProviderFailureError: If another Google or transport failure occurs.
+        """
+        try:
+            provider_event = create_event(
+                self._client,
+                calendar_id=self._calendar_id,
+                event=event,
+            )
+        except HttpError as error:
+            raise _translate_google_error(error) from None
+        except (HttpLib2Error, TransportError):
+            raise ProviderFailureError("Google Calendar request failed") from None
+        try:
+            return translate_google_event(provider_event)
+        except (KeyError, TypeError, ValidationError):
+            raise ProviderFailureError(
+                "Invalid Google Calendar creation response"
+            ) from None
+
+    def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
+        """Fully update an event using Google events.update, without retries.
+
+        Google HTTP/transport failures use the existing service error mapping.
+        A lost response can leave the write outcome unknown to the caller.
+        """
+        try:
+            provider_event = (
+                self._client.events()
+                .update(
+                    calendarId=self._calendar_id,
+                    eventId=event_id,
+                    body={
+                        "summary": replacement.title,
+                        "start": {"dateTime": replacement.start},
+                        "end": {"dateTime": replacement.end},
+                    },
+                )
+                .execute()
+            )
+        except HttpError as error:
+            raise _translate_google_error(error) from None
+        except (HttpLib2Error, TransportError):
+            raise ProviderFailureError("Google Calendar request failed") from None
+        try:
+            return translate_google_event(provider_event)
+        except (KeyError, TypeError, ValidationError):
+            raise ProviderFailureError(
+                "Invalid Google Calendar update response"
+            ) from None

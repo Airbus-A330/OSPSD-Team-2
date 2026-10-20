@@ -3,6 +3,7 @@
 import logging
 
 from fastapi import Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.errors import (
@@ -36,14 +37,28 @@ def service_error_response(request: Request, error: Exception) -> JSONResponse:
     else:
         raise error
 
+    operation = getattr(request.state, "operation", "get_event")
+    if isinstance(error, InvalidInputError) and operation == "list_events":
+        message = "Invalid event limit"
+    elif isinstance(error, InvalidInputError) and operation == "create_event":
+        message = "Invalid event data"
+    elif isinstance(error, InvalidInputError) and operation not in {
+        "get_event",
+        "replace_event",
+    }:
+        message = "Invalid input"
     provider_involved = getattr(request.state, "provider_involved", None)
+    if isinstance(error, InvalidInputError):
+        message = getattr(request.state, "invalid_input_message", message)
     logger.warning(
-        "Event retrieval failed: code=%s status=%s provider_involved=%s",
+        "Calendar operation failed: operation=%s code=%s status=%s "
+        "provider_involved=%s",
+        operation,
         code,
         status,
         provider_involved,
         extra={
-            "operation": "get_event",
+            "operation": operation,
             "error_code": code,
             "provider_involved": provider_involved,
             "http_status": status,
@@ -51,4 +66,20 @@ def service_error_response(request: Request, error: Exception) -> JSONResponse:
     )
     return JSONResponse(
         status_code=status, content={"error": {"code": code, "message": message}}
+    )
+
+
+def request_validation_error_response(
+    request: Request, error: Exception
+) -> JSONResponse:
+    """Render malformed requests through the shared invalid-input contract."""
+    if not isinstance(error, RequestValidationError):
+        raise error
+    route = request.scope.get("route")
+    request.state.operation = getattr(route, "name", "request_validation")
+    request.state.provider_involved = False
+    if request.state.operation == "replace_event":
+        request.state.invalid_input_message = "Invalid event replacement"
+    return service_error_response(
+        request, InvalidInputError("Request schema validation failed")
     )

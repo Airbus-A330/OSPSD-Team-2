@@ -39,6 +39,12 @@ def test_build_client_uses_valid_saved_credentials(
     build.assert_called_once_with("calendar", "v3", credentials=credentials)
 
 
+def test_calendar_scope_allows_event_reads_and_writes() -> None:
+    assert GOOGLE_CALENDAR_SCOPES == (
+        "https://www.googleapis.com/auth/calendar.events",
+    )
+
+
 @patch("app.google_calendar.Request")
 @patch("app.google_calendar.build")
 @patch("app.google_calendar.Credentials.from_authorized_user_file")
