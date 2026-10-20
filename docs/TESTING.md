@@ -250,7 +250,7 @@ Normal CI must not require provider credentials.
 | Public Event model | Yes | | | `tests/test_event_model.py` covers construction, serialization, required string fields, and timestamp preservation |
 | Service error types | Yes | | | `tests/test_errors.py` verifies exception construction and catching through `ServiceError`; provider translation and HTTP rendering remain separate |
 | Local event-ID validation | Yes | | | `tests/test_provider_substitution.py` verifies blank IDs never invoke the provider and nonblank IDs pass unchanged, including whitespace and unusual characters |
-| Google Calendar client construction | Yes | | Manual | Automated tests mock OAuth and API client construction |
+| Google Calendar client construction | Yes | Yes | Manual | Automated tests mock OAuth/client construction and translate token-refresh transport failures through the public 502 boundary |
 | FastAPI event endpoint | | Yes | Manual | `tests/test_provider_substitution.py` overrides `get_event_provider` with a controlled provider and verifies the exact four-field response; live verification is documented in `PROVIDER.md` |
 | Level 5 HTTP failures | | Yes | Missing-event verified 2026-10-20 | Exact shared-error responses, sanitized logs, and repeated success/failure/recovery through controlled provider substitution; permission and outage cases remain controlled-only |
 | Provider composition | Yes | | | `tests/test_event_routes.py` verifies configured and default calendar IDs with a controlled SDK client |
