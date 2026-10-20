@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from app.errors import PermissionDeniedError, ProviderFailureError, ServiceError
 from app.events import create_event
 from app.main import app, get_event_provider
-from app.models import CreateEventRequest, Event
+from app.models import CreateEventRequest, Event, EventReplacement
 
 
 @dataclass
@@ -30,6 +30,9 @@ class ControlledCreateProvider:
         if isinstance(self.outcome, ServiceError):
             raise self.outcome
         return self.outcome
+
+    def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
+        raise NotImplementedError
 
 
 @pytest.fixture
