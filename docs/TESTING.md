@@ -45,7 +45,7 @@ Real-provider verification remains separate and documented in [PROVIDER.md](PROV
 ## Google Provider Tests
 
 `tests/test_google_calendar_provider.py` tests the concrete
-`GoogleCalendarProvider` with a controlled SDK client. Its seventeen cases cover:
+`GoogleCalendarProvider` with a controlled SDK client. Its focused cases cover:
 
 - Two calendar/event ID pairs: construction makes no SDK calls, retrieval uses
   the supplied identifiers, and the result is an `Event` with exactly the four
@@ -63,15 +63,17 @@ Real-provider verification remains separate and documented in [PROVIDER.md](PROV
   authentication `TransportError` raised while executing the request each
   translate to `ProviderFailureError`, likewise without retaining the
   original exception as the cause.
-- An unsupported all-day response: translation raises `KeyError` instead of
-  returning raw Google data or inventing timestamps.
+- Unsupported all-day and malformed create responses become
+  `ProviderFailureError` instead of returning raw Google data, leaking mapping
+  exceptions, or inventing fields.
 
 These tests run without credentials or network access. Existing mapping and
 model tests cover additional missing-field and invalid-type cases. The separate
-HTTP integration test covers controlled provider substitution; live Google
-connectivity is documented in `PROVIDER.md`.
+HTTP integration tests cover controlled provider substitution and prove malformed
+GET/POST Google responses render the shared 502 envelope while closing the
+request-scoped client. Live Google connectivity is documented in `PROVIDER.md`.
 
-## Event Deletion Tests (#51, Xingjian Liu)
+## Event Deletion Tests — Xingjian Liu
 
 `tests/test_delete_event.py` exercises DELETE using a stateful controlled
 `EventProvider`, with no credentials or network access. It verifies:
@@ -110,13 +112,15 @@ Local verification on 2026-10-20 found all 26 DELETE lifecycle tests passing.
 HTTP creation path. It checks the 201 response, provider-generated identifier,
 complete returned values, and the controlled provider's recorded write. Focused
 cases reject a blank title, invalid time ordering, timestamps without UTC
-offsets, and missing time fields before a provider write. Permission denial and
-provider failure use the shared public error shape and sanitized logging.
+offsets, missing fields, and unknown provider-specific fields before a provider
+write. OpenAPI coverage marks the body required. Permission denial and provider
+failure use the shared public error shape and sanitized logging.
 
 `tests/test_google_calendar_provider.py` verifies that creation uses Google
 `events.insert` with only `summary`, `start.dateTime`, and `end.dateTime`, then
 translates the provider result into `Event`. Controlled Google 403 and 500
-responses verify service-error translation without credentials or network.
+responses and malformed success payloads verify service-error translation without
+credentials or network.
 
 ## Event Cache Tests
 
@@ -134,7 +138,7 @@ do not leave stale values, and listing bypasses the single-event cache.
 
 These tests use no credentials, network access, or wall-clock delays.
 
-## Level 5 HTTP Failures (#39)
+## Level 5 HTTP Failures
 
 `tests/test_http_errors.py` sends requests through FastAPI and the application
 operation. A controlled `EventProvider` supplies the four shared service failures;
@@ -156,12 +160,12 @@ Additional cases verify that:
 
 The tests require neither credentials nor live network. Production composition
 checks replace client construction and the concrete provider with controlled
-objects. They do not verify Google-specific exception translation, which belongs
-to #38, or live-provider failures. Levels 1–4 GET-one success/substitution
-guarantees remain. Under #51, `/events` is now the listing route and `/events/`
-redirects to it rather than representing an unmatched event-ID route.
+objects. They do not verify Google-specific exception translation or live-provider
+failures. Levels 1–4 GET-one success/substitution guarantees remain. `/events` is
+the listing route and `/events/` redirects to it rather than representing an
+unmatched event-ID route.
 
-## Integrated Level 5 Verification (#40)
+## Integrated Level 5 Verification
 
 `tests/test_provider_substitution.py::test_http_failures_do_not_affect_subsequent_retrieval`
 extends the Level 4 substitution tests with a repeated-request workflow through the
@@ -176,8 +180,8 @@ same FastAPI app and controlled provider:
 The three parameterized cases verify that locally rejected and provider-failed
 requests do not prevent subsequent successful retrieval. They assert the public
 contract, not SDK calls or exception internals. Overrides are restored by
-`monkeypatch`. The focused validation, HTTP mapping/logging, and Google translation
-tests remain owned by #37, #39, and #38; this workflow does not duplicate their
+`monkeypatch`. Focused validation, HTTP mapping/logging, and Google translation
+tests cover their respective boundaries; this workflow does not duplicate those
 unit cases or establish live Google behavior.
 
 Run `make test` for all fast tests, or select this workflow with:
@@ -188,18 +192,20 @@ uv run --locked python -m pytest tests/test_provider_substitution.py -k test_htt
 
 ### Defect-detection evidence
 
-On the #40 branch based on `882d396`, the `NotFoundError` HTTP mapping was
-temporarily changed from 404 to 200. The workflow's `[not_found]` case failed
+During defect-detection testing, the `NotFoundError` HTTP mapping was temporarily
+changed from 404 to 200. The workflow's `[not_found]` case failed
 at `assert response.status_code == status` with `assert 200 == 404` (one failed).
 After restoring the 404 mapping, the same case passed (one passed). This protects
 the requirement that a failed lookup must not be reported as successful. The
-mutation was not committed; the PR records the exact command and results.
+mutation was not committed; the verification record includes the exact command
+and results.
 
-Real-provider verification: **NOT PERFORMED**. Google failure translation remains
-separate (#38); passing controlled-provider tests is not final live-provider or
-release verification.
+Real-provider verification on 2026-10-20 included the public missing-event path:
+repeated DELETE and subsequent GET returned the documented 404 envelope. Real
+permission denial and provider-outage conditions were not induced; their exact
+responses and recovery behavior remain covered by controlled tests.
 
-## Event Listing (#51, Maksym)
+## Event Listing — Maksym
 
 The existing controlled provider in `tests/test_provider_substitution.py` now
 implements `list_events` as well as GET-one. HTTP cases verify the default limit
@@ -222,8 +228,8 @@ Run `make check` for the full suite, or focus on listing:
 uv run --locked python -m pytest tests/test_google_calendar_listing.py tests/test_provider_substitution.py tests/test_event_routes.py -k 'list or collection'
 ```
 
-Tests need no credentials, live network, or sleeps. Live listing verification is
-**NOT PERFORMED**; its manual procedure is in
+Tests need no credentials, live network, or sleeps. Live listing verification was
+completed on 2026-10-20 and is recorded in
 [PROVIDER.md](PROVIDER.md#list-events-verification).
 
 ## CI
@@ -240,21 +246,23 @@ Normal CI must not require provider credentials.
 
 | Feature / Contract | Unit | Integration | Real Provider | Known Gaps |
 |---|---:|---:|---:|---|
-| Event listing | Yes | Yes | Not verified | Default/bounded limits, empty pages, fixed errors, SDK translation, and client cleanup; see the listing section above |
+| Event listing | Yes | Yes | Verified 2026-10-20 | Default/bounded limits, empty pages, fixed errors, SDK translation, and client cleanup; see the listing section above |
 | Public Event model | Yes | | | `tests/test_event_model.py` covers construction, serialization, required string fields, and timestamp preservation |
 | Service error types | Yes | | | `tests/test_errors.py` verifies exception construction and catching through `ServiceError`; provider translation and HTTP rendering remain separate |
 | Local event-ID validation | Yes | | | `tests/test_provider_substitution.py` verifies blank IDs never invoke the provider and nonblank IDs pass unchanged, including whitespace and unusual characters |
 | Google Calendar client construction | Yes | | Manual | Automated tests mock OAuth and API client construction |
 | FastAPI event endpoint | | Yes | Manual | `tests/test_provider_substitution.py` overrides `get_event_provider` with a controlled provider and verifies the exact four-field response; live verification is documented in `PROVIDER.md` |
-| Level 5 HTTP failures | | Yes | Not verified | Exact shared-error responses, sanitized logs, and repeated success/failure/recovery through controlled provider substitution; Google-specific translation and live failures are separate |
+| Level 5 HTTP failures | | Yes | Missing-event verified 2026-10-20 | Exact shared-error responses, sanitized logs, and repeated success/failure/recovery through controlled provider substitution; permission and outage cases remain controlled-only |
 | Provider composition | Yes | | | `tests/test_event_routes.py` verifies configured and default calendar IDs with a controlled SDK client |
 | Google event translation | Yes | | | Synthetic timed-event fixtures; all-day and sparse responses are unsupported |
-| Google event retrieval | Yes | Yes | Manual | Provider HTTP errors translate to service errors (#38); live failure verification requires team credentials |
+| Google event retrieval | Yes | Yes | Verified | Provider HTTP errors and malformed payloads translate to service errors; live success and missing-event behavior are documented in `PROVIDER.md` |
 | `EventProvider` contract | Yes | Yes | | `tests/test_event_provider.py` verifies structural compatibility and domain input/output; the HTTP test verifies substitution through `app/providers.py` |
-| Google provider implementation | Yes | | Manual | Provider unit tests use a controlled SDK client; live timed-event retrieval is documented in `PROVIDER.md` |
+| Google provider implementation | Yes | | Verified 2026-10-20 | Provider unit tests use a controlled SDK client; all six public operation paths were verified against Google |
 | Application event retrieval through `EventProvider` | Yes | Yes | | Controlled events verify identifier selection, response preservation, and repeated reads |
 | Controlled provider substitution | Yes | Yes | No | `tests/test_provider_substitution.py` uses a configurable provider through application arguments and `app.dependency_overrides` |
-| Create event | Yes | Yes | Manual required | Controlled writes verify validation, the 201 response, returned values, provider failures, and Google request/response translation; live steps are in `PROVIDER.md` |
+| Create event | Yes | Yes | Verified 2026-10-20 | Controlled writes verify strict validation, the 201 response, returned values, provider failures, and Google request/response translation |
+| Replace event | Yes | Yes | Verified 2026-10-20 | Complete replacement, read-back state, strict validation, shared failures, exact Google update request, and translated response |
+| Partial update event | Yes | Yes | Verified 2026-10-20 | Sparse updates, omitted-field preservation, resulting interval validation, shared failures, exact Google patch request, and translated response |
 | Delete event | Yes | Yes | Verified 2026-10-20 | 26 controlled cases; live create/read/delete/repeat/read-back verified with a disposable event. Permission and provider failures remain controlled-only; see `PROVIDER.md` |
 | Successful event caching | Yes | Yes | Not applicable | Controlled providers and a fake clock verify hit, miss, expiry, bounded storage, oldest-entry eviction, calendar isolation, failure behavior, production composition, and unchanged HTTP responses |
 
@@ -265,7 +273,7 @@ Their 404 responses reflect unmatched routes, not a lookup for a nonexistent eve
 
 ## Commands
 
-### PUT replacement (#51, Nicolas Ollivier)
+### PUT Replacement — Nicolas Ollivier
 
 `tests/test_provider_substitution.py` now gives the controlled provider a
 `replace_event` operation and records replacement attempts. PUT tests check:
@@ -285,7 +293,8 @@ Their 404 responses reflect unmatched routes, not a lookup for a nonexistent eve
 domain response translation, HTTP/transport error mapping, and no retry. Existing
 GET-only doubles receive only the method needed to satisfy the expanded protocol;
 their retrieval behavior is unchanged. All fast tests are credential/network-free.
-Live PUT verification remains outstanding; follow [PROVIDER.md](PROVIDER.md).
+Live PUT verification was completed on 2026-10-20 and is recorded in
+[PROVIDER.md](PROVIDER.md).
 
 Defect-detection evidence: temporarily changing the interval rejection from
 `end <= start` to `end < start` allowed equal instants at different offsets.
@@ -307,7 +316,7 @@ make check
 Real-provider authentication and end-to-end verification are documented in
 `PROVIDER.md`.
 
-## Partial update coverage — Yasmin (#51)
+## Partial Update Coverage — Yasmin
 
 PATCH cases in `tests/test_provider_substitution.py` exercise the public route
 with the existing controlled provider. They check persisted title-only and time
@@ -319,5 +328,5 @@ and operation log context. Existing GET/list/create/replace tests remain intact.
 
 `tests/test_google_calendar_patch.py` checks exact sparse Google request bodies,
 translated domain responses, HTTP/transport failure mapping, unsupported responses,
-and no retries. All these tests are credential-free and network-free. Real-provider
-PATCH verification remains outstanding; use `PROVIDER.md` before final release.
+and no retries. All these tests are credential-free and network-free. Live PATCH
+verification was completed on 2026-10-20 and is recorded in `PROVIDER.md`.

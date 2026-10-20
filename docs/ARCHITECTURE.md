@@ -272,14 +272,15 @@ Google SDK objects cross the interface. Startup or other composition code
 selects and supplies the concrete provider; application logic must not import or
 construct it.
 
-Issue #51 explicitly extends the original Levels 3–4 interface with
-the listing and creation operations; the GET-one signature is unchanged.
-Listing accepts a validated limit from 1 to 100, returns a possibly short or empty
-list in provider order, and changes no calendar state. Creation accepts only
-provider-independent event values and returns the created domain `Event`. All
-operations use the same composition boundary and service errors. This interface
-contains only operations required by the public API and does not imply multiple
-real providers or runtime provider switching.
+The final API extends the original retrieval interface with the five additional
+team-owned operations: list, create, replace, partial update, and delete. Listing
+accepts a validated limit from 1 to 100, returns a possibly short or empty list
+in provider order, and changes no calendar state. Writes accept only
+provider-independent request values and return domain `Event` objects when the
+operation has a response body. All six operations use the same composition
+boundary and service errors. The interface contains only operations required by
+the public API and does not imply multiple real providers or runtime provider
+switching.
 
 ---
 
@@ -287,7 +288,8 @@ real providers or runtime provider switching.
 
 ### Final operation 6: deletion
 
-Issue #51 adds `delete_event(event_id: str) -> None` to `EventProvider`.
+The deletion operation adds `delete_event(event_id: str) -> None` to
+`EventProvider`.
 The HTTP validation dependency checks the opaque ID before client construction.
 The application repeats that validation for non-HTTP callers and invokes the
 injected provider once. The Google adapter calls `events.delete` on the configured
@@ -306,7 +308,7 @@ cannot reappear as successful public reads. Active-event retrieval is unchanged.
 
 ### Final operation 4: complete replacement
 
-Issue #51 extends `EventProvider` with the single operation required by PUT:
+The replacement operation extends `EventProvider` with the method required by PUT:
 `replace_event(event_id: str, replacement: EventReplacement) -> Event`.
 `EventReplacement` contains validated `title`, `start`, and `end` strings; it is
 immutable and does not change the existing `Event` response model. The provider
@@ -411,7 +413,7 @@ removed before replace, patch, and delete calls because a provider failure may
 leave the remote write outcome uncertain. Listing bypasses the single-event
 cache.
 
-## Bounded Event Listing (#51)
+## Bounded Event Listing
 
 The list route validates its limit before provider resolution, using the same
 integer parser as FastAPI and the shared application bounds. Non-HTTP listing

@@ -143,8 +143,10 @@ Implementation status: service exceptions, application-level validation, HTTP
 rendering of the four shared exceptions, and sanitized failure logging are
 implemented. HTTP validation runs before provider setup; the application operation
 also validates non-HTTP calls. Controlled-provider tests verify these responses.
-Google-specific failure translation is implemented in the Google provider
-(#38). Live-provider failure behavior has not been verified.
+Google-specific failure translation is implemented in the Google provider. The
+real missing-event path was verified on 2026-10-20; permission and
+provider-outage behavior remains deterministic controlled-test coverage because
+those conditions are unsafe or impractical to induce during routine verification.
 
 ### Create Event
 
@@ -175,7 +177,7 @@ POST /events
 | `end` | `string` | yes | Exclusive RFC3339-compatible end date-time with a UTC offset, later than `start` |
 
 Validation preserves the supplied strings but compares the represented instants.
-Invalid or missing fields are rejected before any provider write.
+Invalid, missing, or unknown fields are rejected before any provider write.
 
 **Successful response**
 
@@ -212,7 +214,7 @@ and provider-specific response fields are not exposed.
 
 ### List Events
 
-**Owner:** Maksym Yemelianenko (#51, Operation 2).
+**Owner:** Maksym Yemelianenko (Operation 2).
 
 `GET /events` reads a small collection from the configured calendar. It accepts
 one optional integer query parameter, `limit`: default **10**, minimum **1**,
@@ -252,7 +254,7 @@ See [PROVIDER.md](PROVIDER.md#list-events-verification) for live verification.
 
 ---
 
-### Replace Event — Nicolas Ollivier (#51, Operation 4)
+### Replace Event — Nicolas Ollivier (Operation 4)
 
 `PUT /events/{event_id}` replaces the complete editable representation of an
 existing event on the configured calendar. It returns **200 OK** and the resulting
@@ -292,7 +294,7 @@ curl -i -X PUT "http://127.0.0.1:8000/events/$EVENT_ID" \
 curl "http://127.0.0.1:8000/events/$EVENT_ID"
 ```
 
-### Partially Update Event — Yasmin Hassoobh (#51, Operation 5)
+### Partially Update Event — Yasmin Hassoobh (Operation 5)
 
 `PATCH /events/{event_id}` changes only explicitly supplied editable fields of an
 existing event. Success returns **200 OK** and the resulting four-field `Event`.
@@ -336,7 +338,7 @@ curl "http://127.0.0.1:8000/events/$EVENT_ID"
 Expected: the new title and unchanged `id`, `start`, and `end`. See
 [provider verification](PROVIDER.md#partial-update-verification) for setup and cleanup.
 
-### Delete Event — Xingjian Liu (#51, Operation 6)
+### Delete Event — Xingjian Liu (Operation 6)
 
 `DELETE /events/{event_id}` deletes the identified event from the configured
 calendar. Success returns **204 No Content** with an empty body, not an Event,

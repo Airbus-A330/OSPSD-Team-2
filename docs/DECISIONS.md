@@ -41,13 +41,15 @@ operations may require deliberate extension.
 A required operation cannot be expressed cleanly through this interface, or a
 second real provider reveals a genuine incompatibility.
 
-**Revisited 2026-10-19**
+**Revisited 2026-10-20**
 
-Issue #51 requires additional public calendar operations. The interface is being
-extended one operation at a time with provider-independent request and response
-types; listing and `create_event(CreateEventRequest) -> Event` are the first
-extensions. The team retained the same small protocol instead of introducing a
-broader provider abstraction or dependency-injection framework.
+The final API requires six public calendar operations. The interface now contains
+only their provider-independent signatures: retrieve, list, create, replace,
+partial update, and delete. Request models describe service-domain values, and
+all returned events use the same four-field `Event` model. The team retained this
+single small protocol and ordinary FastAPI dependency replacement instead of
+introducing a broader provider abstraction, provider registry, or dependency-
+injection framework.
 
 ---
 

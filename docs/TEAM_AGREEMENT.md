@@ -2,7 +2,7 @@
 
 This agreement defines how OSPSD Team 2 coordinates work on the Calendar
 Service. It applies to every team member listed in the
-[README](../README.md#team-members).
+[README](../README.md#team-members-and-operation-ownership).
 
 Repository-wide engineering standards remain canonical in
 [AGENTS.md](../AGENTS.md). This document focuses on collaboration, ownership,

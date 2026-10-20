@@ -16,6 +16,9 @@ Google Calendar API v3, accessed through Google's Python client libraries.
 - [Events: get](https://developers.google.com/workspace/calendar/api/v3/reference/events/get)
 - [Events: list](https://developers.google.com/workspace/calendar/api/v3/reference/events/list)
 - [Events: insert](https://developers.google.com/workspace/calendar/api/v3/reference/events/insert)
+- [Events: update](https://developers.google.com/workspace/calendar/api/v3/reference/events/update)
+- [Events: patch](https://developers.google.com/workspace/calendar/api/v3/reference/events/patch)
+- [Events: delete](https://developers.google.com/workspace/calendar/api/v3/reference/events/delete)
 
 ## Authentication
 
@@ -99,8 +102,9 @@ timed event in the configured test calendar:
 
 A successful response has HTTP status 200 and exactly the `id`, `title`, `start`,
 and `end` fields from `CONTRACT.md`. Two teammates must run these steps with the
-team's test calendar and record their names, dates, event IDs, and successful
-responses in the pull request without posting credentials or tokens.
+team's test calendar and record their names, dates, and sanitized outcomes in the
+pull request without posting event identifiers, private calendar data,
+credentials, or tokens.
 
 ### End-to-end event creation verification
 
@@ -133,6 +137,28 @@ when verification is complete. To remove local authorization, delete the
 configured token file and revoke the app's access from the Google account; do not
 commit or share either credential file.
 
+### Final public-operation verification
+
+Team 2 completed a real-provider verification of all six public operations on
+2026-10-20 using the production FastAPI paths, configured Google test calendar,
+and disposable attendee-free events. The observed results matched the public
+contract:
+
+| Public operation | Observed result and provider effect |
+|---|---|
+| `GET /events/{event_id}` | 200 with exactly `id`, `title`, `start`, and `end`; values matched Google Calendar |
+| `GET /events?limit=2` | 200 with a bounded array of public Events; a returned ID was confirmed through GET |
+| `POST /events` | 201 with a provider-generated ID; the event appeared in Google Calendar |
+| `PUT /events/{event_id}` | 200; title, start, and end were replaced in the response, subsequent GET, and Google Calendar |
+| `PATCH /events/{event_id}` | 200; supplied values changed while omitted values remained unchanged in GET and Google Calendar |
+| `DELETE /events/{event_id}` | 204 with no body; repeated DELETE and subsequent GET returned the documented 404 envelope |
+
+Invalid local input was also confirmed to return the documented 400 response
+without a provider write. Disposable events were deleted and the local service
+was stopped. Credentials, tokens, private calendar data, and event identifiers
+are intentionally excluded from this record. The final release process separately
+records the exact tagged revision and its CI results.
+
 ## Provider Operations
 
 | Service behavior | Provider API/SDK operation | Notes |
@@ -141,6 +167,8 @@ commit or share either credential file.
 | Retrieve one event | `client.events().get(calendarId=calendar_id, eventId=event_id).execute()` | Reads external state without modifying it |
 | List events | `client.events().list(calendarId=calendar_id, maxResults=limit, singleEvents=True).execute()` | One read-only page; returns at most the requested number of domain Events |
 | Create one event | `client.events().insert(calendarId=calendar_id, body=...).execute()` | Creates a timed event and returns the provider-generated ID |
+| Replace one event | `client.events().update(calendarId=calendar_id, eventId=event_id, body=...).execute()` | Replaces the service-editable values and returns a domain Event |
+| Partially update one event | `client.events().patch(calendarId=calendar_id, eventId=event_id, body=...).execute()` | Sends only supplied editable fields and returns a domain Event |
 | Delete one event | `client.events().delete(calendarId=calendar_id, eventId=event_id).execute()` | Deletes the identified event; returns no domain value or SDK response |
 
 Provider operation helpers receive an already configured client, which can be
@@ -153,12 +181,13 @@ both identifiers and passes them unchanged to the SDK:
   explicitly pass `primary` for the authenticated user's primary calendar or a
   specific calendar ID. The function does not choose a calendar or read configuration.
 - `event_id` is the Google event resource's `id`, not its `iCalUID`, title, or
-  browser URL. Lookup by `iCalUID` uses `events.list`, outside this issue.
+  browser URL. Lookup by `iCalUID` uses `events.list`, outside the supported
+  retrieval contract.
 
 ### Domain-facing Google provider
 
-`app.google_calendar.GoogleCalendarProvider` implements the documented event
-retrieval, listing, and creation signatures from
+`app.google_calendar.GoogleCalendarProvider` implements all six documented event
+operation signatures from
 [`ARCHITECTURE.md`](ARCHITECTURE.md#provider-boundary).
 Supply an already configured client and an explicit calendar ID:
 
@@ -184,8 +213,9 @@ request (`httplib2.HttpLib2Error`, Google authentication `TransportError`)
 also become `ProviderFailureError`. Only the status and the machine-readable
 reasons are interpreted; Google error messages never cross the provider
 boundary, and the raw provider exception is not retained as the translated
-error's cause. Translation failures for unsupported response shapes, such as
-all-day events, still raise `KeyError` as documented below.
+error's cause. The low-level field mapper rejects unsupported response shapes,
+such as all-day events; the domain-facing provider translates those mapping
+failures into `ProviderFailureError` before they cross the provider boundary.
 
 `app.main.get_event_provider` is the composition point. For each HTTP request, it
 builds the configured Google client, supplies it with `GOOGLE_CALENDAR_ID`
@@ -220,8 +250,12 @@ titled, timed events; listing is read-only and needs no resource cleanup. Stop t
 server afterward. Record the date, commit, expected/observed results, and comparison
 without posting credentials or private calendar data.
 
-**REAL PROVIDER VERIFICATION NOT PERFORMED** for listing. Controlled SDK and HTTP
-tests establish request construction, translation, and public behavior only.
+**REAL PROVIDER VERIFICATION PERFORMED on 2026-10-20.** Team verification used
+the production FastAPI path and configured Google test calendar. A bounded list
+request returned HTTP 200 with no more than the requested number of four-field
+events, and a returned identifier was confirmed through GET. `limit=0` returned
+the documented HTTP 400 response before provider setup. Listing changed no
+calendar state, so no resource cleanup was required.
 
 ## Field Mapping
 
@@ -253,14 +287,15 @@ through the same four-field `Event` mapping used by retrieval.
 These mappings implement the four public fields approved in `CONTRACT.md`. The
 following provider assumptions remain relevant to that contract:
 
-- The input is a titled, timed event with `id`, `summary`, `start.dateTime`, and
-  `end.dateTime`. Missing required fields raise `KeyError`; no placeholder title,
-  identifier, or timestamp is invented.
+- The mapper input is a titled, timed event with `id`, `summary`,
+  `start.dateTime`, and `end.dateTime`. Missing required fields are rejected; no
+  placeholder title, identifier, or timestamp is invented. The domain-facing
+  provider exposes this as the shared provider failure.
 - Timestamps are preserved as strings without parsing, timezone conversion, or
   additional format validation. Public model validation checks their string type.
 - Google's all-day events use `start.date` and `end.date` instead of `dateTime`.
-  They are unsupported by this mapper and raise `KeyError`; dates are not silently
-  converted to midnight timestamps.
+  They are unsupported and become the shared provider failure; dates are not
+  silently converted to midnight timestamps.
 - Google's end boundary is exclusive. It is copied unchanged; this mapper does
   not adjust the duration or define new public interval semantics.
 - Sparse cancelled event responses may lack required fields and are unsupported.
@@ -302,20 +337,12 @@ specifies full resource replacement, not patch semantics. Provider-only editable
 fields omitted from the update are not preserved by this service; use a disposable,
 non-recurring, titled timed event with no guests for verification.
 
-**REAL PROVIDER VERIFICATION NOT PERFORMED** for PUT in this change.
-Controlled SDK tests establish request construction and translation, not live
-authorization or Google behavior. Before final release, Nicolas and a reviewer:
-
-1. Complete local setup above using the read/write scope and a fresh token.
-2. Create a disposable titled timed event in Google Calendar; obtain its event
-   ID using the existing verification instructions above.
-3. Start the service and run the PUT and GET example in
-   [CONTRACT.md](CONTRACT.md#replace-event--nicolas-ollivier-51-operation-4).
-4. Expect PUT 200 and all three replacement values in the returned Event, then
-   GET 200 with the same complete values (allow Google's timestamp formatting).
-   Verify the new title and interval in Google Calendar as well.
-5. Record request, expected/observed values, date, reviewer, and cleanup in the
-   owner-reviewed PR without secrets. Delete the disposable event in Google Calendar.
+**REAL PROVIDER VERIFICATION PERFORMED on 2026-10-20.** Team verification created
+a disposable titled timed event through the public API, replaced all three
+editable values through PUT, and observed HTTP 200 with the resulting four-field
+Event. GET and the configured Google test calendar showed the same replacement
+title and interval. The disposable event was deleted after verification; no
+credentials, private calendar data, or event identifiers are recorded here.
 
 A failed write can have applied remotely; retrieve the event before deciding
 whether to repeat a request. Do not interpret 502 as proof of unchanged state.
@@ -332,28 +359,15 @@ request execution, unchanged result data, and propagation of a Google HTTP error
 HTTP integration tests verify provider retrieval, translation, and response
 serialization with the Google SDK boundary controlled.
 
-On October 6, 2026, [Airbus-A330](https://github.com/Airbus-A330/OSPSD-Team-2/pull/21#issuecomment-6028772243)
-and [LeonLiu0204](https://github.com/Airbus-A330/OSPSD-Team-2/pull/21#issuecomment-6028796751)
-reported successful end-to-end verification against the real provider.
+On October 6, 2026, Airbus-A330 and LeonLiu0204 reported successful end-to-end
+verification against the real provider.
 
-On October 12, 2026, a separate live verification for #24 was run locally for
-LeonLiu0204 using desktop OAuth with the read-only event scope. A test event was
-created in the authenticated account's primary calendar through Google Calendar:
-`OSPSD Provider Test`, 16:00–16:30 America/New_York, with no guests.
-
-Using the real client from `build_google_calendar_client()`,
-`GoogleCalendarProvider(client, calendar_id="primary").get_event(event_id)`
-returned an `Event`. Assertions verified exactly these four fields against the
-created event and confirmed that the provider timestamps were preserved:
-
-```json
-{
-  "id": "28bd3p9jnnl2qojjmdpbb7ld1q",
-  "title": "OSPSD Provider Test",
-  "start": "2026-10-12T16:00:00-04:00",
-  "end": "2026-10-12T16:30:00-04:00"
-}
-```
+On October 12, 2026, a separate live verification was run locally for LeonLiu0204
+using desktop OAuth with the read-only event scope. A disposable,
+attendee-free timed event was retrieved through `GoogleCalendarProvider`; the
+returned `Event` contained exactly `id`, `title`, `start`, and `end`, and its
+timestamp strings were preserved. The event identifier and calendar data are
+intentionally omitted from this record.
 
 This verifies the concrete provider independently of HTTP wiring. The
 credential-free HTTP integration test separately verifies application
@@ -404,7 +418,7 @@ To reproduce:
    through `POST /events` using the example above. Do not add attendees.
 3. Record its returned ID locally. Confirm the event exists in Google Calendar.
 4. Run the DELETE example in
-   [CONTRACT.md](CONTRACT.md#delete-event--xingjian-liu-51-operation-6).
+   [CONTRACT.md](CONTRACT.md#delete-event--xingjian-liu-operation-6).
    Expect 204 and zero response-body bytes.
 5. Repeat DELETE for that ID. Expect 404 and
    `{"error":{"code":"not_found","message":"Event not found"}}`.
@@ -428,17 +442,13 @@ Google charges three quota units for PATCH. The existing `calendar.events` scope
 and request-scoped client lifecycle are reused. Failures use the shared Google
 classifier. No automatic retry or concurrency guarantee is added.
 
-**REAL PROVIDER VERIFICATION NOT PERFORMED** for PATCH. Before final release:
-
-1. Complete OAuth setup with write access and start the service.
-2. Create a disposable event using the POST example above; keep its returned ID
-   locally and record the original title/start/end.
-3. Run the PATCH example in [CONTRACT.md](CONTRACT.md) with that ID. Expect 200;
-   verify the title changed and both times stayed unchanged via GET and Google Calendar.
-4. Patch only `end` to a later RFC3339 timestamp. Verify start/title remain unchanged.
-5. Try `{}` and a start later than the stored end. Expect 400 and unchanged event
-   values. Record expected/observed results without publishing private event data.
-6. Delete the disposable event using the cleanup command above, then stop the server.
+**REAL PROVIDER VERIFICATION PERFORMED on 2026-10-20.** Team verification created
+a disposable event through POST, patched its title through the public API, and
+observed HTTP 200. GET and Google Calendar confirmed that the title changed while
+the omitted start and end values were preserved. A second PATCH changed only the
+end time and preserved the title and start. The disposable event was deleted and
+the local service was stopped; no credentials, private calendar data, or event
+identifier are included here.
 
 A failed write may have taken effect. Inspect current state after an ambiguous
 failure before retrying or cleaning up; do not infer rollback from an error response.
