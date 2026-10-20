@@ -199,6 +199,39 @@ Their 404 responses reflect unmatched routes, not a lookup for a nonexistent eve
 
 ## Commands
 
+### PUT replacement (#51, Nicolas Ollivier)
+
+`tests/test_provider_substitution.py` now gives the controlled provider a
+`replace_event` operation and records replacement attempts. PUT tests check:
+
+- Complete replacement, exact response, read-back state, a repeated replacement,
+  and preservation of another event.
+- Missing editable fields and invalid title/types/timestamps/intervals rejected
+  before provider setup or writes. Equal instants across different offsets are
+  invalid; valid different offsets are compared chronologically. Blank IDs and
+  malformed/missing JSON are also rejected locally.
+- Missing events are not created; shared missing/permission/provider failures
+  retain their public error envelopes and log the PUT operation.
+- A provider accepting a write and losing the response returns 502 without retry;
+  subsequent GET reveals the changed state.
+
+`tests/test_google_calendar_provider.py` checks full `events.update` construction,
+domain response translation, HTTP/transport error mapping, and no retry. Existing
+GET-only doubles receive only the method needed to satisfy the expanded protocol;
+their retrieval behavior is unchanged. All fast tests are credential/network-free.
+Live PUT verification remains outstanding; follow [PROVIDER.md](PROVIDER.md).
+
+Defect-detection evidence: temporarily changing the interval rejection from
+`end <= start` to `end < start` allowed equal instants at different offsets.
+`test_invalid_put_values_rejected_before_provider_setup[changes6]` failed with
+`AssertionError: Invalid replacement must not set up or call a provider`.
+The strict comparison was restored before the final passing verification.
+
+```bash
+uv run --locked python -m pytest tests/test_provider_substitution.py -k put
+uv run --locked python -m pytest tests/test_google_calendar_provider.py -k replace
+```
+
 Run the complete local verification suite from the repository root:
 
 ```bash

@@ -3,8 +3,12 @@
 import os
 from collections.abc import Iterator
 
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, Query, Request, Body
 from pydantic import TypeAdapter, ValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 
 from app.errors import (
     InvalidInputError,
@@ -12,10 +16,10 @@ from app.errors import (
     PermissionDeniedError,
     ProviderFailureError,
 )
-from app.events import get_event, list_events, validate_event_id, validate_event_limit
+from app.events import get_event, list_events, validate_event_id, validate_event_limit, replace_event
 from app.google_calendar import GoogleCalendarProvider, build_google_calendar_client
 from app.http_errors import service_error_response
-from app.models import Event
+from app.models import Event, EventReplacement
 from app.providers import EventProvider
 
 app = FastAPI()
@@ -101,3 +105,51 @@ def read_event(
     """
     request.state.provider_involved = True
     return get_event(event_id, provider=provider)
+
+
+def validate_replacement_request(
+    event_id: str,
+    request: Request,
+    body: object = Body(
+        default=None, json_schema_extra=EventReplacement.model_json_schema()
+    ),
+) -> EventReplacement:
+    """Reject invalid PUT input before provider construction, including OAuth."""
+    request.state.operation = "replace_event"
+    request.state.provider_involved = False
+    validate_event_id(event_id)
+    request.state.invalid_input_message = "Invalid event replacement"
+    try:
+        return EventReplacement.model_validate(body)
+    except ValidationError:
+        raise InvalidInputError("Invalid event replacement") from None
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error(
+    request: Request, error: RequestValidationError
+) -> JSONResponse:
+    """Use shared errors for malformed PUT JSON; preserve other HTTP behavior."""
+    route = request.scope.get("route")
+    if request.method == "PUT" and getattr(route, "path", None) == "/events/{event_id}":
+        request.state.operation = "replace_event"
+        request.state.provider_involved = False
+        request.state.invalid_input_message = "Invalid event replacement"
+        return service_error_response(request, InvalidInputError())
+    return await request_validation_exception_handler(request, error)
+
+
+@app.put(
+    "/events/{event_id}",
+    response_model=Event,
+    openapi_extra={"requestBody": {"required": True}},
+)
+def replace_calendar_event(
+    event_id: str,
+    request: Request,
+    replacement: EventReplacement = Depends(validate_replacement_request),
+    provider: EventProvider = Depends(get_event_provider),
+) -> Event:
+    """Replace title, start, and end of an existing event and return its values."""
+    request.state.provider_involved = True
+    return replace_event(event_id, replacement, provider)

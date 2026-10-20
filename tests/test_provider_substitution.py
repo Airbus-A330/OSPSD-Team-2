@@ -1,7 +1,6 @@
 """Application and HTTP behavior with a controlled EventProvider."""
 
-from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,7 +14,7 @@ from app.errors import (
 )
 from app.events import get_event, list_events
 from app.main import app, get_event_provider
-from app.models import Event
+from app.models import Event, EventReplacement
 from app.providers import EventProvider
 
 
@@ -23,7 +22,8 @@ from app.providers import EventProvider
 class ControlledEventProvider:
     """Return configured events or service failures without external I/O."""
 
-    outcomes: Mapping[str, Event | ServiceError]
+    outcomes: dict[str, Event | ServiceError]
+    replacement_calls: list[str] = field(default_factory=list)
 
     def get_event(self, event_id: str) -> Event:
         """Return or raise the configured outcome for the requested identifier."""
@@ -31,6 +31,16 @@ class ControlledEventProvider:
         if isinstance(outcome, ServiceError):
             raise outcome
         return outcome
+
+    def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
+        """Replace a configured event, preserving explicit failure outcomes."""
+        self.replacement_calls.append(event_id)
+        if event_id not in self.outcomes:
+            raise NotFoundError()
+        self.get_event(event_id)
+        event = Event(id=event_id, **replacement.model_dump())
+        self.outcomes[event_id] = event
+        return event
 
     def list_events(self, limit: int) -> list[Event]:
         return [self.get_event(event_id) for event_id in list(self.outcomes)[:limit]]
@@ -56,12 +66,15 @@ def configured_events() -> dict[str, Event]:
 
 @pytest.fixture
 def controlled_provider(configured_events: dict[str, Event]) -> EventProvider:
-    return ControlledEventProvider(configured_events)
+    return ControlledEventProvider({**configured_events})
 
 
 @pytest.mark.parametrize("event_id", ["", "   ", "\t\n", "\r\n \t", "\u2003"])
 def test_invalid_event_id_is_rejected_without_provider_call(event_id: str) -> None:
     class UnusedProvider:
+        def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
+            pytest.fail("Invalid input must not invoke the provider")
+
         def get_event(self, event_id: str) -> Event:
             pytest.fail("Invalid input must not invoke the provider")
 
@@ -197,6 +210,194 @@ def test_http_failures_do_not_affect_subsequent_retrieval(
         response = client.get(f"/events/{event_id}")
         assert response.status_code == 200
         assert response.json() == expected
+
+
+@pytest.fixture
+def replacement_values() -> dict[str, str]:
+    return {
+        "title": " Replaced review ",
+        "start": "2026-10-20T10:00:00.123+02:00",
+        "end": "2026-10-20T09:00:00Z",
+    }
+
+
+def test_put_replaces_complete_event_and_repeated_put_preserves_result(
+    configured_events: dict[str, Event],
+    replacement_values: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = ControlledEventProvider({**configured_events})
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    expected = {"id": "Review_Event-001", **replacement_values}
+    with TestClient(app) as client:
+        for _ in range(2):
+            response = client.put("/events/Review_Event-001", json=replacement_values)
+            assert response.status_code == 200
+            assert response.json() == expected
+            assert client.get("/events/Review_Event-001").json() == expected
+    assert provider.outcomes["Review_Event-001"] == Event(**expected)
+    assert provider.outcomes["event-002"] == configured_events["event-002"]
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"title": " \t"},
+        {"title": None},
+        {"title": 123},
+        {"start": "2026-10-20"},
+        {"start": "2026-10-20T10:00:00"},
+        {"start": "2026-02-30T10:00:00Z"},
+        {"end": "2026-10-20T08:00:00.123Z"},
+        {"end": "2026-10-20T07:00:00Z"},
+        {"unknown": "field"},
+    ],
+)
+def test_invalid_put_values_rejected_before_provider_setup(
+    changes: dict[str, object],
+    replacement_values: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_provider() -> None:
+        raise AssertionError("Invalid replacement must not set up or call a provider")
+
+    monkeypatch.setitem(
+        app.dependency_overrides, get_event_provider, unexpected_provider
+    )
+    with TestClient(app) as client:
+        response = client.put(
+            "/events/event-002", json={**replacement_values, **changes}
+        )
+    assert response.status_code == 400
+    assert response.json() == {
+        "error": {"code": "invalid_input", "message": "Invalid event replacement"}
+    }
+
+
+@pytest.mark.parametrize("omitted", ["title", "start", "end"])
+def test_put_requires_every_editable_field_without_provider_write(
+    omitted: str,
+    replacement_values: dict[str, str],
+    configured_events: dict[str, Event],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = ControlledEventProvider({**configured_events})
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    del replacement_values[omitted]
+    with TestClient(app) as client:
+        response = client.put("/events/event-002", json=replacement_values)
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_input"
+    assert provider.replacement_calls == []
+    assert provider.outcomes == configured_events
+
+
+@pytest.mark.parametrize("body", ["", "{", "null", "[]", '"text"'])
+def test_put_rejects_missing_or_malformed_body_before_provider_setup(
+    body: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_provider() -> None:
+        pytest.fail("Invalid body must not set up the provider")
+
+    monkeypatch.setitem(
+        app.dependency_overrides, get_event_provider, unexpected_provider
+    )
+    with TestClient(app) as client:
+        response = client.put(
+            "/events/event-002",
+            content=body,
+            headers={"Content-Type": "application/json"},
+        )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_input"
+
+
+@pytest.mark.parametrize(
+    ("error", "status", "code", "message"),
+    [
+        (NotFoundError(), 404, "not_found", "Event not found"),
+        (PermissionDeniedError(), 403, "permission_denied", "Permission denied"),
+        (
+            ProviderFailureError(),
+            502,
+            "provider_error",
+            "Calendar provider request failed",
+        ),
+    ],
+)
+def test_put_shared_failures(
+    error: ServiceError,
+    status: int,
+    code: str,
+    message: str,
+    replacement_values: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    provider = ControlledEventProvider({"failed-event": error})
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    with TestClient(app) as client:
+        response = client.put("/events/failed-event", json=replacement_values)
+    assert response.status_code == status
+    assert response.json() == {"error": {"code": code, "message": message}}
+    assert provider.replacement_calls == ["failed-event"]
+    record = next(r for r in caplog.records if r.name == "app.http_errors")
+    assert record.__dict__["operation"] == "replace_event"
+    assert record.__dict__["provider_involved"] is True
+
+
+def test_put_lost_response_does_not_retry_or_claim_unchanged_state(
+    configured_events: dict[str, Event],
+    replacement_values: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class LostResponseProvider(ControlledEventProvider):
+        def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
+            super().replace_event(event_id, replacement)
+            raise ProviderFailureError("Response lost after accepting write")
+
+    provider = LostResponseProvider({**configured_events})
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    with TestClient(app) as client:
+        response = client.put("/events/event-002", json=replacement_values)
+        assert response.status_code == 502
+        assert client.get("/events/event-002").json() == {
+            "id": "event-002",
+            **replacement_values,
+        }
+    assert provider.replacement_calls == ["event-002"]
+
+
+def test_put_missing_event_does_not_create_it(
+    replacement_values: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider = ControlledEventProvider({})
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    with TestClient(app) as client:
+        response = client.put("/events/missing-event", json=replacement_values)
+    assert response.status_code == 404
+    assert response.json() == {
+        "error": {"code": "not_found", "message": "Event not found"}
+    }
+    assert provider.outcomes == {}
+
+
+def test_put_blank_id_rejected_before_provider_setup(
+    replacement_values: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def unexpected_provider() -> None:
+        pytest.fail("Blank ID must not set up the provider")
+
+    monkeypatch.setitem(
+        app.dependency_overrides, get_event_provider, unexpected_provider
+    )
+    with TestClient(app) as client:
+        response = client.put("/events/%20%20", json=replacement_values)
+    assert response.status_code == 400
+    assert response.json() == {
+        "error": {"code": "invalid_input", "message": "Invalid event ID"}
+    }
 
 
 @pytest.mark.parametrize(("limit", "expected_count"), [(None, 10), (1, 1), (100, 12)])

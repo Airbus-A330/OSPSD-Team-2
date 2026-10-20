@@ -40,8 +40,11 @@ def service_error_response(request: Request, error: Exception) -> JSONResponse:
     if isinstance(error, InvalidInputError) and operation == "list_events":
         message = "Invalid event limit"
     provider_involved = getattr(request.state, "provider_involved", None)
+    operation = getattr(request.state, "operation", "get_event")
+    if isinstance(error, InvalidInputError):
+        message = getattr(request.state, "invalid_input_message", message)
     logger.warning(
-        "Event retrieval failed: code=%s status=%s provider_involved=%s",
+        "Event operation failed: code=%s status=%s provider_involved=%s",
         code,
         status,
         provider_involved,
