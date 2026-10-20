@@ -8,16 +8,16 @@ The repository is designed to be easy for another developer to install, run, tes
 
 ---
 
-## Team Members
+## Team Members and Operation Ownership
 
-| NetID | Name |
-|---|---|
-| dxz207 | Dorien Zhang |
-| my2658 | Maksym Yemelianenko |
-| anf3003 | Alexander Freedman |
-| ymh9084 | Yasmin Hassoobh |
-| no2172 | Nicolas Ollivier |
-| xl6081 | Xingjian Liu |
+| NetID | Name | Owned operation |
+|---|---|---|
+| dxz207 | Dorien Zhang | Retrieve an event (`GET /events/{event_id}`) |
+| my2658 | Maksym Yemelianenko | List events (`GET /events`) |
+| anf3003 | Alexander Freedman | Create an event (`POST /events`) |
+| no2172 | Nicolas Ollivier | Replace an event (`PUT /events/{event_id}`) |
+| ymh9084 | Yasmin Hassoobh | Partially update an event (`PATCH /events/{event_id}`) |
+| xl6081 | Xingjian Liu | Delete an event (`DELETE /events/{event_id}`) |
 
 ---
 

@@ -102,10 +102,7 @@ make check
 These controlled checks do not establish live Google behavior. Follow
 [PROVIDER.md](PROVIDER.md#delete-verification) for separate real-provider evidence.
 
-Local verification on 2026-10-20, based on shared-branch commit `fee5dc6`:
-26 DELETE lifecycle tests passed; the full `make check` passed with 255 tests and one
-existing Starlette/AnyIO deprecation warning. These are local results, not CI
-results for the uncommitted DELETE changes.
+Local verification on 2026-10-20 found all 26 DELETE lifecycle tests passing.
 
 ## Event Creation Tests
 
@@ -120,6 +117,22 @@ provider failure use the shared public error shape and sanitized logging.
 `events.insert` with only `summary`, `start.dateTime`, and `end.dateTime`, then
 translates the provider result into `Event`. Controlled Google 403 and 500
 responses verify service-error translation without credentials or network.
+
+## Event Cache Tests
+
+`tests/test_event_cache.py` uses controlled providers and an injected clock to
+verify cache misses and hits, the 60-second expiry boundary, separation by
+configured calendar, bounded storage with oldest-entry eviction, and repeated
+HTTP responses. Provider call counts prove that unexpired hits avoid another
+provider operation and expired entries refresh without sleeping. Separate cases
+prove that invalid input and each documented service failure are not cached. A
+production-composition test controls the Google SDK boundary and verifies that
+two HTTP requests share cached domain data while both request-scoped clients are
+still closed. Write-operation cases verify that creation and successful updates
+refresh affected entries, deletion removes its entry, uncertain failed writes
+do not leave stale values, and listing bypasses the single-event cache.
+
+These tests use no credentials, network access, or wall-clock delays.
 
 ## Level 5 HTTP Failures (#39)
 
@@ -243,6 +256,7 @@ Normal CI must not require provider credentials.
 | Controlled provider substitution | Yes | Yes | No | `tests/test_provider_substitution.py` uses a configurable provider through application arguments and `app.dependency_overrides` |
 | Create event | Yes | Yes | Manual required | Controlled writes verify validation, the 201 response, returned values, provider failures, and Google request/response translation; live steps are in `PROVIDER.md` |
 | Delete event | Yes | Yes | Verified 2026-10-20 | 26 controlled cases; live create/read/delete/repeat/read-back verified with a disposable event. Permission and provider failures remain controlled-only; see `PROVIDER.md` |
+| Successful event caching | Yes | Yes | Not applicable | Controlled providers and a fake clock verify hit, miss, expiry, bounded storage, oldest-entry eviction, calendar isolation, failure behavior, production composition, and unchanged HTTP responses |
 
 Update this table whenever meaningful behavior is added.
 

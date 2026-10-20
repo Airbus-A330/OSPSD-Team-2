@@ -319,9 +319,9 @@ The PUT validation dependency checks the ID and complete body before resolving
 application operation validates the ID again for non-HTTP callers and uses only
 the protocol. Google request construction and translation stay in
 `GoogleCalendarProvider.replace_event`. Composition, request-scoped client
-ownership/cleanup, and existing GET behavior are unchanged. There is no cache on
-this implementation branch. PUT failure logs use `operation=replace_event` with
-the existing sanitized fields.
+ownership/cleanup, and existing GET behavior are unchanged. Successful replacement
+refreshes the affected cache entry; uncertain failures leave no stale entry. PUT
+failure logs use `operation=replace_event` with the existing sanitized fields.
 
 Before introducing a new:
 
@@ -356,6 +356,7 @@ FastAPI composition are implemented as described above.
 | Module | Current Responsibility |
 |---|---|
 | `app/main.py` | FastAPI entry point and composition of the configured Google provider |
+| `app/event_cache.py` | Process-local TTL cache and provider wrapper for successful domain `Event` reads |
 | `app/http_errors.py` | Fixed HTTP responses for shared service exceptions and sanitized failure logging |
 | `app/events.py` | Provider-independent application operations and validation |
 | `app/errors.py` | Provider-independent service exceptions defined by the Level 5 contract in `CONTRACT.md` |
@@ -386,6 +387,29 @@ provider payloads, and expected-failure tracebacks.
 
 The Google client remains request-scoped and is closed in the composition
 dependency's `finally`, including when an operation raises a handled service error.
+
+## Event Retrieval Cache
+
+Composition wraps each request-scoped Google provider with a
+`CachedEventProvider`. The wrappers share one process-local `EventCache`, while
+Google clients remain request-scoped because their HTTP transports are not
+thread-safe. Cache entries contain only domain `Event` values and are keyed by
+the tuple `(configured calendar ID, event ID)`, so equal event IDs from different
+calendars cannot collide.
+
+Successful reads remain cached for 60 seconds using a monotonic clock. Expired
+entries are ignored and refreshed through the provider. Exceptions are never
+stored, so invalid input and the `not_found`, `permission_denied`, and
+`provider_error` outcomes retain the Level 5 behavior in `CONTRACT.md`. The
+cache holds at most 256 events per process and evicts the oldest stored entry
+when full. It is local to each service process; no distributed consistency is
+promised.
+
+Successful create, replace, and patch operations update the affected cached
+event. Delete invalidates the affected entry. Potentially stale entries are
+removed before replace, patch, and delete calls because a provider failure may
+leave the remote write outcome uncertain. Listing bypasses the single-event
+cache.
 
 ## Bounded Event Listing (#51)
 
@@ -424,5 +448,4 @@ validation dependency rejects invalid bodies/IDs before provider setup; applicat
 validation also protects direct calls. One changed time boundary requires a domain
 `get_event` read before interval validation. The adapter maps only supplied fields
 to Google's patch body and returns the translated Event. Existing service errors,
-request-scoped client cleanup, and failure logging are reused. No cache exists in
-this branch, and no cache infrastructure was added.
+request-scoped client cleanup, cache coherence, and failure logging are reused.
