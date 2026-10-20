@@ -21,7 +21,7 @@ from app.errors import (
     ProviderFailureError,
     ServiceError,
 )
-from app.models import CreateEventRequest, Event
+from app.models import CreateEventRequest, Event, EventReplacement
 from app.providers import EventProvider
 
 GOOGLE_CALENDAR_SCOPES = ("https://www.googleapis.com/auth/calendar.events",)
@@ -263,3 +263,34 @@ class GoogleCalendarProvider(EventProvider):
         except (HttpLib2Error, TransportError):
             raise ProviderFailureError("Google Calendar request failed") from None
         return translate_google_event(provider_event)
+
+    def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
+        """Fully update an event using Google events.update, without retries.
+
+        Google HTTP/transport failures use the existing service error mapping.
+        A lost response can leave the write outcome unknown to the caller.
+        """
+        try:
+            provider_event = (
+                self._client.events()
+                .update(
+                    calendarId=self._calendar_id,
+                    eventId=event_id,
+                    body={
+                        "summary": replacement.title,
+                        "start": {"dateTime": replacement.start},
+                        "end": {"dateTime": replacement.end},
+                    },
+                )
+                .execute()
+            )
+        except HttpError as error:
+            raise _translate_google_error(error) from None
+        except (HttpLib2Error, TransportError):
+            raise ProviderFailureError("Google Calendar request failed") from None
+        try:
+            return translate_google_event(provider_event)
+        except (KeyError, TypeError, ValidationError):
+            raise ProviderFailureError(
+                "Invalid Google Calendar update response"
+            ) from None

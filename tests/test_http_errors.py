@@ -16,7 +16,7 @@ from app.errors import (
     ServiceError,
 )
 from app.main import app, get_event_provider
-from app.models import CreateEventRequest, Event
+from app.models import CreateEventRequest, Event, EventReplacement
 from app.providers import EventProvider
 
 
@@ -26,6 +26,9 @@ class ControlledProvider:
 
     outcome: Event | Exception
     calls: list[str] = field(default_factory=list)
+
+    def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
+        pytest.fail("Retrieval tests must not write provider state")
 
     def get_event(self, event_id: str) -> Event:
         self.calls.append(event_id)

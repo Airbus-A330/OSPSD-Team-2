@@ -283,6 +283,25 @@ real providers or runtime provider switching.
 
 ## Architectural Changes
 
+### Final operation 4: complete replacement
+
+Issue #51 extends `EventProvider` with the single operation required by PUT:
+`replace_event(event_id: str, replacement: EventReplacement) -> Event`.
+`EventReplacement` contains validated `title`, `start`, and `end` strings; it is
+immutable and does not change the existing `Event` response model. The provider
+replaces external state and returns the resulting domain Event. Shared service
+errors describe missing resources, permission denial, and provider failures;
+failed writes may have taken effect.
+
+The PUT validation dependency checks the ID and complete body before resolving
+`get_event_provider`. Malformed JSON uses the shared HTTP error renderer. The
+application operation validates the ID again for non-HTTP callers and uses only
+the protocol. Google request construction and translation stay in
+`GoogleCalendarProvider.replace_event`. Composition, request-scoped client
+ownership/cleanup, and existing GET behavior are unchanged. There is no cache on
+this implementation branch. PUT failure logs use `operation=replace_event` with
+the existing sanitized fields.
+
 Before introducing a new:
 
 - abstraction;

@@ -235,6 +235,46 @@ See [PROVIDER.md](PROVIDER.md#list-events-verification) for live verification.
 
 ---
 
+### Replace Event — Nicolas Ollivier (#51, Operation 4)
+
+`PUT /events/{event_id}` replaces the complete editable representation of an
+existing event on the configured calendar. It returns **200 OK** and the resulting
+public `Event` (`id`, `title`, `start`, `end`). It does not create missing events.
+
+The JSON body requires all three string fields: `title`, `start`, and `end`.
+Unknown fields, nulls, omitted fields, and non-string values are invalid.
+`title` must contain a non-whitespace character. Times must be valid RFC3339
+date-time strings using `T`, seconds, optional fractional seconds, and `Z` or an
+explicit `+HH:MM`/`-HH:MM` offset. Date-only and timezone-free values are invalid.
+`end` must be strictly after `start`, comparing instants across offsets. Accepted
+request strings are passed unchanged; the response preserves the provider's
+result strings. The existing Event response model and GET semantics are unchanged.
+
+The shared event-ID rule applies: reject blank IDs, pass every nonblank ID
+unchanged. All locally checkable validation completes before provider setup or
+writes. Invalid input returns the shared **400 `invalid_input`** envelope with
+`Invalid event ID` for a blank ID or `Invalid event replacement` for body errors,
+including malformed JSON. Other applicable errors use the existing fixed messages:
+**404 `not_found`**, **403 `permission_denied`**, **502 `provider_error`**.
+
+Success changes all three editable values. This is full replacement, not PATCH;
+provider fields outside the public representation are not guaranteed to survive
+the provider's full update. Only use disposable events when verifying this operation.
+There are no retries. A provider failure, including a lost response, does **not**
+guarantee unchanged provider state. Retrieve the event to investigate its current
+values before deciding whether to retry; authorization/input failures require
+correcting access/input first.
+
+With the service running and a disposable event ID:
+
+```bash
+EVENT_ID='your-test-event-id'
+curl -i -X PUT "http://127.0.0.1:8000/events/$EVENT_ID" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Replacement meeting","start":"2026-10-22T10:00:00-04:00","end":"2026-10-22T11:00:00-04:00"}'
+curl "http://127.0.0.1:8000/events/$EVENT_ID"
+```
+
 ## Domain Models
 
 Public domain models belong here.

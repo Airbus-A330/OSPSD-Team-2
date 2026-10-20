@@ -27,7 +27,9 @@ https://www.googleapis.com/auth/calendar.events
 ```
 
 This scope permits reading and editing events without granting access to broader
-calendar settings. Google documents it as an accepted scope for `events.insert`.
+calendar settings. Google documents it as an accepted scope for event insertion
+and replacement. Existing read-only tokens must be replaced by authorizing again,
+and the account must have write access to the configured test calendar.
 
 ### Local setup
 
@@ -286,6 +288,36 @@ codes directly, hides failures behind empty results, or adds retries,
 pagination, or other operations.
 
 ## Verified Assumptions
+
+### PUT replacement implementation and manual verification
+
+`GoogleCalendarProvider.replace_event` makes one
+`client.events().update(calendarId=..., eventId=..., body=...).execute()` call.
+It sends `summary`, `start.dateTime`, and `end.dateTime`, then translates the
+result into the four-field Event. It uses the shared Google HTTP/transport error
+translation and performs no retries. Client ownership remains request-scoped.
+Google's [events.update documentation](https://developers.google.com/workspace/calendar/api/v3/reference/events/update)
+specifies full resource replacement, not patch semantics. Provider-only editable
+fields omitted from the update are not preserved by this service; use a disposable,
+non-recurring, titled timed event with no guests for verification.
+
+**REAL PROVIDER VERIFICATION NOT PERFORMED** for PUT in this change.
+Controlled SDK tests establish request construction and translation, not live
+authorization or Google behavior. Before final release, Nicolas and a reviewer:
+
+1. Complete local setup above using the read/write scope and a fresh token.
+2. Create a disposable titled timed event in Google Calendar; obtain its event
+   ID using the existing verification instructions above.
+3. Start the service and run the PUT and GET example in
+   [CONTRACT.md](CONTRACT.md#replace-event--nicolas-ollivier-51-operation-4).
+4. Expect PUT 200 and all three replacement values in the returned Event, then
+   GET 200 with the same complete values (allow Google's timestamp formatting).
+   Verify the new title and interval in Google Calendar as well.
+5. Record request, expected/observed values, date, reviewer, and cleanup in the
+   owner-reviewed PR without secrets. Delete the disposable event in Google Calendar.
+
+A failed write can have applied remotely; retrieve the event before deciding
+whether to repeat a request. Do not interpret 502 as proof of unchanged state.
 
 - Google's official Python quickstart uses desktop OAuth credentials, caches user
   authorization in a local token file, refreshes expired credentials when a

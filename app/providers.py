@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-from app.models import CreateEventRequest, Event
+from app.models import CreateEventRequest, Event, EventReplacement
 
 
 class EventProvider(Protocol):
@@ -37,5 +37,14 @@ class EventProvider(Protocol):
 
         Returns:
             The created event in the service's public representation.
+        """
+        ...
+
+    def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
+        """Replace all editable fields of an existing event and return its result.
+
+        Inputs are validated domain values. Missing events, access denial, and
+        provider failures use the shared service errors; a failed write may
+        have taken effect remotely.
         """
         ...

@@ -42,9 +42,14 @@ def service_error_response(request: Request, error: Exception) -> JSONResponse:
         message = "Invalid event limit"
     elif isinstance(error, InvalidInputError) and operation == "create_event":
         message = "Invalid event data"
-    elif isinstance(error, InvalidInputError) and operation != "get_event":
+    elif isinstance(error, InvalidInputError) and operation not in {
+        "get_event",
+        "replace_event",
+    }:
         message = "Invalid input"
     provider_involved = getattr(request.state, "provider_involved", None)
+    if isinstance(error, InvalidInputError):
+        message = getattr(request.state, "invalid_input_message", message)
     logger.warning(
         "Calendar operation failed: operation=%s code=%s status=%s "
         "provider_involved=%s",
@@ -73,6 +78,8 @@ def request_validation_error_response(
     route = request.scope.get("route")
     request.state.operation = getattr(route, "name", "request_validation")
     request.state.provider_involved = False
+    if request.state.operation == "replace_event":
+        request.state.invalid_input_message = "Invalid event replacement"
     return service_error_response(
         request, InvalidInputError("Request schema validation failed")
     )

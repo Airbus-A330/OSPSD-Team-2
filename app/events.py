@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 
 from app.errors import InvalidInputError
-from app.models import CreateEventRequest, Event
+from app.models import CreateEventRequest, Event, EventReplacement
 from app.providers import EventProvider
 
 _RFC3339_TIMESTAMP = re.compile(
@@ -89,3 +89,15 @@ def create_event(event: CreateEventRequest, provider: EventProvider) -> Event:
     """
     validate_create_event(event)
     return provider.create_event(event)
+
+
+def replace_event(
+    event_id: str, replacement: EventReplacement, provider: EventProvider
+) -> Event:
+    """Replace an existing event's complete editable representation.
+
+    The replacement model validates title and interval before any provider write.
+    Shared service failures propagate to the HTTP boundary without retries.
+    """
+    validate_event_id(event_id)
+    return provider.replace_event(event_id, replacement)

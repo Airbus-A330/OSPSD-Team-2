@@ -16,7 +16,7 @@ from app.errors import (
     ServiceError,
 )
 from app.google_calendar import GoogleCalendarProvider
-from app.models import CreateEventRequest, Event
+from app.models import CreateEventRequest, Event, EventReplacement
 
 
 @pytest.mark.parametrize(
@@ -198,3 +198,77 @@ def test_provider_translates_google_create_failure(
         provider.create_event(event)
 
     assert caught.value.__cause__ is None
+
+
+def test_replace_uses_full_update_and_translates_result() -> None:
+    client = Mock()
+    replacement = EventReplacement(
+        title="New title", start="2026-10-20T10:00:00Z", end="2026-10-20T11:00:00Z"
+    )
+    request = client.events.return_value.update.return_value
+    request.execute.return_value = {
+        "id": "opaque-id",
+        "summary": "New title",
+        "start": {"dateTime": replacement.start},
+        "end": {"dateTime": replacement.end},
+        "etag": "hidden",
+    }
+    provider = GoogleCalendarProvider(client, calendar_id="team-calendar")
+    assert provider.replace_event("opaque-id", replacement) == Event(
+        id="opaque-id", **replacement.model_dump()
+    )
+    client.events.return_value.update.assert_called_once_with(
+        calendarId="team-calendar",
+        eventId="opaque-id",
+        body={
+            "summary": replacement.title,
+            "start": {"dateTime": replacement.start},
+            "end": {"dateTime": replacement.end},
+        },
+    )
+    request.execute.assert_called_once_with()
+    client.events.return_value.patch.assert_not_called()
+    client.events.return_value.get.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (_google_http_error("404", "notFound"), NotFoundError),
+        (_google_http_error("403", "forbidden"), PermissionDeniedError),
+        (_google_http_error("403", "rateLimitExceeded"), ProviderFailureError),
+        (_google_http_error("500", "backendError"), ProviderFailureError),
+        (TransportError("private detail"), ProviderFailureError),
+        (HttpLib2Error("private detail"), ProviderFailureError),
+    ],
+)
+def test_replace_translates_failures_without_retry(
+    error: Exception,
+    expected: type[ServiceError],
+) -> None:
+    client = Mock()
+    request = client.events.return_value.update.return_value
+    request.execute.side_effect = error
+    provider = GoogleCalendarProvider(client, calendar_id="primary")
+    replacement = EventReplacement(
+        title="New title", start="2026-10-20T10:00:00Z", end="2026-10-20T11:00:00Z"
+    )
+    with pytest.raises(expected) as caught:
+        provider.replace_event("event-id", replacement)
+    assert caught.value.__cause__ is None
+    assert "private detail" not in str(caught.value)
+    assert "provider-only detail" not in str(caught.value)
+    request.execute.assert_called_once_with()
+
+
+def test_replace_malformed_provider_result_is_provider_failure() -> None:
+    client = Mock()
+    client.events.return_value.update.return_value.execute.return_value = {
+        "id": "event-id"
+    }
+    provider = GoogleCalendarProvider(client, calendar_id="primary")
+    replacement = EventReplacement(
+        title="New title", start="2026-10-20T10:00:00Z", end="2026-10-20T11:00:00Z"
+    )
+    with pytest.raises(ProviderFailureError):
+        provider.replace_event("event-id", replacement)

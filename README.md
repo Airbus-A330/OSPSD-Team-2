@@ -192,6 +192,10 @@ curl -i 'http://127.0.0.1:8000/events?limit=2'
 
 Listing defaults to 10 events and accepts limits from 1 to 100. See the contract
 for supported event shapes and provider-page limitations.
+For Nicolas's complete event replacement operation, see the runnable
+[`PUT /events/{event_id}` example](docs/CONTRACT.md#replace-event--nicolas-ollivier-51-operation-4).
+All editable fields are required. Write access and renewed OAuth consent are
+described in [provider setup](docs/PROVIDER.md#authentication).
 
 ### Create an event
 
