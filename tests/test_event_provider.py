@@ -1,11 +1,16 @@
 """Validate structural compatibility with the EventProvider contract."""
 
-from app.models import CreateEventRequest, Event, EventReplacement
+from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
 
 
 def test_implementation_satisfies_provider_without_inheritance() -> None:
     class ExampleProvider:
+        def patch_event(self, event_id: str, changes: EventPatch) -> Event:
+            return self.get_event(event_id).model_copy(
+                update=changes.model_dump(exclude_unset=True)
+            )
+
         def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
             return Event(id=event_id, **replacement.model_dump())
 

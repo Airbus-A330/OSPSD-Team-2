@@ -12,9 +12,9 @@ from app.errors import (
     ProviderFailureError,
     ServiceError,
 )
-from app.events import get_event, list_events
+from app.events import get_event, list_events, patch_event
 from app.main import app, get_event_provider
-from app.models import CreateEventRequest, Event, EventReplacement
+from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
 
 
@@ -24,6 +24,7 @@ class ControlledEventProvider:
 
     outcomes: dict[str, Event | ServiceError]
     replacement_calls: list[str] = field(default_factory=list)
+    patch_calls: list[str] = field(default_factory=list)
 
     def get_event(self, event_id: str) -> Event:
         """Return or raise the configured outcome for the requested identifier."""
@@ -31,6 +32,16 @@ class ControlledEventProvider:
         if isinstance(outcome, ServiceError):
             raise outcome
         return outcome
+
+    def patch_event(self, event_id: str, changes: EventPatch) -> Event:
+        """Apply explicit changes to configured state or raise its failure."""
+        self.patch_calls.append(event_id)
+        if event_id not in self.outcomes:
+            raise NotFoundError()
+        current = self.get_event(event_id)
+        updated = current.model_copy(update=changes.model_dump(exclude_unset=True))
+        self.outcomes[event_id] = updated
+        return updated
 
     def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
         """Replace a configured event, preserving explicit failure outcomes."""
@@ -76,6 +87,9 @@ def controlled_provider(configured_events: dict[str, Event]) -> EventProvider:
 @pytest.mark.parametrize("event_id", ["", "   ", "\t\n", "\r\n \t", "\u2003"])
 def test_invalid_event_id_is_rejected_without_provider_call(event_id: str) -> None:
     class UnusedProvider:
+        def patch_event(self, event_id: str, changes: EventPatch) -> Event:
+            pytest.fail("Invalid input must not invoke the provider")
+
         def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
             pytest.fail("Invalid input must not invoke the provider")
 
@@ -493,3 +507,212 @@ def test_http_list_provider_failure_uses_shared_response_and_operation_log(
     assert len(records) == 1
     assert records[0].__dict__["operation"] == "list_events"
     assert "synthetic private provider detail" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"title": " Updated title "},
+        {"start": "2026-10-13T09:30:00-04:00"},
+        {"end": "2026-10-13T11:00:00-04:00"},
+        {"start": "2026-10-13T14:00:00Z", "end": "2026-10-13T15:00:00Z"},
+    ],
+)
+def test_patch_changes_only_supplied_fields(
+    changes: dict[str, str],
+    configured_events: dict[str, Event],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = ControlledEventProvider({**configured_events})
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    original = configured_events["Review_Event-001"]
+    expected = {**original.model_dump(), **changes}
+    with TestClient(app) as client:
+        response = client.patch("/events/Review_Event-001", json=changes)
+        assert response.status_code == 200
+        assert response.json() == expected
+        assert client.get("/events/Review_Event-001").json() == expected
+    assert provider.outcomes["Review_Event-001"] == Event(**expected)
+    assert provider.outcomes["event-002"] == configured_events["event-002"]
+    assert provider.patch_calls == ["Review_Event-001"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"title": " \t"},
+        {"title": None},
+        {"start": None},
+        {"end": 42},
+        {"unknown": "value"},
+        {"start": "2026-10-13"},
+        {"start": "2026-10-13T09:00:00"},
+        {"end": "2026-02-30T12:00:00Z"},
+        {"start": "2026-10-13T14:00:00Z", "end": "2026-10-13T10:00:00-04:00"},
+        {"start": "2026-10-13T14:00:00Z", "end": "2026-10-13T13:00:00Z"},
+    ],
+)
+def test_invalid_patch_rejected_before_provider_setup(
+    body: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unused_provider() -> None:
+        pytest.fail("Invalid PATCH must not set up a provider")
+
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, unused_provider)
+    with TestClient(app) as client:
+        response = client.patch("/events/event-123", json=body)
+    assert response.status_code == 400
+    assert response.json() == {
+        "error": {"code": "invalid_input", "message": "Invalid input"}
+    }
+
+
+@pytest.mark.parametrize("body", ["", "{", "null", "[]", '"text"'])
+def test_patch_malformed_body_does_not_set_up_provider(
+    body: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unused_provider() -> None:
+        pytest.fail("Invalid PATCH must not set up a provider")
+
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, unused_provider)
+    with TestClient(app) as client:
+        response = client.patch(
+            "/events/event-123",
+            content=body,
+            headers={"Content-Type": "application/json"},
+        )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_input"
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"start": "2026-10-13T14:00:00Z"},
+        {"end": "2026-10-13T12:59:00Z"},
+    ],
+)
+def test_patch_invalid_resulting_interval_preserves_provider_state(
+    changes: dict[str, str],
+    configured_events: dict[str, Event],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = ControlledEventProvider({**configured_events})
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    with TestClient(app) as client:
+        response = client.patch("/events/Review_Event-001", json=changes)
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_input"
+    assert provider.patch_calls == []
+    assert provider.outcomes == configured_events
+
+
+@pytest.mark.parametrize(
+    ("error", "status", "code", "message"),
+    [
+        (NotFoundError("private"), 404, "not_found", "Event not found"),
+        (
+            PermissionDeniedError("private"),
+            403,
+            "permission_denied",
+            "Permission denied",
+        ),
+        (
+            ProviderFailureError("private"),
+            502,
+            "provider_error",
+            "Calendar provider request failed",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "changes", [{"title": "Changed"}, {"start": "2026-10-13T13:30:00Z"}]
+)
+def test_patch_shared_failures_are_sanitized(
+    error: ServiceError,
+    status: int,
+    code: str,
+    message: str,
+    changes: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    provider = ControlledEventProvider({"failed": error})
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    with TestClient(app) as client:
+        response = client.patch("/events/failed", json=changes)
+    assert response.status_code == status
+    assert response.json() == {"error": {"code": code, "message": message}}
+    record = next(r for r in caplog.records if r.name == "app.http_errors")
+    assert record.__dict__["operation"] == "patch_event"
+    assert record.__dict__["provider_involved"] is True
+    assert "private" not in caplog.text
+
+
+def test_patch_blank_id_rejected_before_provider_setup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unused_provider() -> None:
+        pytest.fail("Blank ID must not set up a provider")
+
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, unused_provider)
+    with TestClient(app) as client:
+        response = client.patch("/events/%20%20", json={"title": "Changed"})
+    assert response.status_code == 400
+    assert response.json() == {
+        "error": {"code": "invalid_input", "message": "Invalid event ID"}
+    }
+
+
+def test_patch_missing_event_does_not_create_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = ControlledEventProvider({})
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    with TestClient(app) as client:
+        response = client.patch("/events/missing", json={"title": "Changed"})
+    assert response.status_code == 404
+    assert provider.outcomes == {}
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"title": " "},
+        {"start": "bad timestamp"},
+        {"start": "2026-10-13T15:00:00Z", "end": "2026-10-13T14:00:00Z"},
+    ],
+)
+def test_application_patch_rejects_invalid_values_before_write(
+    changes: dict[str, str],
+    configured_events: dict[str, Event],
+) -> None:
+    provider = ControlledEventProvider({**configured_events})
+    with pytest.raises(InvalidInputError):
+        patch_event("Review_Event-001", EventPatch(**changes), provider)
+    assert provider.patch_calls == []
+    assert provider.outcomes == configured_events
+
+
+def test_patch_lost_response_does_not_retry_or_assume_rollback(
+    configured_events: dict[str, Event],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class LostPatchResponse(ControlledEventProvider):
+        def patch_event(self, event_id: str, changes: EventPatch) -> Event:
+            super().patch_event(event_id, changes)
+            raise ProviderFailureError("Response lost after accepting write")
+
+    provider = LostPatchResponse({**configured_events})
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    with TestClient(app) as client:
+        response = client.patch("/events/event-002", json={"title": "Changed"})
+        assert response.status_code == 502
+        assert client.get("/events/event-002").json() == {
+            **configured_events["event-002"].model_dump(),
+            "title": "Changed",
+        }
+    assert provider.patch_calls == ["event-002"]

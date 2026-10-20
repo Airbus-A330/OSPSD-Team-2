@@ -17,14 +17,16 @@ from app.events import (
     create_event,
     get_event,
     list_events,
+    patch_event,
     replace_event,
     validate_create_event,
     validate_event_id,
     validate_event_limit,
+    validate_event_patch,
 )
 from app.google_calendar import GoogleCalendarProvider, build_google_calendar_client
 from app.http_errors import request_validation_error_response, service_error_response
-from app.models import CreateEventRequest, Event, EventReplacement
+from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
 
 app = FastAPI()
@@ -174,3 +176,39 @@ def replace_calendar_event(
     """Replace title, start, and end of an existing event and return its values."""
     request.state.provider_involved = True
     return replace_event(event_id, replacement, provider)
+
+
+def validate_patch_request(
+    event_id: str,
+    request: Request,
+    body: object = Body(default=None, json_schema_extra=EventPatch.model_json_schema()),
+) -> EventPatch:
+    """Validate PATCH input before provider construction, including OAuth."""
+    request.state.operation = "patch_event"
+    request.state.provider_involved = False
+    request.state.invalid_input_message = "Invalid event ID"
+    validate_event_id(event_id)
+    request.state.invalid_input_message = "Invalid input"
+    try:
+        changes = EventPatch.model_validate(body)
+    except ValidationError:
+        raise InvalidInputError("Invalid event patch") from None
+    validate_event_patch(changes)
+    return changes
+
+
+@app.patch(
+    "/events/{event_id}",
+    response_model=Event,
+    openapi_extra={"requestBody": {"required": True}},
+    name="patch_event",
+)
+def patch_calendar_event(
+    event_id: str,
+    request: Request,
+    changes: EventPatch = Depends(validate_patch_request),
+    provider: EventProvider = Depends(get_event_provider),
+) -> Event:
+    """Partially update an existing event, preserving omitted fields."""
+    request.state.provider_involved = True
+    return patch_event(event_id, changes, provider)

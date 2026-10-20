@@ -21,7 +21,7 @@ from app.errors import (
     ProviderFailureError,
     ServiceError,
 )
-from app.models import CreateEventRequest, Event, EventReplacement
+from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
 
 GOOGLE_CALENDAR_SCOPES = ("https://www.googleapis.com/auth/calendar.events",)
@@ -187,6 +187,36 @@ class GoogleCalendarProvider(EventProvider):
         """Store the client and calendar configuration without performing I/O."""
         self._client = client
         self._calendar_id = calendar_id
+
+    def patch_event(self, event_id: str, changes: EventPatch) -> Event:
+        """Send only caller-supplied changes using Google patch semantics."""
+        body: dict[str, object] = {}
+        if changes.title is not None:
+            body["summary"] = changes.title
+        if changes.start is not None:
+            body["start"] = {"dateTime": changes.start}
+        if changes.end is not None:
+            body["end"] = {"dateTime": changes.end}
+        try:
+            result = (
+                self._client.events()
+                .patch(
+                    calendarId=self._calendar_id,
+                    eventId=event_id,
+                    body=body,
+                )
+                .execute()
+            )
+        except HttpError as error:
+            raise _translate_google_error(error) from None
+        except (HttpLib2Error, TransportError):
+            raise ProviderFailureError("Google Calendar request failed") from None
+        try:
+            return translate_google_event(result)
+        except (KeyError, TypeError, ValidationError):
+            raise ProviderFailureError(
+                "Invalid Google Calendar patch response"
+            ) from None
 
     def list_events(self, limit: int) -> list[Event]:
         """Read one bounded page of titled, timed events as domain values.

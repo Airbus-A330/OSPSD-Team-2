@@ -2,11 +2,20 @@
 
 from typing import Protocol
 
-from app.models import CreateEventRequest, Event, EventReplacement
+from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 
 
 class EventProvider(Protocol):
     """Calendar event operations as defined in docs/ARCHITECTURE.md."""
+
+    def patch_event(self, event_id: str, changes: EventPatch) -> Event:
+        """Apply only explicitly supplied editable fields to an existing event.
+
+        Accept validated domain changes and an opaque ID; preserve omitted
+        fields and return the resulting domain Event. Shared service errors
+        describe failure; a failed write may have taken effect remotely.
+        """
+        ...
 
     def get_event(self, event_id: str) -> Event:
         """Retrieve one event without changing provider state.
