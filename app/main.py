@@ -5,7 +5,6 @@ from collections.abc import Iterator
 
 from fastapi import Depends, FastAPI, Request
 
-from app.event_cache import CachedEventProvider, EventCache
 from app.errors import (
     InvalidInputError,
     NotFoundError,
@@ -19,7 +18,6 @@ from app.models import Event
 from app.providers import EventProvider
 
 app = FastAPI()
-event_cache = EventCache()
 
 for error_type in (
     InvalidInputError,
@@ -47,12 +45,7 @@ def get_event_provider(request: Request) -> Iterator[EventProvider]:
     client = build_google_calendar_client()
     calendar_id = os.getenv("GOOGLE_CALENDAR_ID") or "primary"
     try:
-        google_provider = GoogleCalendarProvider(client, calendar_id=calendar_id)
-        yield CachedEventProvider(
-            google_provider,
-            cache=event_cache,
-            namespace=calendar_id,
-        )
+        yield GoogleCalendarProvider(client, calendar_id=calendar_id)
     finally:
         client.close()
 
