@@ -45,7 +45,7 @@ Real-provider verification remains separate and documented in [PROVIDER.md](PROV
 ## Google Provider Tests
 
 `tests/test_google_calendar_provider.py` tests the concrete
-`GoogleCalendarProvider` with a controlled SDK client. Its fourteen cases cover:
+`GoogleCalendarProvider` with a controlled SDK client. Its seventeen cases cover:
 
 - Two calendar/event ID pairs: construction makes no SDK calls, retrieval uses
   the supplied identifiers, and the result is an `Event` with exactly the four
@@ -70,6 +70,20 @@ These tests run without credentials or network access. Existing mapping and
 model tests cover additional missing-field and invalid-type cases. The separate
 HTTP integration test covers controlled provider substitution; live Google
 connectivity is documented in `PROVIDER.md`.
+
+## Event Creation Tests
+
+`tests/test_create_event.py` verifies the provider-independent application and
+HTTP creation path. It checks the 201 response, provider-generated identifier,
+complete returned values, and the controlled provider's recorded write. Focused
+cases reject a blank title, invalid time ordering, timestamps without UTC
+offsets, and missing time fields before a provider write. Permission denial and
+provider failure use the shared public error shape and sanitized logging.
+
+`tests/test_google_calendar_provider.py` verifies that creation uses Google
+`events.insert` with only `summary`, `start.dateTime`, and `end.dateTime`, then
+translates the provider result into `Event`. Controlled Google 403 and 500
+responses verify service-error translation without credentials or network.
 
 ## Level 5 HTTP Failures (#39)
 
@@ -191,6 +205,7 @@ Normal CI must not require provider credentials.
 | Google provider implementation | Yes | | Manual | Provider unit tests use a controlled SDK client; live timed-event retrieval is documented in `PROVIDER.md` |
 | Application event retrieval through `EventProvider` | Yes | Yes | | Controlled events verify identifier selection, response preservation, and repeated reads |
 | Controlled provider substitution | Yes | Yes | No | `tests/test_provider_substitution.py` uses a configurable provider through application arguments and `app.dependency_overrides` |
+| Create event | Yes | Yes | Manual required | Controlled writes verify validation, the 201 response, returned values, provider failures, and Google request/response translation; live steps are in `PROVIDER.md` |
 
 Update this table whenever meaningful behavior is added.
 

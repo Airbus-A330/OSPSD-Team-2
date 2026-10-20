@@ -15,18 +15,19 @@ Google Calendar API v3, accessed through Google's Python client libraries.
 - [Google OAuth security best practices](https://developers.google.com/identity/protocols/oauth2/resources/best-practices)
 - [Events: get](https://developers.google.com/workspace/calendar/api/v3/reference/events/get)
 - [Events: list](https://developers.google.com/workspace/calendar/api/v3/reference/events/list)
+- [Events: insert](https://developers.google.com/workspace/calendar/api/v3/reference/events/insert)
 
 ## Authentication
 
 Local development uses Google's OAuth 2.0 installed-application flow. The service
-requests this read-only scope:
+requests this event read/write scope:
 
 ```text
-https://www.googleapis.com/auth/calendar.events.readonly
+https://www.googleapis.com/auth/calendar.events
 ```
 
-This scope permits reading events but does not permit changes. It is the narrowest
-scope needed for the planned event retrieval operation.
+This scope permits reading and editing events without granting access to broader
+calendar settings. Google documents it as an accepted scope for `events.insert`.
 
 ### Local setup
 
@@ -53,6 +54,8 @@ ignored by Git. Never commit or share these files. Store them securely and revok
 the authorization in the Google account when it is no longer needed.
 
 If the requested scopes change, delete the local token file and authorize again.
+Existing tokens created with the former read-only scope must therefore be deleted
+and authorized again before testing write operations.
 
 ### Manual authentication verification
 
@@ -97,12 +100,36 @@ and `end` fields from `CONTRACT.md`. Two teammates must run these steps with the
 team's test calendar and record their names, dates, event IDs, and successful
 responses in the pull request without posting credentials or tokens.
 
+### End-to-end event creation verification
+
+After authentication and service startup, create a disposable timed event:
+
+```bash
+curl -i -X POST http://127.0.0.1:8000/events \
+  -H "Content-Type: application/json" \
+  -d '{"title":"OSPSD Create Verification","start":"2026-10-22T10:00:00-04:00","end":"2026-10-22T10:30:00-04:00"}'
+```
+
+On Windows PowerShell, run the command with `curl.exe`. The expected result is
+HTTP 201 and an `Event` containing a provider-generated `id` plus the created
+title, start, and end values. Copy that ID and verify the event through
+`GET /events/<EVENT_ID>` and in the configured Google Calendar.
+
+Clean up the disposable event after verification:
+
+```bash
+uv run --locked python -c "import os; from app.google_calendar import build_google_calendar_client; c=build_google_calendar_client(); c.events().delete(calendarId=os.getenv('GOOGLE_CALENDAR_ID', 'primary'), eventId='<EVENT_ID>').execute(); c.close(); print('Cleanup successful')"
+```
+
+Record the request, expected result, observed status/body, provider observation,
+and cleanup result without recording credentials or private calendar data.
+
 ### Cleanup
 
-The Milestone 1 operation is read-only, so it creates no calendar resources that
-need cleanup. Stop the local service when verification is complete. To remove
-local authorization, delete the configured token file and revoke the app's access
-from the Google account; do not commit or share either credential file.
+Delete every disposable event created during verification. Stop the local service
+when verification is complete. To remove local authorization, delete the
+configured token file and revoke the app's access from the Google account; do not
+commit or share either credential file.
 
 ## Provider Operations
 
@@ -111,9 +138,10 @@ from the Google account; do not commit or share either credential file.
 | Construct an authenticated client | `googleapiclient.discovery.build("calendar", "v3", ...)` | Authentication setup documented above |
 | Retrieve one event | `client.events().get(calendarId=calendar_id, eventId=event_id).execute()` | Reads external state without modifying it |
 | List events | `client.events().list(calendarId=calendar_id, maxResults=limit, singleEvents=True).execute()` | One read-only page; returns at most the requested number of domain Events |
+| Create one event | `client.events().insert(calendarId=calendar_id, body=...).execute()` | Creates a timed event and returns the provider-generated ID |
 
-The retrieval function receives an already configured client, which can be built
-with `build_google_calendar_client`. The caller owns the client lifecycle.
+Provider operation helpers receive an already configured client, which can be
+built with `build_google_calendar_client`. The caller owns the client lifecycle.
 
 `app.google_calendar.get_event(client, calendar_id=..., event_id=...)` requires
 both identifiers and passes them unchanged to the SDK:
@@ -126,9 +154,9 @@ both identifiers and passes them unchanged to the SDK:
 
 ### Domain-facing Google provider
 
-`app.google_calendar.GoogleCalendarProvider` implements the documented
-`get_event(event_id: str) -> Event` signature from
-[`ARCHITECTURE.md`](ARCHITECTURE.md#milestone-2-provider-boundary).
+`app.google_calendar.GoogleCalendarProvider` implements the documented event
+retrieval, listing, and creation signatures from
+[`ARCHITECTURE.md`](ARCHITECTURE.md#provider-boundary).
 Supply an already configured client and an explicit calendar ID:
 
 ```python
@@ -140,8 +168,8 @@ event = provider.get_event(event_id)
 
 The caller owns client construction, authentication, and lifecycle. The
 constructor stores the client and calendar ID without performing I/O. Each
-`get_event` call uses the existing retrieval and translation functions within
-this module, returning the domain `Event` rather than a raw Google dictionary.
+operation uses provider-specific request and translation functions within this
+module, returning the domain `Event` rather than a raw Google dictionary.
 Google failures are translated into the service errors from `app.errors`
 before they leave this module. A 404 becomes `NotFoundError`. A 403 becomes
 `PermissionDeniedError`, except when Google's machine-readable error reason
@@ -208,6 +236,17 @@ its domain-facing boundary. The mapping is:
 `app.models`. It selects only these four fields. Other provider fields, including
 `kind`, `etag`, organizer data, and nested `timeZone`, are not exposed.
 
+For creation, the request mapping is deliberately limited:
+
+| Domain request field | Google request field |
+|---|---|
+| `title` | `summary` |
+| `start` | `start.dateTime` |
+| `end` | `end.dateTime` |
+
+Google generates the event `id`. The complete Google result is translated back
+through the same four-field `Event` mapping used by retrieval.
+
 These mappings implement the four public fields approved in `CONTRACT.md`. The
 following provider assumptions remain relevant to that contract:
 
@@ -235,12 +274,13 @@ below.
 
 - The installed-application OAuth flow requires an interactive browser on first
   authorization.
-- The configured scope is read-only and cannot create, update, or delete events.
+- Tokens created before the event read/write scope was adopted must be deleted
+  and reauthorized before create, update, or delete operations can succeed.
 - Local token storage is suitable for development only; a production deployment
   would require an appropriate secure credential store and authentication design.
 
-The retrieval function propagates SDK errors unchanged; the domain-facing
-provider translates Google HTTP error responses into the service errors
+The low-level provider operation helpers propagate SDK errors unchanged; the
+domain-facing provider translates Google HTTP error responses into the service errors
 defined in [CONTRACT.md](CONTRACT.md). Neither maps failures to HTTP status
 codes directly, hides failures behind empty results, or adds retries,
 pagination, or other operations.

@@ -193,6 +193,20 @@ curl -i 'http://127.0.0.1:8000/events?limit=2'
 Listing defaults to 10 events and accepts limits from 1 to 100. See the contract
 for supported event shapes and provider-page limitations.
 
+### Create an event
+
+After completing provider configuration, create a titled, timed event with:
+
+```bash
+curl -i -X POST http://127.0.0.1:8000/events \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Team Meeting","start":"2026-10-22T10:00:00-04:00","end":"2026-10-22T11:00:00-04:00"}'
+```
+
+The expected response is HTTP 201 with the created event's generated `id`,
+`title`, `start`, and `end`. See [`docs/PROVIDER.md`](docs/PROVIDER.md) for
+real-provider verification and cleanup.
+
 ---
 
 ## Testing
