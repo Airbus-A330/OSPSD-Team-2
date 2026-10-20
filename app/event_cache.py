@@ -9,6 +9,7 @@ from app.models import Event
 from app.providers import EventProvider
 
 EVENT_CACHE_TTL_SECONDS = 60.0
+EVENT_CACHE_MAX_ENTRIES = 256
 
 type CacheKey = tuple[str, str]
 
@@ -26,10 +27,14 @@ class EventCache:
         self,
         ttl_seconds: float = EVENT_CACHE_TTL_SECONDS,
         *,
+        max_entries: int = EVENT_CACHE_MAX_ENTRIES,
         clock: Callable[[], float] = monotonic,
     ) -> None:
-        """Configure the cache lifetime and clock used for expiration checks."""
+        """Configure the cache lifetime, capacity, and expiration clock."""
+        if max_entries < 1:
+            raise ValueError("max_entries must be at least 1")
         self._ttl_seconds = ttl_seconds
+        self._max_entries = max_entries
         self._clock = clock
         self._entries: dict[CacheKey, _CacheEntry] = {}
         self._lock = Lock()
@@ -48,7 +53,7 @@ class EventCache:
             return entry.event
 
     def put(self, namespace: str, event_id: str, event: Event) -> None:
-        """Store a successful domain event and discard other expired entries."""
+        """Store an event, discarding expired entries and the oldest when full."""
         now = self._clock()
         with self._lock:
             self._entries = {
@@ -56,7 +61,12 @@ class EventCache:
                 for key, entry in self._entries.items()
                 if entry.expires_at > now
             }
-            self._entries[(namespace, event_id)] = _CacheEntry(
+            key = (namespace, event_id)
+            self._entries.pop(key, None)
+            if len(self._entries) >= self._max_entries:
+                oldest_key = next(iter(self._entries))
+                del self._entries[oldest_key]
+            self._entries[key] = _CacheEntry(
                 event=event,
                 expires_at=now + self._ttl_seconds,
             )
