@@ -10,3 +10,11 @@ class Event(BaseModel):
     title: str
     start: str
     end: str
+
+
+class CreateEventRequest(BaseModel):
+    """Provider-independent values required to create a timed event."""
+
+    title: str
+    start: str
+    end: str

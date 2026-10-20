@@ -1,12 +1,12 @@
-"""Provider-independent event retrieval contract."""
+"""Provider-independent calendar operation contract."""
 
 from typing import Protocol
 
-from app.models import Event
+from app.models import CreateEventRequest, Event
 
 
 class EventProvider(Protocol):
-    """Read-only event access as defined in docs/ARCHITECTURE.md."""
+    """Calendar event operations as defined in docs/ARCHITECTURE.md."""
 
     def get_event(self, event_id: str) -> Event:
         """Retrieve one event without changing provider state.
@@ -26,5 +26,16 @@ class EventProvider(Protocol):
         in provider order without changing calendar state. A short or empty
         list is allowed; completeness and pagination are not promised.
         Provider failures use the shared service errors, never SDK exceptions.
+        """
+        ...
+
+    def create_event(self, event: CreateEventRequest) -> Event:
+        """Create one event and return its provider-generated identifier.
+
+        Args:
+            event: Provider-independent title and timed-event boundaries.
+
+        Returns:
+            The created event in the service's public representation.
         """
         ...

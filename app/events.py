@@ -1,8 +1,15 @@
-"""Application behavior for retrieving calendar events."""
+"""Provider-independent application behavior for calendar events."""
+
+import re
+from datetime import datetime
 
 from app.errors import InvalidInputError
-from app.models import Event
+from app.models import CreateEventRequest, Event
 from app.providers import EventProvider
+
+_RFC3339_TIMESTAMP = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+)
 
 
 def validate_event_id(event_id: str) -> None:
@@ -41,3 +48,44 @@ def get_event(event_id: str, provider: EventProvider) -> Event:
     """
     validate_event_id(event_id)
     return provider.get_event(event_id)
+
+
+def _parse_event_time(value: str, field_name: str) -> datetime:
+    """Parse one RFC3339-compatible timestamp with a required UTC offset."""
+    if not _RFC3339_TIMESTAMP.fullmatch(value):
+        raise InvalidInputError(f"{field_name} must be an RFC3339 timestamp")
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        raise InvalidInputError(f"{field_name} must be a valid timestamp") from None
+    if parsed.utcoffset() is None:
+        raise InvalidInputError(f"{field_name} must include a UTC offset")
+    return parsed
+
+
+def validate_create_event(event: CreateEventRequest) -> None:
+    """Validate locally checkable create constraints before a provider write."""
+    if not event.title.strip():
+        raise InvalidInputError("Event title must contain non-whitespace content")
+
+    start = _parse_event_time(event.start, "Event start")
+    end = _parse_event_time(event.end, "Event end")
+    if end <= start:
+        raise InvalidInputError("Event end must be after its start")
+
+
+def create_event(event: CreateEventRequest, provider: EventProvider) -> Event:
+    """Validate and create an event through the configured provider.
+
+    Args:
+        event: Provider-independent values for the event to create.
+        provider: EventProvider implementation selected by composition code.
+
+    Returns:
+        The created event, including its provider-generated identifier.
+
+    Raises:
+        InvalidInputError: If the title or timed-event boundaries are invalid.
+    """
+    validate_create_event(event)
+    return provider.create_event(event)

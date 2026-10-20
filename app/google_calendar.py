@@ -1,4 +1,4 @@
-"""Google Calendar authentication, event retrieval, and translation."""
+"""Google Calendar authentication, event operations, and translation."""
 
 import json
 import os
@@ -21,10 +21,10 @@ from app.errors import (
     ProviderFailureError,
     ServiceError,
 )
-from app.models import Event
+from app.models import CreateEventRequest, Event
 from app.providers import EventProvider
 
-GOOGLE_CALENDAR_SCOPES = ("https://www.googleapis.com/auth/calendar.events.readonly",)
+GOOGLE_CALENDAR_SCOPES = ("https://www.googleapis.com/auth/calendar.events",)
 
 # Machine-readable Google error reasons that report a quota or rate limit
 # rather than a permission failure. Google returns them with HTTP 403 (and
@@ -107,6 +107,27 @@ def get_event(client: Any, *, calendar_id: str, event_id: str) -> dict[str, obje
     return client.events().get(calendarId=calendar_id, eventId=event_id).execute()
 
 
+def create_event(
+    client: Any, *, calendar_id: str, event: CreateEventRequest
+) -> dict[str, object]:
+    """Create one timed Google Calendar event using domain request values.
+
+    Args:
+        client: Authenticated client owned and configured by the caller.
+        calendar_id: Google calendar identifier, or ``primary``.
+        event: Provider-independent event creation request.
+
+    Returns:
+        Raw Google event data for translation inside this module.
+    """
+    body = {
+        "summary": event.title,
+        "start": {"dateTime": event.start},
+        "end": {"dateTime": event.end},
+    }
+    return client.events().insert(calendarId=calendar_id, body=body).execute()
+
+
 def _google_error_reasons(error: HttpError) -> set[str]:
     """Extract Google's machine-readable error reasons from a failure body.
 
@@ -160,7 +181,7 @@ def _translate_google_error(error: HttpError) -> ServiceError:
 
 
 class GoogleCalendarProvider(EventProvider):
-    """Retrieve domain events through a configured Google Calendar client."""
+    """Perform domain event operations through a Google Calendar client."""
 
     def __init__(self, client: Resource, *, calendar_id: str) -> None:
         """Store the client and calendar configuration without performing I/O."""
@@ -211,6 +232,31 @@ class GoogleCalendarProvider(EventProvider):
                 self._client,
                 calendar_id=self._calendar_id,
                 event_id=event_id,
+            )
+        except HttpError as error:
+            raise _translate_google_error(error) from None
+        except (HttpLib2Error, TransportError):
+            raise ProviderFailureError("Google Calendar request failed") from None
+        return translate_google_event(provider_event)
+
+    def create_event(self, event: CreateEventRequest) -> Event:
+        """Create a Google event and return its translated domain representation.
+
+        Args:
+            event: Provider-independent event creation request.
+
+        Returns:
+            The created event with its Google-generated identifier.
+
+        Raises:
+            PermissionDeniedError: If Google denies the event creation.
+            ProviderFailureError: If another Google or transport failure occurs.
+        """
+        try:
+            provider_event = create_event(
+                self._client,
+                calendar_id=self._calendar_id,
+                event=event,
             )
         except HttpError as error:
             raise _translate_google_error(error) from None

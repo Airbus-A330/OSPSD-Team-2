@@ -3,7 +3,8 @@
 import os
 from collections.abc import Iterator
 
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, Query, Request, status
+from fastapi.exceptions import RequestValidationError
 from pydantic import TypeAdapter, ValidationError
 
 from app.errors import (
@@ -12,13 +13,21 @@ from app.errors import (
     PermissionDeniedError,
     ProviderFailureError,
 )
-from app.events import get_event, list_events, validate_event_id, validate_event_limit
+from app.events import (
+    create_event,
+    get_event,
+    list_events,
+    validate_create_event,
+    validate_event_id,
+    validate_event_limit,
+)
 from app.google_calendar import GoogleCalendarProvider, build_google_calendar_client
-from app.http_errors import service_error_response
-from app.models import Event
+from app.http_errors import request_validation_error_response, service_error_response
+from app.models import CreateEventRequest, Event
 from app.providers import EventProvider
 
 app = FastAPI()
+app.add_exception_handler(RequestValidationError, request_validation_error_response)
 
 for error_type in (
     InvalidInputError,
@@ -31,6 +40,7 @@ for error_type in (
 
 def validate_event_request(event_id: str, request: Request) -> None:
     """Run shared validation before resolving the provider dependency."""
+    request.state.operation = "get_event"
     request.state.provider_involved = False
     validate_event_id(event_id)
 
@@ -46,6 +56,16 @@ def validate_list_request(request: Request) -> None:
     except ValidationError:
         raise InvalidInputError("Event limit must be an integer") from None
     validate_event_limit(limit)
+
+
+def validate_create_request(
+    event: CreateEventRequest, request: Request
+) -> CreateEventRequest:
+    """Validate a create request before resolving the provider dependency."""
+    request.state.operation = "create_event"
+    request.state.provider_involved = False
+    validate_create_event(event)
+    return event
 
 
 def get_event_provider(request: Request) -> Iterator[EventProvider]:
@@ -101,3 +121,20 @@ def read_event(
     """
     request.state.provider_involved = True
     return get_event(event_id, provider=provider)
+
+
+@app.post(
+    "/events",
+    response_model=Event,
+    status_code=status.HTTP_201_CREATED,
+    name="create_event",
+)
+def create_event_route(
+    request: Request,
+    event: CreateEventRequest = Depends(validate_create_request),
+    provider: EventProvider = Depends(get_event_provider),
+) -> Event:
+    """Create a timed event in the configured calendar."""
+    request.state.operation = "create_event"
+    request.state.provider_involved = True
+    return create_event(event, provider=provider)
