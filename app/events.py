@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 
 from app.errors import InvalidInputError
-from app.models import CreateEventRequest, Event, EventReplacement
+from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
 
 _RFC3339_TIMESTAMP = re.compile(
@@ -102,3 +102,41 @@ def replace_event(
     """
     validate_event_id(event_id)
     return provider.replace_event(event_id, replacement)
+
+
+def validate_event_patch(changes: EventPatch) -> None:
+    """Reject locally invalid supplied values before provider setup or writes."""
+    if changes.title is not None and not changes.title.strip():
+        raise InvalidInputError("Event title must contain non-whitespace content")
+    start = (
+        _parse_event_time(changes.start, "Event start")
+        if changes.start is not None
+        else None
+    )
+    end = (
+        _parse_event_time(changes.end, "Event end") if changes.end is not None else None
+    )
+    if start is not None and end is not None and end <= start:
+        raise InvalidInputError("Event end must be after its start")
+
+
+def patch_event(event_id: str, changes: EventPatch, provider: EventProvider) -> Event:
+    """Apply only supplied changes, checking a single time against stored state.
+
+    A single supplied time requires one read before the write. This is not an
+    atomic comparison: concurrent changes and uncertain write outcomes remain
+    the provider's responsibility. No automatic retries are performed.
+    """
+    validate_event_id(event_id)
+    validate_event_patch(changes)
+    if (changes.start is None) != (changes.end is None):
+        current = provider.get_event(event_id)
+        start = _parse_event_time(
+            changes.start if changes.start is not None else current.start, "Event start"
+        )
+        end = _parse_event_time(
+            changes.end if changes.end is not None else current.end, "Event end"
+        )
+        if end <= start:
+            raise InvalidInputError("Event end must be after its start")
+    return provider.patch_event(event_id, changes)

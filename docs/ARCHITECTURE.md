@@ -393,3 +393,15 @@ timestamp ordering before provider resolution. Application logic calls only
 `events.insert` body, executes the provider write, translates the returned
 Google event into `Event`, and maps Google failures to the shared service
 errors. The request-scoped client is closed on success and failure.
+
+### Final operation 5: partial update
+
+Yasmin's PATCH operation adds
+`patch_event(event_id: str, changes: EventPatch) -> Event` to `EventProvider`.
+`EventPatch` records the supplied subset of editable string fields. The HTTP
+validation dependency rejects invalid bodies/IDs before provider setup; application
+validation also protects direct calls. One changed time boundary requires a domain
+`get_event` read before interval validation. The adapter maps only supplied fields
+to Google's patch body and returns the translated Event. Existing service errors,
+request-scoped client cleanup, and failure logging are reused. No cache exists in
+this branch, and no cache infrastructure was added.

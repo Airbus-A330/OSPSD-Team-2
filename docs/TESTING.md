@@ -255,3 +255,18 @@ make check
 
 Real-provider authentication and end-to-end verification are documented in
 `PROVIDER.md`.
+
+## Partial update coverage — Yasmin (#51)
+
+PATCH cases in `tests/test_provider_substitution.py` exercise the public route
+with the existing controlled provider. They check persisted title-only and time
+updates, omitted-field preservation, malformed/empty bodies, blank IDs, and
+single-time changes that would invalidate the stored interval. Rejected local
+inputs cannot construct a provider; invalid combined intervals cannot write.
+Missing-resource, permission, and provider failures use the shared safe envelope
+and operation log context. Existing GET/list/create/replace tests remain intact.
+
+`tests/test_google_calendar_patch.py` checks exact sparse Google request bodies,
+translated domain responses, HTTP/transport failure mapping, unsupported responses,
+and no retries. All these tests are credential-free and network-free. Real-provider
+PATCH verification remains outstanding; use `PROVIDER.md` before final release.
