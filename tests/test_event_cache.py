@@ -99,6 +99,26 @@ def test_same_event_id_is_cached_separately_per_calendar(event: Event) -> None:
     assert team_provider.calls == [event.id]
 
 
+def test_cache_evicts_oldest_entry_when_capacity_is_reached(event: Event) -> None:
+    cache = EventCache(max_entries=2)
+    second_event = event.model_copy(update={"id": "event-456"})
+    third_event = event.model_copy(update={"id": "event-789"})
+
+    cache.put("primary", event.id, event)
+    cache.put("primary", second_event.id, second_event)
+    cache.put("primary", third_event.id, third_event)
+
+    assert cache.get("primary", event.id) is None
+    assert cache.get("primary", second_event.id) == second_event
+    assert cache.get("primary", third_event.id) == third_event
+
+
+@pytest.mark.parametrize("max_entries", [0, -1])
+def test_cache_rejects_nonpositive_capacity(max_entries: int) -> None:
+    with pytest.raises(ValueError, match="max_entries must be at least 1"):
+        EventCache(max_entries=max_entries)
+
+
 @pytest.mark.parametrize(
     "error",
     [NotFoundError(), PermissionDeniedError(), ProviderFailureError()],
