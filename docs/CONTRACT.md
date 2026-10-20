@@ -87,6 +87,18 @@ None.
 
 This operation reads event state and does not create, modify, or delete an event.
 
+**Caching**
+
+Successful event reads are cached in memory for 60 seconds using the configured
+calendar ID and requested event ID as the cache key. A repeated request may
+therefore return data that is up to approximately 60 seconds older than the
+provider's current value. After expiry, the next request retrieves and caches a
+fresh provider result. Invalid input and failed retrievals are not cached.
+
+The cache is local to one running service process and is cleared when that
+process stops. If write operations are added later, they must invalidate or
+update affected entries; the current service is read-only.
+
 **Errors**
 
 The team-approved Level 5 contract uses service exceptions from `app.errors`.
