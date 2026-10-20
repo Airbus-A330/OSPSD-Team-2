@@ -60,11 +60,18 @@ def validate_list_request(request: Request) -> None:
 
 
 def validate_create_request(
-    event: CreateEventRequest, request: Request
+    request: Request,
+    body: object = Body(
+        default=None, json_schema_extra=CreateEventRequest.model_json_schema()
+    ),
 ) -> CreateEventRequest:
     """Validate a create request before resolving the provider dependency."""
     request.state.operation = "create_event"
     request.state.provider_involved = False
+    try:
+        event = CreateEventRequest.model_validate(body)
+    except ValidationError:
+        raise InvalidInputError("Invalid event data") from None
     validate_create_event(event)
     return event
 

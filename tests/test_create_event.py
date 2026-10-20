@@ -99,8 +99,19 @@ def test_http_create_returns_created_event_and_records_effect(
             "start": "not-a-timestamp",
             "end": "2026-10-20T10:00:00-04:00",
         },
+        {
+            "title": "Meeting",
+            "start": "2026-10-22T10:00:00+00:60",
+            "end": "2026-10-22T11:00:00+00:60",
+        },
     ],
-    ids=["blank_title", "end_not_after_start", "missing_offsets", "invalid_start"],
+    ids=[
+        "blank_title",
+        "end_not_after_start",
+        "missing_offsets",
+        "invalid_start",
+        "invalid_offset",
+    ],
 )
 def test_invalid_create_is_rejected_before_provider_write(
     payload: dict[str, str],
@@ -118,6 +129,29 @@ def test_invalid_create_is_rejected_before_provider_write(
         "error": {"code": "invalid_input", "message": "Invalid event data"}
     }
     assert provider.created == []
+
+
+def test_missing_create_field_is_rejected_before_client_construction(
+    create_request: CreateEventRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    factory_calls: list[None] = []
+
+    def unavailable_client() -> None:
+        factory_calls.append(None)
+        raise ProviderFailureError("synthetic provider setup failure")
+
+    monkeypatch.setattr("app.main.build_google_calendar_client", unavailable_client)
+    payload = create_request.model_dump()
+    del payload["title"]
+
+    with TestClient(app) as client:
+        response = client.post("/events", json=payload)
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "error": {"code": "invalid_input", "message": "Invalid event data"}
+    }
+    assert factory_calls == []
 
 
 @pytest.mark.parametrize("missing_field", ["title", "start", "end"])
