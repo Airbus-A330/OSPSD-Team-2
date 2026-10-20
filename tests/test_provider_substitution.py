@@ -15,7 +15,7 @@ from app.errors import (
 )
 from app.events import get_event, list_events
 from app.main import app, get_event_provider
-from app.models import Event
+from app.models import CreateEventRequest, Event
 from app.providers import EventProvider
 
 
@@ -34,6 +34,10 @@ class ControlledEventProvider:
 
     def list_events(self, limit: int) -> list[Event]:
         return [self.get_event(event_id) for event_id in list(self.outcomes)[:limit]]
+
+    def create_event(self, event: CreateEventRequest) -> Event:
+        """Creation is outside this retrieval-focused controlled provider."""
+        raise NotImplementedError
 
 
 @pytest.fixture
@@ -67,6 +71,9 @@ def test_invalid_event_id_is_rejected_without_provider_call(event_id: str) -> No
 
         def list_events(self, limit: int) -> list[Event]:
             pytest.fail("Invalid input must not invoke the provider")
+
+        def create_event(self, event: CreateEventRequest) -> Event:
+            pytest.fail("Retrieval validation must not create an event")
 
     with pytest.raises(InvalidInputError):
         get_event(event_id, provider=UnusedProvider())

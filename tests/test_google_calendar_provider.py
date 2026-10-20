@@ -16,7 +16,7 @@ from app.errors import (
     ServiceError,
 )
 from app.google_calendar import GoogleCalendarProvider
-from app.models import Event
+from app.models import CreateEventRequest, Event
 
 
 @pytest.mark.parametrize(
@@ -141,3 +141,60 @@ def test_provider_does_not_return_untranslatable_google_data() -> None:
 
     with pytest.raises(KeyError, match="dateTime"):
         provider.get_event("all-day123")
+
+
+def test_provider_creates_google_event_and_returns_domain_event() -> None:
+    client = Mock()
+    request = CreateEventRequest(
+        title="Created review",
+        start="2026-10-20T09:00:00-04:00",
+        end="2026-10-20T10:00:00-04:00",
+    )
+    client.events.return_value.insert.return_value.execute.return_value = {
+        "id": "created-123",
+        "summary": request.title,
+        "start": {"dateTime": request.start},
+        "end": {"dateTime": request.end},
+        "etag": '"provider-only"',
+    }
+    provider = GoogleCalendarProvider(client, calendar_id="team@example.com")
+
+    result = provider.create_event(request)
+
+    client.events.return_value.insert.assert_called_once_with(
+        calendarId="team@example.com",
+        body={
+            "summary": request.title,
+            "start": {"dateTime": request.start},
+            "end": {"dateTime": request.end},
+        },
+    )
+    client.events.return_value.insert.return_value.execute.assert_called_once_with()
+    assert result == Event(id="created-123", **request.model_dump())
+
+
+@pytest.mark.parametrize(
+    ("status", "reason", "service_error"),
+    [
+        ("403", "forbidden", PermissionDeniedError),
+        ("500", "backendError", ProviderFailureError),
+    ],
+)
+def test_provider_translates_google_create_failure(
+    status: str, reason: str, service_error: type[ServiceError]
+) -> None:
+    client = Mock()
+    client.events.return_value.insert.return_value.execute.side_effect = (
+        _google_http_error(status, reason)
+    )
+    provider = GoogleCalendarProvider(client, calendar_id="primary")
+    event = CreateEventRequest(
+        title="Created review",
+        start="2026-10-20T09:00:00-04:00",
+        end="2026-10-20T10:00:00-04:00",
+    )
+
+    with pytest.raises(service_error) as caught:
+        provider.create_event(event)
+
+    assert caught.value.__cause__ is None

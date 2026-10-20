@@ -16,7 +16,7 @@ from app.errors import (
     ServiceError,
 )
 from app.main import app, get_event_provider
-from app.models import Event
+from app.models import CreateEventRequest, Event
 from app.providers import EventProvider
 
 
@@ -37,6 +37,10 @@ class ControlledProvider:
         if isinstance(self.outcome, Exception):
             raise self.outcome
         return [self.outcome][:limit]
+
+    def create_event(self, event: CreateEventRequest) -> Event:
+        """Creation is outside this retrieval-focused controlled provider."""
+        raise NotImplementedError
 
 
 def override_provider(provider: EventProvider, monkeypatch: pytest.MonkeyPatch) -> None:
