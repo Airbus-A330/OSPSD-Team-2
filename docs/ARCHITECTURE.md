@@ -350,4 +350,6 @@ Successful reads remain cached for 60 seconds using a monotonic clock. Expired
 entries are ignored and refreshed through the provider. Exceptions are never
 stored, so invalid input and the `not_found`, `permission_denied`, and
 `provider_error` outcomes retain the Level 5 behavior in `CONTRACT.md`. The
-cache is local to each service process; no distributed consistency is promised.
+cache holds at most 256 events per process and evicts the oldest stored entry
+when full. It is local to each service process; no distributed consistency is
+promised.
