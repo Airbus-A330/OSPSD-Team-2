@@ -4,20 +4,20 @@ Record only decisions significant enough that a future contributor might reasona
 
 ---
 
-## 2026-10-11 — Use a minimal provider interface for event retrieval
+## 2026-10-11 — Use a minimal provider-independent calendar interface
 
 **Context**
 
-Level 3 requires a provider-independent boundary, and Level 4 requires that
-tests can replace the concrete provider. The service currently needs only one
-provider-backed behavior: retrieving one event.
+The application needs calendar behavior without coupling HTTP or domain logic to
+Google SDK objects, request formats, authentication, or response dictionaries.
+Tests must also replace the real provider without credentials or network access.
 
 **Decision**
 
-Use `EventProvider` with `get_event(event_id: str) -> Event`. Keep Google SDK
-calls, request construction, response translation, and Google-specific
-configuration behind the concrete provider implementation. Supply that
-implementation to application logic instead of constructing it there.
+Use one small `EventProvider` protocol containing only the six public calendar
+operations. Keep Google SDK calls, request construction, response translation,
+and Google-specific configuration behind the concrete provider implementation.
+Supply that implementation to application logic instead of constructing it there.
 
 **Alternatives**
 
@@ -28,28 +28,42 @@ implementation to application logic instead of constructing it there.
 
 **Why**
 
-This satisfies the current requirements while keeping the boundary explicit,
-small, domain-oriented, and testable.
+This keeps the boundary explicit, small, domain-oriented, and testable while
+supporting every current public operation.
+
+**Evidence**
+
+Controlled substitution tests exercise application and HTTP behavior through
+`EventProvider` without Google credentials or network access. Provider tests
+verify Google request construction and translation at the SDK boundary. All six
+public operations were also verified against Google Calendar on 2026-10-20, and
+every returned event uses the same provider-independent `Event` representation.
 
 **Trade-offs**
 
-The interface supports only the one behavior currently required. Future
-operations may require deliberate extension.
+The interface must be extended deliberately when the public API adds behavior.
+It avoids speculative provider features, but a future provider may expose
+semantics that require additional normalization.
+
+**Remaining uncertainty**
+
+Only Google Calendar has been implemented. Provider independence is demonstrated
+through controlled substitutes, but a second production provider has not yet
+shown whether all six operations map cleanly to the current domain types.
 
 **Revisit when**
 
 A required operation cannot be expressed cleanly through this interface, or a
-second real provider reveals a genuine incompatibility.
+second real provider requires materially different semantics that cannot be
+normalized through the current domain types.
 
 **Revisited 2026-10-20**
 
-The final API requires six public calendar operations. The interface now contains
-only their provider-independent signatures: retrieve, list, create, replace,
-partial update, and delete. Request models describe service-domain values, and
-all returned events use the same four-field `Event` model. The team retained this
-single small protocol and ordinary FastAPI dependency replacement instead of
-introducing a broader provider abstraction, provider registry, or dependency-
-injection framework.
+The API expanded to six public calendar operations. Request models describe
+service-domain values, and all returned events use the same four-field `Event`
+model. The team retained this single small protocol and ordinary FastAPI
+dependency replacement instead of introducing a broader provider abstraction,
+provider registry, or dependency-injection framework.
 
 ---
 

@@ -107,19 +107,18 @@ cd <repository-name>
 
 ### 2. Install uv
 
-Install the repository's required uv version using the appropriate official
-standalone installer.
+Install uv 0.12.17 or newer using the appropriate official standalone installer.
 
 macOS and Linux:
 
 ```bash
-curl -LsSf https://astral.sh/uv/0.12.17/install.sh | sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/0.12.17/install.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
 Other supported installation methods are listed in uv's
@@ -130,7 +129,8 @@ Confirm the required version is available:
 uv --version
 ```
 
-The command should report `uv 0.12.17`.
+The command should report uv 0.12.17 or newer. CI uses 0.12.17 as the minimum
+supported baseline while `uv.lock` pins the resolved dependencies.
 
 ### 3. Install Python and dependencies
 
