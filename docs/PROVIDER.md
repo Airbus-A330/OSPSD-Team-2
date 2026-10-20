@@ -358,3 +358,29 @@ This verifies the concrete provider independently of HTTP wiring. The
 credential-free HTTP integration test separately verifies application
 substitution with a controlled provider. Credentials and tokens remain in
 ignored local files and are not part of this evidence.
+
+## Partial update verification
+
+`GoogleCalendarProvider.patch_event` uses
+[Google events.patch](https://developers.google.com/workspace/calendar/api/v3/reference/events/patch).
+Only supplied fields are mapped: `title` to `summary`, `start` to `start.dateTime`,
+and `end` to `end.dateTime`. Google preserves unspecified fields. Each PATCH uses
+one SDK write; the application adds one GET when only one time boundary changes.
+Google charges three quota units for PATCH. The existing `calendar.events` scope
+and request-scoped client lifecycle are reused. Failures use the shared Google
+classifier. No automatic retry or concurrency guarantee is added.
+
+**REAL PROVIDER VERIFICATION NOT PERFORMED** for PATCH. Before final release:
+
+1. Complete OAuth setup with write access and start the service.
+2. Create a disposable event using the POST example above; keep its returned ID
+   locally and record the original title/start/end.
+3. Run the PATCH example in [CONTRACT.md](CONTRACT.md) with that ID. Expect 200;
+   verify the title changed and both times stayed unchanged via GET and Google Calendar.
+4. Patch only `end` to a later RFC3339 timestamp. Verify start/title remain unchanged.
+5. Try `{}` and a start later than the stored end. Expect 400 and unchanged event
+   values. Record expected/observed results without publishing private event data.
+6. Delete the disposable event using the cleanup command above, then stop the server.
+
+A failed write may have taken effect. Inspect current state after an ambiguous
+failure before retrying or cleaning up; do not infer rollback from an error response.

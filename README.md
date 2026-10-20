@@ -197,6 +197,19 @@ For Nicolas's complete event replacement operation, see the runnable
 All editable fields are required. Write access and renewed OAuth consent are
 described in [provider setup](docs/PROVIDER.md#authentication).
 
+### Partially update an event
+
+Yasmin's `PATCH /events/{event_id}` changes only supplied fields:
+
+```bash
+curl -i -X PATCH http://127.0.0.1:8000/events/your-test-event-id \
+  -H 'Content-Type: application/json' -d '{"title":"Updated meeting"}'
+```
+
+Expect 200 with the updated Event and unchanged omitted fields. See the
+[PATCH contract](docs/CONTRACT.md#partially-update-event--yasmin-hassoobh-51-operation-5)
+and [verification/cleanup instructions](docs/PROVIDER.md#partial-update-verification).
+
 ### Create an event
 
 After completing provider configuration, create a titled, timed event with:

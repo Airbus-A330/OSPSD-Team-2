@@ -275,6 +275,50 @@ curl -i -X PUT "http://127.0.0.1:8000/events/$EVENT_ID" \
 curl "http://127.0.0.1:8000/events/$EVENT_ID"
 ```
 
+### Partially Update Event — Yasmin Hassoobh (#51, Operation 5)
+
+`PATCH /events/{event_id}` changes only explicitly supplied editable fields of an
+existing event. Success returns **200 OK** and the resulting four-field `Event`.
+Omitted fields remain unchanged; this is distinct from PUT replacement.
+
+The JSON object accepts any nonempty subset of `title`, `start`, and `end`.
+Unknown fields, explicit nulls, non-string values, and an empty object are invalid.
+A supplied title must contain non-whitespace content. Supplied times follow the
+existing RFC3339-compatible, offset-aware timestamp rules for creation; the
+resulting `end` must be strictly after `start`, comparing instants. Strings are
+preserved, including whitespace in meaningful titles and nonblank event IDs.
+Google ID syntax is not validated locally.
+
+Body/ID validation happens before provider setup. When exactly one time field is
+supplied, the application reads the current event and validates the combined
+interval before writing. A title-only patch or a patch supplying both times needs
+no preliminary read. Only caller-supplied fields are sent as changes, including
+when the existing event was read for validation.
+
+This read/check/write sequence is not atomic. Concurrent edits can change the
+other boundary after validation; no conditional-update guarantee is offered.
+Locally rejected changes perform no provider write. A provider failure or lost
+response can leave the write outcome uncertain; the service never retries
+writes automatically. Inspect the current event before deciding to retry.
+
+Errors use the shared envelope: **400 `invalid_input`** (`Invalid event ID` for a
+blank ID, otherwise `Invalid input`), **404 `not_found`**, **403
+`permission_denied`**, and **502 `provider_error`**, with the existing safe public
+messages. Fix invalid input/access or a missing identifier before retrying;
+provider failures may be retryable but do not establish unchanged state.
+
+With write access and a disposable event ID:
+
+```bash
+EVENT_ID='your-test-event-id'
+curl -i -X PATCH "http://127.0.0.1:8000/events/$EVENT_ID" \
+  -H 'Content-Type: application/json' -d '{"title":"Updated meeting"}'
+curl "http://127.0.0.1:8000/events/$EVENT_ID"
+```
+
+Expected: the new title and unchanged `id`, `start`, and `end`. See
+[provider verification](PROVIDER.md#partial-update-verification) for setup and cleanup.
+
 ## Domain Models
 
 Public domain models belong here.
