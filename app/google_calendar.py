@@ -294,7 +294,12 @@ class GoogleCalendarProvider(EventProvider):
             raise ProviderFailureError("Google Calendar request failed") from None
         if provider_event.get("status") == "cancelled":
             raise NotFoundError("Google Calendar event is cancelled")
-        return translate_google_event(provider_event)
+        try:
+            return translate_google_event(provider_event)
+        except (KeyError, TypeError, ValidationError):
+            raise ProviderFailureError(
+                "Invalid Google Calendar retrieval response"
+            ) from None
 
     def create_event(self, event: CreateEventRequest) -> Event:
         """Create a Google event and return its translated domain representation.
@@ -319,7 +324,12 @@ class GoogleCalendarProvider(EventProvider):
             raise _translate_google_error(error) from None
         except (HttpLib2Error, TransportError):
             raise ProviderFailureError("Google Calendar request failed") from None
-        return translate_google_event(provider_event)
+        try:
+            return translate_google_event(provider_event)
+        except (KeyError, TypeError, ValidationError):
+            raise ProviderFailureError(
+                "Invalid Google Calendar creation response"
+            ) from None
 
     def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
         """Fully update an event using Google events.update, without retries.

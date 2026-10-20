@@ -182,6 +182,31 @@ def test_create_requires_each_request_field_before_provider_write(
     assert provider.created == []
 
 
+def test_create_rejects_unknown_fields_before_provider_write(
+    create_request: CreateEventRequest,
+    created_event: Event,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = ControlledCreateProvider(created_event)
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: provider)
+    payload = {**create_request.model_dump(), "googleMetadata": {"private": True}}
+
+    with TestClient(app) as client:
+        response = client.post("/events", json=payload)
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "error": {"code": "invalid_input", "message": "Invalid event data"}
+    }
+    assert provider.created == []
+
+
+def test_create_openapi_marks_request_body_required() -> None:
+    operation = app.openapi()["paths"]["/events"]["post"]
+
+    assert operation["requestBody"]["required"] is True
+
+
 @pytest.mark.parametrize(
     ("error", "status", "code", "message"),
     [

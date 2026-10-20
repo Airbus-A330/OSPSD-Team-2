@@ -171,6 +171,7 @@ def read_event(
     "/events",
     response_model=Event,
     status_code=status.HTTP_201_CREATED,
+    openapi_extra={"requestBody": {"required": True}},
     name="create_event",
 )
 def create_event_route(

@@ -6,7 +6,7 @@ class ServiceError(Exception):
 
 
 class InvalidInputError(ServiceError):
-    """The event identifier is empty or contains only whitespace."""
+    """A request contains invalid provider-independent input."""
 
 
 class NotFoundError(ServiceError):
@@ -18,4 +18,4 @@ class PermissionDeniedError(ServiceError):
 
 
 class ProviderFailureError(ServiceError):
-    """A provider failure prevents event retrieval."""
+    """A provider failure prevents a calendar operation from completing."""

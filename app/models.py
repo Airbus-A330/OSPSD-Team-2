@@ -19,6 +19,8 @@ class Event(BaseModel):
 class CreateEventRequest(BaseModel):
     """Provider-independent values required to create a timed event."""
 
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
     title: str
     start: str
     end: str

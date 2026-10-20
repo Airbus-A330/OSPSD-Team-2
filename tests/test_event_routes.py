@@ -101,3 +101,57 @@ def test_listing_uses_google_composition_and_closes_request_client(
         calendarId="listing-calendar", maxResults=1, singleEvents=True
     )
     google_client.close.assert_called_once_with()
+
+
+def test_get_malformed_google_response_uses_shared_provider_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    google_client = MagicMock()
+    google_client.events.return_value.get.return_value.execute.return_value = {
+        "id": "all-day-event",
+        "summary": "Unsupported all-day event",
+        "start": {"date": "2026-10-20"},
+        "end": {"date": "2026-10-21"},
+    }
+    monkeypatch.setattr("app.main.build_google_calendar_client", lambda: google_client)
+
+    with TestClient(app) as client:
+        response = client.get("/events/all-day-event")
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "error": {
+            "code": "provider_error",
+            "message": "Calendar provider request failed",
+        }
+    }
+    google_client.close.assert_called_once_with()
+
+
+def test_create_malformed_google_response_uses_shared_provider_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    google_client = MagicMock()
+    google_client.events.return_value.insert.return_value.execute.return_value = {
+        "id": "created-event"
+    }
+    monkeypatch.setattr("app.main.build_google_calendar_client", lambda: google_client)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/events",
+            json={
+                "title": "Created event",
+                "start": "2026-10-20T09:00:00Z",
+                "end": "2026-10-20T10:00:00Z",
+            },
+        )
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "error": {
+            "code": "provider_error",
+            "message": "Calendar provider request failed",
+        }
+    }
+    google_client.close.assert_called_once_with()

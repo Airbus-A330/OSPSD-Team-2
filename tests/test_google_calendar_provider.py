@@ -129,7 +129,7 @@ def test_provider_translates_transport_failure(transport_error: Exception) -> No
 
 
 def test_provider_does_not_return_untranslatable_google_data() -> None:
-    """Keep the existing failure for all-day events without dateTime fields."""
+    """Translate unsupported all-day data into the shared provider failure."""
     client = Mock()
     client.events.return_value.get.return_value.execute.return_value = {
         "id": "all-day123",
@@ -139,8 +139,10 @@ def test_provider_does_not_return_untranslatable_google_data() -> None:
     }
     provider = GoogleCalendarProvider(client, calendar_id="primary")
 
-    with pytest.raises(KeyError, match="dateTime"):
+    with pytest.raises(ProviderFailureError) as caught:
         provider.get_event("all-day123")
+
+    assert caught.value.__cause__ is None
 
 
 def test_provider_creates_google_event_and_returns_domain_event() -> None:
@@ -171,6 +173,24 @@ def test_provider_creates_google_event_and_returns_domain_event() -> None:
     )
     client.events.return_value.insert.return_value.execute.assert_called_once_with()
     assert result == Event(id="created-123", **request.model_dump())
+
+
+def test_provider_translates_malformed_create_response() -> None:
+    client = Mock()
+    client.events.return_value.insert.return_value.execute.return_value = {
+        "id": "created-123"
+    }
+    provider = GoogleCalendarProvider(client, calendar_id="primary")
+    event = CreateEventRequest(
+        title="Created review",
+        start="2026-10-20T09:00:00-04:00",
+        end="2026-10-20T10:00:00-04:00",
+    )
+
+    with pytest.raises(ProviderFailureError) as caught:
+        provider.create_event(event)
+
+    assert caught.value.__cause__ is None
 
 
 @pytest.mark.parametrize(
