@@ -62,6 +62,13 @@ If the requested scopes change, delete the local token file and authorize again.
 Existing tokens created with the former read-only scope must therefore be deleted
 and authorized again before testing write operations.
 
+When an expired saved token has a refresh token, client construction refreshes it
+before building the Calendar client. A refresh transport failure becomes the
+shared provider failure and is rendered as HTTP 502 when construction occurs for
+a request. Missing or malformed local credential files remain configuration
+errors: correct the documented local setup rather than treating them as provider
+outages.
+
 ### Manual authentication verification
 
 From the repository root, run:

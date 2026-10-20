@@ -44,6 +44,10 @@ def build_google_calendar_client() -> Resource:
 
     Returns:
         An authenticated Google Calendar v3 client.
+
+    Raises:
+        ProviderFailureError: If refreshing saved authorization fails because
+            the authentication provider cannot be reached.
     """
     credentials_path = Path(
         os.getenv("GOOGLE_CALENDAR_CREDENTIALS_FILE", "credentials.json")
@@ -58,7 +62,12 @@ def build_google_calendar_client() -> Resource:
 
     if not credentials or not credentials.valid:
         if credentials and credentials.expired and credentials.refresh_token:
-            credentials.refresh(Request())
+            try:
+                credentials.refresh(Request())
+            except TransportError:
+                raise ProviderFailureError(
+                    "Google authorization refresh failed"
+                ) from None
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
                 str(credentials_path), GOOGLE_CALENDAR_SCOPES
