@@ -141,6 +141,7 @@ commit or share either credential file.
 | Retrieve one event | `client.events().get(calendarId=calendar_id, eventId=event_id).execute()` | Reads external state without modifying it |
 | List events | `client.events().list(calendarId=calendar_id, maxResults=limit, singleEvents=True).execute()` | One read-only page; returns at most the requested number of domain Events |
 | Create one event | `client.events().insert(calendarId=calendar_id, body=...).execute()` | Creates a timed event and returns the provider-generated ID |
+| Delete one event | `client.events().delete(calendarId=calendar_id, eventId=event_id).execute()` | Deletes the identified event; returns no domain value or SDK response |
 
 Provider operation helpers receive an already configured client, which can be
 built with `build_google_calendar_client`. The caller owns the client lifecycle.
@@ -358,6 +359,63 @@ This verifies the concrete provider independently of HTTP wiring. The
 credential-free HTTP integration test separately verifies application
 substitution with a controlled provider. Credentials and tokens remain in
 ignored local files and are not part of this evidence.
+
+## Delete verification
+
+Xingjian's `GoogleCalendarProvider.delete_event` calls
+[`events.delete`](https://developers.google.com/workspace/calendar/api/v3/reference/events/delete)
+once with the configured `calendarId` and unchanged `eventId`. It discards the
+empty SDK result and needs the existing `calendar.events` write scope.
+HTTP 404 maps to `NotFoundError`; for this operation only, Google's documented
+[`410 deleted`](https://developers.google.com/workspace/calendar/api/guides/errors#410_gone)
+also maps to `NotFoundError`. Unrelated 410 reasons remain provider failures.
+Other errors reuse the shared translation, including 403 quota errors as
+`ProviderFailureError`, not access denial.
+
+**REAL PROVIDER VERIFICATION PERFORMED on 2026-10-20** for DELETE. The local
+read-only authorization was replaced through explicit Google consent for the
+existing event read/write scope. Verification used the production app served by
+Uvicorn on loopback, real Google clients, and a newly created attendee-free event.
+
+| Step | Expected | Observed |
+|---|---|---|
+| POST disposable event | 201 with generated ID | 201 |
+| GET before deletion | 200 | 200 |
+| DELETE event | 204, empty body | 204, zero body bytes |
+| Repeat DELETE | 404, fixed missing-event envelope | Matched |
+| GET after deletion | 404, fixed missing-event envelope | Matched after tombstone fix |
+| Inspect same Google event | No active event | `status=cancelled` |
+
+The first live run exposed a retrieval defect: Google's cancelled record retained
+event fields and was returned as HTTP 200. The adapter now checks that status
+before translating the record. Two controlled regression cases and a second
+live run confirmed the correction. Both disposable events used across the two
+runs were deleted; local verification servers were stopped. No attendees,
+credentials, private event content, or event identifiers are included here.
+
+Real permission-denial and transport/provider failures were not induced.
+Their public behavior is verified only by the controlled tests.
+
+To reproduce:
+
+1. Authorize the documented event read/write scope using a test account/calendar.
+   Keep all credential and token files ignored by Git.
+2. Start the service using the README command. Create a fresh disposable event
+   through `POST /events` using the example above. Do not add attendees.
+3. Record its returned ID locally. Confirm the event exists in Google Calendar.
+4. Run the DELETE example in
+   [CONTRACT.md](CONTRACT.md#delete-event--xingjian-liu-51-operation-6).
+   Expect 204 and zero response-body bytes.
+5. Repeat DELETE for that ID. Expect 404 and
+   `{"error":{"code":"not_found","message":"Event not found"}}`.
+   GET the same ID and expect that same 404 envelope. Confirm the event is absent
+   from the active Google Calendar view. Google may retain a cancelled tombstone,
+   so this is not a physical-erasure guarantee.
+6. If verification stops early, remove only that disposable event manually.
+   Record expected/observed statuses and cleanup without tokens or private data.
+
+A failed response does not prove that deletion failed remotely. Inspect current
+state before any manual retry. The adapter does not automatically retry.
 
 ## Partial update verification
 

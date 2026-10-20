@@ -71,6 +71,42 @@ model tests cover additional missing-field and invalid-type cases. The separate
 HTTP integration test covers controlled provider substitution; live Google
 connectivity is documented in `PROVIDER.md`.
 
+## Event Deletion Tests (#51, Xingjian Liu)
+
+`tests/test_delete_event.py` exercises DELETE using a stateful controlled
+`EventProvider`, with no credentials or network access. It verifies:
+
+- 204 with an empty body, removal of only the target, unchanged neighboring
+  events, a subsequent missing-event read, and repeated deletion returning 404.
+- Blank-ID rejection before client construction and application-level rejection
+  before provider calls; nonblank IDs are forwarded unchanged.
+- Exact 404/403/502 envelopes, safe deletion log context, and no automatic retry.
+- A lost response can return 502 after the controlled provider has deleted the
+  event; the service neither retries nor claims rollback.
+- Google calls use the configured calendar and exact ID; Google/transport
+  failures become service errors, and request-scoped clients close in both
+  success and failure paths.
+
+Google's `410 deleted` reason is covered separately from unrelated 410 errors.
+Two regression cases verify that a Google GET response with `status=cancelled`
+returns the shared 404 envelope, whether it retains full event fields or only
+the identifier. This defect was found during live deletion verification.
+Other operation fixtures gain only the required unused deletion method to keep
+them compatible with the expanded protocol; their existing assertions remain.
+
+```bash
+uv run --locked python -m pytest tests/test_delete_event.py
+make check
+```
+
+These controlled checks do not establish live Google behavior. Follow
+[PROVIDER.md](PROVIDER.md#delete-verification) for separate real-provider evidence.
+
+Local verification on 2026-10-20, based on shared-branch commit `fee5dc6`:
+26 DELETE lifecycle tests passed; the full `make check` passed with 255 tests and one
+existing Starlette/AnyIO deprecation warning. These are local results, not CI
+results for the uncommitted DELETE changes.
+
 ## Event Creation Tests
 
 `tests/test_create_event.py` verifies the provider-independent application and
@@ -206,6 +242,7 @@ Normal CI must not require provider credentials.
 | Application event retrieval through `EventProvider` | Yes | Yes | | Controlled events verify identifier selection, response preservation, and repeated reads |
 | Controlled provider substitution | Yes | Yes | No | `tests/test_provider_substitution.py` uses a configurable provider through application arguments and `app.dependency_overrides` |
 | Create event | Yes | Yes | Manual required | Controlled writes verify validation, the 201 response, returned values, provider failures, and Google request/response translation; live steps are in `PROVIDER.md` |
+| Delete event | Yes | Yes | Verified 2026-10-20 | 26 controlled cases; live create/read/delete/repeat/read-back verified with a disposable event. Permission and provider failures remain controlled-only; see `PROVIDER.md` |
 
 Update this table whenever meaningful behavior is added.
 

@@ -26,6 +26,9 @@ class ControlledEventProvider:
     replacement_calls: list[str] = field(default_factory=list)
     patch_calls: list[str] = field(default_factory=list)
 
+    def delete_event(self, event_id: str) -> None:
+        pytest.fail("Existing operation tests must not delete an event")
+
     def get_event(self, event_id: str) -> Event:
         """Return or raise the configured outcome for the requested identifier."""
         outcome = self.outcomes[event_id]
@@ -87,6 +90,9 @@ def controlled_provider(configured_events: dict[str, Event]) -> EventProvider:
 @pytest.mark.parametrize("event_id", ["", "   ", "\t\n", "\r\n \t", "\u2003"])
 def test_invalid_event_id_is_rejected_without_provider_call(event_id: str) -> None:
     class UnusedProvider:
+        def delete_event(self, event_id: str) -> None:
+            pytest.fail("Invalid input must not invoke the provider")
+
         def patch_event(self, event_id: str, changes: EventPatch) -> Event:
             pytest.fail("Invalid input must not invoke the provider")
 

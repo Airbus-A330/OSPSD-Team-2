@@ -8,6 +8,15 @@ from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 class EventProvider(Protocol):
     """Calendar event operations as defined in docs/ARCHITECTURE.md."""
 
+    def delete_event(self, event_id: str) -> None:
+        """Delete the identified event, returning no provider data.
+
+        Accept an unchanged opaque ID. Missing events, denied access, and
+        provider failures use shared service errors. A lost response does not
+        establish whether deletion occurred; callers must not assume rollback.
+        """
+        ...
+
     def patch_event(self, event_id: str, changes: EventPatch) -> Event:
         """Apply only explicitly supplied editable fields to an existing event.
 

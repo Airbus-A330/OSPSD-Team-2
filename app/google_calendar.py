@@ -188,6 +188,31 @@ class GoogleCalendarProvider(EventProvider):
         self._client = client
         self._calendar_id = calendar_id
 
+    def delete_event(self, event_id: str) -> None:
+        """Delete one event using Google events.delete, without retries.
+
+        Args:
+            event_id: Unchanged identifier within the configured calendar.
+
+        Raises:
+            NotFoundError: If Google reports a missing or already deleted event.
+            PermissionDeniedError: If Google denies access.
+            ProviderFailureError: If another Google or transport failure occurs.
+                A lost response may leave the deletion outcome uncertain.
+        """
+        try:
+            self._client.events().delete(
+                calendarId=self._calendar_id, eventId=event_id
+            ).execute()
+        except HttpError as error:
+            if error.status_code == 410 and "deleted" in _google_error_reasons(error):
+                raise NotFoundError(
+                    "Google Calendar event is already deleted"
+                ) from None
+            raise _translate_google_error(error) from None
+        except (HttpLib2Error, TransportError):
+            raise ProviderFailureError("Google Calendar request failed") from None
+
     def patch_event(self, event_id: str, changes: EventPatch) -> Event:
         """Send only caller-supplied changes using Google patch semantics."""
         body: dict[str, object] = {}
@@ -267,6 +292,8 @@ class GoogleCalendarProvider(EventProvider):
             raise _translate_google_error(error) from None
         except (HttpLib2Error, TransportError):
             raise ProviderFailureError("Google Calendar request failed") from None
+        if provider_event.get("status") == "cancelled":
+            raise NotFoundError("Google Calendar event is cancelled")
         return translate_google_event(provider_event)
 
     def create_event(self, event: CreateEventRequest) -> Event:

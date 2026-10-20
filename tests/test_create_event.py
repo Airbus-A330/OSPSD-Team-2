@@ -19,6 +19,9 @@ class ControlledCreateProvider:
     outcome: Event | ServiceError
     created: list[CreateEventRequest] = field(default_factory=list)
 
+    def delete_event(self, event_id: str) -> None:
+        pytest.fail("Creation must not delete an event")
+
     def get_event(self, event_id: str) -> Event:
         raise NotImplementedError
 

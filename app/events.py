@@ -31,6 +31,23 @@ def list_events(limit: int, provider: EventProvider) -> list[Event]:
     return provider.list_events(limit)
 
 
+def delete_event(event_id: str, provider: EventProvider) -> None:
+    """Validate an event ID and delete it through the supplied provider.
+
+    Args:
+        event_id: Opaque identifier, preserved unchanged when nonblank.
+        provider: Provider selected by the composition layer.
+
+    Raises:
+        InvalidInputError: If the identifier is empty or whitespace-only.
+        NotFoundError: If the provider reports a missing event.
+        PermissionDeniedError: If the provider denies deletion.
+        ProviderFailureError: If deletion cannot be confirmed.
+    """
+    validate_event_id(event_id)
+    provider.delete_event(event_id)
+
+
 def get_event(event_id: str, provider: EventProvider) -> Event:
     """Retrieve an event from the configured calendar.
 

@@ -226,6 +226,19 @@ real-provider verification and cleanup.
 
 ---
 
+### Delete a disposable event
+
+Xingjian's `DELETE /events/{event_id}` removes one event from the configured
+calendar. Use the ID returned when creating a disposable test event:
+
+```bash
+curl -i -X DELETE http://127.0.0.1:8000/events/your-disposable-event-id
+```
+
+Success is **204 with an empty body**. Missing events and failures use the shared
+error envelope. See the [DELETE contract](docs/CONTRACT.md#delete-event--xingjian-liu-51-operation-6)
+and [real-provider procedure](docs/PROVIDER.md#delete-verification).
+
 ## Testing
 
 The project uses `pytest`. Run the complete fast test suite on any supported

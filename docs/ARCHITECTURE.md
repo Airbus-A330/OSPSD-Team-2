@@ -214,14 +214,16 @@ Real-provider verification is separate.
 
 ## Provider Boundary
 
-The service uses this provider-independent contract for retrieval, listing, and
-creation:
+The service uses this provider-independent contract for calendar operations:
 
 ```python
 class EventProvider(Protocol):
     def get_event(self, event_id: str) -> Event: ...
     def list_events(self, limit: int) -> list[Event]: ...
     def create_event(self, event: CreateEventRequest) -> Event: ...
+    def replace_event(self, event_id: str, replacement: EventReplacement) -> Event: ...
+    def patch_event(self, event_id: str, changes: EventPatch) -> Event: ...
+    def delete_event(self, event_id: str) -> None: ...
 ```
 
 `get_event` retrieves one event by its service-visible identifier. The
@@ -282,6 +284,25 @@ real providers or runtime provider switching.
 ---
 
 ## Architectural Changes
+
+### Final operation 6: deletion
+
+Issue #51 adds `delete_event(event_id: str) -> None` to `EventProvider`.
+The HTTP validation dependency checks the opaque ID before client construction.
+The application repeats that validation for non-HTTP callers and invokes the
+injected provider once. The Google adapter calls `events.delete` on the configured
+calendar and translates failures; no SDK response crosses the boundary.
+
+HTTP returns an empty 204 only after deletion succeeds. Existing exception
+handlers render failures and log `operation=delete_event`, category, status, and
+provider involvement without IDs, credentials, or raw errors. Request-scoped
+client cleanup is reused on success and failure. There is no retry or rollback
+promise: a lost response can leave the event deleted despite a 502.
+
+Live deletion verification showed that Google GET can still return the deleted
+event's old fields with `status=cancelled`. The retrieval adapter treats this
+tombstone as `NotFoundError` before translating its fields, so deleted events
+cannot reappear as successful public reads. Active-event retrieval is unchanged.
 
 ### Final operation 4: complete replacement
 

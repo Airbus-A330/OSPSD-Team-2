@@ -27,6 +27,9 @@ class ControlledProvider:
     outcome: Event | Exception
     calls: list[str] = field(default_factory=list)
 
+    def delete_event(self, event_id: str) -> None:
+        pytest.fail("Retrieval tests must not delete an event")
+
     def patch_event(self, event_id: str, changes: EventPatch) -> Event:
         raise NotImplementedError
 

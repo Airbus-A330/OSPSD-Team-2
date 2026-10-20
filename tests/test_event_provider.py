@@ -6,6 +6,9 @@ from app.providers import EventProvider
 
 def test_implementation_satisfies_provider_without_inheritance() -> None:
     class ExampleProvider:
+        def delete_event(self, event_id: str) -> None:
+            raise NotImplementedError
+
         def patch_event(self, event_id: str, changes: EventPatch) -> Event:
             return self.get_event(event_id).model_copy(
                 update=changes.model_dump(exclude_unset=True)

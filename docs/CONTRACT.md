@@ -319,6 +319,50 @@ curl "http://127.0.0.1:8000/events/$EVENT_ID"
 Expected: the new title and unchanged `id`, `start`, and `end`. See
 [provider verification](PROVIDER.md#partial-update-verification) for setup and cleanup.
 
+### Delete Event — Xingjian Liu (#51, Operation 6)
+
+`DELETE /events/{event_id}` deletes the identified event from the configured
+calendar. Success returns **204 No Content** with an empty body, not an Event,
+JSON `null`, or a Google response. No request body is required.
+
+The shared event-ID rule applies: reject empty or whitespace-only identifiers
+before provider setup, and pass every other identifier unchanged. There is no
+local Google ID syntax check or trimming. A missing path segment does not match
+this route.
+
+Errors use the existing `{"error":{"code":"...","message":"..."}}` envelope:
+
+| Condition | HTTP | Code | Message |
+|---|---:|---|---|
+| Blank ID | 400 | `invalid_input` | `Invalid event ID` |
+| Missing/already deleted event | 404 | `not_found` | `Event not found` |
+| Access denied | 403 | `permission_denied` | `Permission denied` |
+| Provider failure | 502 | `provider_error` | `Calendar provider request failed` |
+
+Only the identified event is deleted; other events are not changed. Repeating a
+confirmed deletion reports the missing-event error rather than a second success.
+There are no automatic retries or preliminary reads. A lost provider response
+can yield 502 even after deletion took effect, so 502 does not imply rollback.
+Check the event's state before retrying; correct invalid input or access first.
+Google may retain a cancelled tombstone after deletion. Retrieving that cancelled
+record returns the shared 404 missing-event envelope, even if Google retains
+its old title and timestamps. This service does not promise immediate physical
+erasure of provider records.
+
+With the service running and the ID of a **disposable event**:
+
+```bash
+EVENT_ID='your-disposable-event-id'
+curl -i -X DELETE "http://127.0.0.1:8000/events/$EVENT_ID"
+curl -i -X DELETE "http://127.0.0.1:8000/events/$EVENT_ID"
+curl -i "http://127.0.0.1:8000/events/$EVENT_ID"
+```
+
+Expected: first request 204 with no body; repeated DELETE and subsequent GET
+return 404 with the fixed missing-event envelope.
+See [provider verification](PROVIDER.md#delete-verification)
+for the create/delete/cleanup procedure and live-verification status.
+
 ## Domain Models
 
 Public domain models belong here.

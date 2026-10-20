@@ -3,7 +3,7 @@
 import os
 from collections.abc import Iterator
 
-from fastapi import Body, Depends, FastAPI, Query, Request, status
+from fastapi import Body, Depends, FastAPI, Query, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import TypeAdapter, ValidationError
 
@@ -15,6 +15,7 @@ from app.errors import (
 )
 from app.events import (
     create_event,
+    delete_event,
     get_event,
     list_events,
     patch_event,
@@ -39,6 +40,14 @@ for error_type in (
     ProviderFailureError,
 ):
     app.add_exception_handler(error_type, service_error_response)
+
+
+def validate_delete_request(event_id: str, request: Request) -> None:
+    """Reject blank IDs before provider construction or any deletion attempt."""
+    request.state.operation = "delete_event"
+    request.state.provider_involved = False
+    request.state.invalid_input_message = "Invalid event ID"
+    validate_event_id(event_id)
 
 
 def validate_event_request(event_id: str, request: Request) -> None:
@@ -92,6 +101,24 @@ def get_event_provider(request: Request) -> Iterator[EventProvider]:
         yield GoogleCalendarProvider(client, calendar_id=calendar_id)
     finally:
         client.close()
+
+
+@app.delete(
+    "/events/{event_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    dependencies=[Depends(validate_delete_request)],
+    name="delete_event",
+)
+def delete_calendar_event(
+    event_id: str,
+    request: Request,
+    provider: EventProvider = Depends(get_event_provider),
+) -> Response:
+    """Delete one event and return an empty response only after success."""
+    request.state.provider_involved = True
+    delete_event(event_id, provider)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.get(
