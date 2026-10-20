@@ -305,6 +305,7 @@ FastAPI composition are implemented as described above.
 | Module | Current Responsibility |
 |---|---|
 | `app/main.py` | FastAPI entry point and composition of the configured Google provider |
+| `app/event_cache.py` | Process-local TTL cache and provider wrapper for successful domain `Event` reads |
 | `app/http_errors.py` | Fixed HTTP responses for shared service exceptions and sanitized failure logging |
 | `app/events.py` | Provider-independent application operation for retrieving an event |
 | `app/errors.py` | Provider-independent service exceptions defined by the Level 5 contract in `CONTRACT.md` |
@@ -335,3 +336,18 @@ provider payloads, and expected-failure tracebacks.
 
 The Google client remains request-scoped and is closed in the composition
 dependency's `finally`, including when retrieval raises a handled service error.
+
+## Event Retrieval Cache
+
+Composition wraps each request-scoped Google provider with a
+`CachedEventProvider`. The wrappers share one process-local `EventCache`, while
+Google clients remain request-scoped because their HTTP transports are not
+thread-safe. Cache entries contain only domain `Event` values and are keyed by
+the tuple `(configured calendar ID, event ID)`, so equal event IDs from different
+calendars cannot collide.
+
+Successful reads remain cached for 60 seconds using a monotonic clock. Expired
+entries are ignored and refreshed through the provider. Exceptions are never
+stored, so invalid input and the `not_found`, `permission_denied`, and
+`provider_error` outcomes retain the Level 5 behavior in `CONTRACT.md`. The
+cache is local to each service process; no distributed consistency is promised.

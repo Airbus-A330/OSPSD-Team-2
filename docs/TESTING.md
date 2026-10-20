@@ -71,6 +71,19 @@ model tests cover additional missing-field and invalid-type cases. The separate
 HTTP integration test covers controlled provider substitution; live Google
 connectivity is documented in `PROVIDER.md`.
 
+## Event Cache Tests
+
+`tests/test_event_cache.py` uses controlled providers and an injected clock to
+verify cache misses and hits, the 60-second expiry boundary, separation by
+configured calendar, and repeated HTTP responses. Provider call counts prove
+that unexpired hits avoid another provider operation and expired entries refresh
+without sleeping. Separate cases prove that invalid input and each documented
+service failure are not cached. A production-composition test controls the
+Google SDK boundary and verifies that two HTTP requests share cached domain data
+while both request-scoped clients are still closed.
+
+These tests use no credentials, network access, or wall-clock delays.
+
 ## Level 5 HTTP Failures (#39)
 
 `tests/test_http_errors.py` sends requests through FastAPI and the application
@@ -162,6 +175,7 @@ Normal CI must not require provider credentials.
 | Google provider implementation | Yes | | Manual | Provider unit tests use a controlled SDK client; live timed-event retrieval is documented in `PROVIDER.md` |
 | Application event retrieval through `EventProvider` | Yes | Yes | | Controlled events verify identifier selection, response preservation, and repeated reads |
 | Controlled provider substitution | Yes | Yes | No | `tests/test_provider_substitution.py` uses a configurable provider through application arguments and `app.dependency_overrides` |
+| Successful event caching | Yes | Yes | Not applicable | Controlled providers and a fake clock verify hit, miss, expiry, calendar isolation, failure behavior, production composition, and unchanged HTTP responses |
 
 Update this table whenever meaningful behavior is added.
 
