@@ -1,6 +1,7 @@
 """Google PATCH request mapping and failure translation without network access."""
 
 import json
+import socket
 from unittest.mock import Mock
 
 import pytest
@@ -102,7 +103,15 @@ def test_google_patch_translates_http_failures(
     client.events.return_value.patch.return_value.execute.assert_called_once_with()
 
 
-@pytest.mark.parametrize("error", [TransportError("private"), HttpLib2Error("private")])
+@pytest.mark.parametrize(
+    "error",
+    [
+        TransportError("private"),
+        HttpLib2Error("private"),
+        socket.timeout("private"),
+        ConnectionResetError("private"),
+    ],
+)
 def test_google_patch_translates_transport_failures(error: Exception) -> None:
     client = Mock()
     client.events.return_value.patch.return_value.execute.side_effect = error

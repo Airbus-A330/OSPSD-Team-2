@@ -1,6 +1,7 @@
 """HTTP failure contracts and safe logging with controlled providers."""
 
 import logging
+import socket
 from dataclasses import dataclass, field
 from unittest.mock import MagicMock
 from urllib.parse import quote
@@ -15,6 +16,7 @@ from app.errors import (
     ProviderFailureError,
     ServiceError,
 )
+from app.event_cache import EventCache
 from app.main import app, get_event_provider
 from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
@@ -198,6 +200,41 @@ def test_service_failure_during_provider_setup_is_rendered_and_logged(
     }
     assert_failure_log(caplog, "provider_error", 502, True)
     assert "synthetic-private-setup-details" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "transport_error",
+    [
+        socket.timeout("synthetic-private-network-detail"),
+        ConnectionResetError("synthetic-private-network-detail"),
+    ],
+)
+def test_socket_failure_is_sanitized_as_provider_error(
+    transport_error: Exception,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    google_client = MagicMock()
+    google_client.events.return_value.get.return_value.execute.side_effect = (
+        transport_error
+    )
+    monkeypatch.setattr("app.main.build_google_calendar_client", lambda: google_client)
+    monkeypatch.setattr("app.main.event_cache", EventCache())
+
+    with caplog.at_level(logging.WARNING), TestClient(app) as client:
+        response = client.get("/events/network-failure")
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "error": {
+            "code": "provider_error",
+            "message": "Calendar provider request failed",
+        }
+    }
+    assert_failure_log(caplog, "provider_error", 502, True)
+    assert "synthetic-private-network-detail" not in response.text
+    assert "synthetic-private-network-detail" not in caplog.text
+    google_client.close.assert_called_once_with()
 
 
 @pytest.mark.parametrize(

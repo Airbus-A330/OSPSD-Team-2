@@ -215,12 +215,13 @@ before they leave this module. A 404 becomes `NotFoundError`. A 403 becomes
 (`error.errors[].reason`) reports a quota or rate limit — `quotaExceeded`,
 `rateLimitExceeded`, or `userRateLimitExceeded` — because Google also returns
 403 for those provider limits; they become `ProviderFailureError`, as do 429
-and any other status. Documented transport failures while executing the
-request (`httplib2.HttpLib2Error`, Google authentication `TransportError`)
-also become `ProviderFailureError`. Only the status and the machine-readable
-reasons are interpreted; Google error messages never cross the provider
-boundary, and the raw provider exception is not retained as the translated
-error's cause. The low-level field mapper rejects unsupported response shapes,
+and any other status. Transport failures while executing the request
+(`httplib2.HttpLib2Error`, Google authentication `TransportError`, socket
+timeouts, and connection errors) also become `ProviderFailureError`. Only the
+status and machine-readable reasons are interpreted; Google error messages
+never cross the provider boundary, and the raw provider exception is not
+retained as the translated error's cause. The low-level field mapper rejects
+unsupported response shapes,
 such as all-day events; the domain-facing provider translates those mapping
 failures into `ProviderFailureError` before they cross the provider boundary.
 

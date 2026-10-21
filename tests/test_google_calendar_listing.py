@@ -1,5 +1,6 @@
 """Google event listing through a controlled SDK client, without external I/O."""
 
+import socket
 from unittest.mock import Mock
 
 import pytest
@@ -67,7 +68,13 @@ def test_google_list_translates_provider_failures(
 
 
 @pytest.mark.parametrize(
-    "error", [HttpLib2Error("synthetic detail"), TransportError("synthetic detail")]
+    "error",
+    [
+        HttpLib2Error("synthetic detail"),
+        TransportError("synthetic detail"),
+        socket.timeout("synthetic detail"),
+        ConnectionResetError("synthetic detail"),
+    ],
 )
 def test_google_list_translates_transport_failures(error: Exception) -> None:
     client = Mock()

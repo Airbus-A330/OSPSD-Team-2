@@ -37,6 +37,7 @@ class EventCache:
         self._max_entries = max_entries
         self._clock = clock
         self._entries: dict[CacheKey, _CacheEntry] = {}
+        self._mutation_epoch = 0
         self._lock = Lock()
 
     def get(self, namespace: str, event_id: str) -> Event | None:
@@ -52,10 +53,26 @@ class EventCache:
                 return None
             return entry.event
 
-    def put(self, namespace: str, event_id: str, event: Event) -> None:
-        """Store an event, discarding expired entries and the oldest when full."""
+    def current_epoch(self) -> int:
+        """Return the current cache mutation epoch for an in-flight read."""
+        with self._lock:
+            return self._mutation_epoch
+
+    def put(
+        self,
+        namespace: str,
+        event_id: str,
+        event: Event,
+        *,
+        expected_epoch: int | None = None,
+    ) -> bool:
+        """Store an event unless a write occurred during its provider read."""
         now = self._clock()
         with self._lock:
+            if expected_epoch is not None and expected_epoch != self._mutation_epoch:
+                return False
+            if expected_epoch is None:
+                self._mutation_epoch += 1
             self._entries = {
                 key: entry
                 for key, entry in self._entries.items()
@@ -70,10 +87,12 @@ class EventCache:
                 event=event,
                 expires_at=now + self._ttl_seconds,
             )
+            return True
 
     def remove(self, namespace: str, event_id: str) -> None:
         """Remove an event if it is currently cached."""
         with self._lock:
+            self._mutation_epoch += 1
             self._entries.pop((namespace, event_id), None)
 
 
@@ -98,8 +117,14 @@ class CachedEventProvider:
         if cached_event is not None:
             return cached_event
 
+        cache_epoch = self._cache.current_epoch()
         event = self._provider.get_event(event_id)
-        self._cache.put(self._namespace, event_id, event)
+        self._cache.put(
+            self._namespace,
+            event_id,
+            event,
+            expected_epoch=cache_epoch,
+        )
         return event
 
     def list_events(self, limit: int) -> list[Event]:

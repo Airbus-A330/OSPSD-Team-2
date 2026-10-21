@@ -1,6 +1,7 @@
 """Test the Google provider boundary with a controlled SDK client."""
 
 import json
+import socket
 from typing import Any
 from unittest.mock import Mock
 
@@ -111,8 +112,10 @@ def test_provider_translates_google_failure(
     [
         HttpLib2Error("provider-only detail"),
         TransportError("provider-only detail"),
+        socket.timeout("provider-only detail"),
+        ConnectionResetError("provider-only detail"),
     ],
-    ids=["httplib2", "google_auth"],
+    ids=["httplib2", "google_auth", "socket_timeout", "connection_reset"],
 )
 def test_provider_translates_transport_failure(transport_error: Exception) -> None:
     """Map documented transport failures to ProviderFailureError."""
@@ -220,6 +223,33 @@ def test_provider_translates_google_create_failure(
     assert caught.value.__cause__ is None
 
 
+@pytest.mark.parametrize(
+    "transport_error",
+    [
+        HttpLib2Error("private detail"),
+        TransportError("private detail"),
+        socket.timeout("private detail"),
+        ConnectionResetError("private detail"),
+    ],
+)
+def test_provider_translates_create_transport_failure(
+    transport_error: Exception,
+) -> None:
+    client = Mock()
+    client.events.return_value.insert.return_value.execute.side_effect = transport_error
+    event = CreateEventRequest(
+        title="Created review",
+        start="2026-10-20T09:00:00-04:00",
+        end="2026-10-20T10:00:00-04:00",
+    )
+
+    with pytest.raises(ProviderFailureError) as caught:
+        GoogleCalendarProvider(client, calendar_id="primary").create_event(event)
+
+    assert "private detail" not in str(caught.value)
+    assert caught.value.__cause__ is None
+
+
 def test_replace_uses_full_update_and_translates_result() -> None:
     client = Mock()
     replacement = EventReplacement(
@@ -260,6 +290,8 @@ def test_replace_uses_full_update_and_translates_result() -> None:
         (_google_http_error("500", "backendError"), ProviderFailureError),
         (TransportError("private detail"), ProviderFailureError),
         (HttpLib2Error("private detail"), ProviderFailureError),
+        (socket.timeout("private detail"), ProviderFailureError),
+        (ConnectionResetError("private detail"), ProviderFailureError),
     ],
 )
 def test_replace_translates_failures_without_retry(

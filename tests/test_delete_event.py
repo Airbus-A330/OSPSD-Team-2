@@ -1,6 +1,7 @@
 """Deletion effects, public failures, and the Google boundary without network I/O."""
 
 import json
+import socket
 from dataclasses import dataclass, field
 from unittest.mock import MagicMock
 from urllib.parse import quote
@@ -242,7 +243,15 @@ def test_google_delete_translates_failures(
     request.execute.assert_called_once_with()
 
 
-@pytest.mark.parametrize("failure", [TransportError("lost"), HttpLib2Error("lost")])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        TransportError("lost"),
+        HttpLib2Error("lost"),
+        socket.timeout("lost"),
+        ConnectionResetError("lost"),
+    ],
+)
 def test_google_delete_translates_transport_failures(failure: Exception) -> None:
     client = MagicMock()
     request = client.events.return_value.delete.return_value

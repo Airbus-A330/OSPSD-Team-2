@@ -59,10 +59,10 @@ Real-provider verification remains separate and documented in [PROVIDER.md](PROV
   `ProviderFailureError`. The raised service error is not the SDK exception,
   contains no provider error text, and does not retain the provider exception
   as its cause.
-- Transport failures: an `httplib2` transport error and a Google
-  authentication `TransportError` raised while executing the request each
-  translate to `ProviderFailureError`, likewise without retaining the
-  original exception as the cause.
+- Transport failures: `httplib2`, Google authentication, socket timeout, and
+  connection-reset errors raised while executing requests translate to
+  `ProviderFailureError`, without retaining the original exception as the
+  cause.
 - Unsupported all-day and malformed create responses become
   `ProviderFailureError` instead of returning raw Google data, leaking mapping
   exceptions, or inventing fields.
@@ -134,7 +134,8 @@ production-composition test controls the Google SDK boundary and verifies that
 two HTTP requests share cached domain data while both request-scoped clients are
 still closed. Write-operation cases verify that creation and successful updates
 refresh affected entries, deletion removes its entry, uncertain failed writes
-do not leave stale values, and listing bypasses the single-event cache.
+do not leave stale values, a blocked read cannot restore an entry after a
+concurrent deletion, and listing bypasses the single-event cache.
 
 These tests use no credentials, network access, or wall-clock delays.
 
@@ -212,8 +213,9 @@ implements `list_events` as well as GET-one. HTTP cases verify the default limit
 of 10, boundaries 1 and 100, exact public Event fields, empty calendars, rejection
 of malformed/out-of-range limits before client setup, and shared provider-failure
 responses with `list_events` log context. Application tests also check bounds for
-non-HTTP callers. The old `/events` missing-ID 404 test is replaced because that
-path intentionally becomes the collection operation.
+non-HTTP callers. `GET /events` is the collection operation, while
+`GET /events/{event_id}` retrieves one event. `GET /events/` redirects to the
+collection route rather than representing a missing event ID.
 
 `tests/test_google_calendar_listing.py` controls the SDK to verify calendar/limit
 parameters, recurrence expansion, bounded translation, hidden page tokens, empty

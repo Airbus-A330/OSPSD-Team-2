@@ -411,7 +411,8 @@ Successful create, replace, and patch operations update the affected cached
 event. Delete invalidates the affected entry. Potentially stale entries are
 removed before replace, patch, and delete calls because a provider failure may
 leave the remote write outcome uncertain. Listing bypasses the single-event
-cache.
+cache. A cache mutation epoch prevents a provider read that began before any
+concurrent write from restoring stale data after that write completes.
 
 ## Bounded Event Listing
 

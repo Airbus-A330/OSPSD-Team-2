@@ -1,6 +1,8 @@
 """Deterministic behavior tests for successful event retrieval caching."""
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from threading import Event as ThreadEvent
 from unittest.mock import MagicMock
 
 import pytest
@@ -244,6 +246,44 @@ def test_failed_delete_does_not_leave_stale_cached_event(event: Event) -> None:
 
     provider.delete_event.assert_called_once_with(event.id)
     provider.get_event.assert_called_once_with(event.id)
+
+
+def test_delete_prevents_in_flight_get_from_recaching_stale_event(
+    event: Event,
+) -> None:
+    provider = MagicMock(spec=EventProvider)
+    get_started = ThreadEvent()
+    release_get = ThreadEvent()
+    get_calls = 0
+
+    def blocked_get(event_id: str) -> Event:
+        nonlocal get_calls
+        get_calls += 1
+        if get_calls > 1:
+            raise NotFoundError()
+        get_started.set()
+        assert release_get.wait(timeout=2)
+        return event
+
+    provider.get_event.side_effect = blocked_get
+    cached_provider = CachedEventProvider(
+        provider,
+        cache=EventCache(),
+        namespace="primary",
+    )
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        pending_get = executor.submit(cached_provider.get_event, event.id)
+        assert get_started.wait(timeout=2)
+        cached_provider.delete_event(event.id)
+        release_get.set()
+        assert pending_get.result(timeout=2) == event
+
+    with pytest.raises(NotFoundError):
+        cached_provider.get_event(event.id)
+
+    assert provider.get_event.call_count == 2
+    provider.delete_event.assert_called_once_with(event.id)
 
 
 def test_listing_bypasses_single_event_cache(event: Event) -> None:
