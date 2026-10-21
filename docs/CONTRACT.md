@@ -314,8 +314,10 @@ Google ID syntax is not validated locally.
 Body/ID validation happens before provider setup. When exactly one time field is
 supplied, the application reads the current event and validates the combined
 interval before writing. A title-only patch or a patch supplying both times needs
-no preliminary read. Only caller-supplied fields are sent as changes, including
-when the existing event was read for validation.
+no application-level preliminary read. Independently, the Google adapter performs
+an uncached existence/cancelled-state preflight for every PUT/PATCH and rechecks
+one-sided intervals before writing. Only caller-supplied fields are sent as
+changes, including when the existing event was read for validation.
 
 This read/check/write sequence is not atomic. Concurrent edits can change the
 other boundary after validation; no conditional-update guarantee is offered.

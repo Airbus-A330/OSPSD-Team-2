@@ -19,6 +19,15 @@ from app.google_calendar import GoogleCalendarProvider
 from app.models import Event, EventPatch
 
 
+def _active_google_event(event_id: str) -> dict[str, object]:
+    return {
+        "id": event_id,
+        "summary": "Original",
+        "start": {"dateTime": "2026-10-22T10:00:00-04:00"},
+        "end": {"dateTime": "2026-10-22T11:00:00-04:00"},
+    }
+
+
 @pytest.mark.parametrize(
     ("changes", "body"),
     [
@@ -63,6 +72,9 @@ def test_google_patch_sends_only_supplied_fields(
         "end": {"dateTime": expected.end},
         "etag": "private-metadata",
     }
+    client.events.return_value.get.return_value.execute.return_value = (
+        _active_google_event(expected.id)
+    )
     provider = GoogleCalendarProvider(client, calendar_id="test-calendar")
     assert provider.patch_event(expected.id, EventPatch(**changes)) == expected
     client.events.return_value.patch.assert_called_once_with(
@@ -72,6 +84,9 @@ def test_google_patch_sends_only_supplied_fields(
     )
     client.events.return_value.patch.return_value.execute.assert_called_once_with()
     client.events.return_value.update.assert_not_called()
+    client.events.return_value.get.assert_called_once_with(
+        calendarId="test-calendar", eventId=expected.id
+    )
 
 
 @pytest.mark.parametrize(
@@ -89,6 +104,9 @@ def test_google_patch_translates_http_failures(
     expected_error: type[ServiceError],
 ) -> None:
     client = Mock()
+    client.events.return_value.get.return_value.execute.return_value = (
+        _active_google_event("event")
+    )
     client.events.return_value.patch.return_value.execute.side_effect = HttpError(
         Response({"status": status}),
         json.dumps(
@@ -114,6 +132,9 @@ def test_google_patch_translates_http_failures(
 )
 def test_google_patch_translates_transport_failures(error: Exception) -> None:
     client = Mock()
+    client.events.return_value.get.return_value.execute.return_value = (
+        _active_google_event("event")
+    )
     client.events.return_value.patch.return_value.execute.side_effect = error
     with pytest.raises(ProviderFailureError):
         GoogleCalendarProvider(client, calendar_id="primary").patch_event(
@@ -137,8 +158,12 @@ def test_google_patch_translates_transport_failures(error: Exception) -> None:
 )
 def test_google_patch_malformed_result_is_provider_failure(result: object) -> None:
     client = Mock()
+    client.events.return_value.get.return_value.execute.return_value = (
+        _active_google_event("event")
+    )
     client.events.return_value.patch.return_value.execute.return_value = result
     with pytest.raises(ProviderFailureError):
         GoogleCalendarProvider(client, calendar_id="primary").patch_event(
             "event", EventPatch(title="New")
         )
+    client.events.return_value.patch.return_value.execute.assert_called_once_with()
