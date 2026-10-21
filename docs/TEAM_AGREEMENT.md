@@ -67,7 +67,7 @@ The issue owner is responsible for keeping its status and blockers current. Work
 that cannot fit in the current milestone is returned to the backlog with its
 remaining scope documented rather than silently carried forward.
 
-### Milestone 2 Task Selection
+### Task Selection
 
 Ready issues may be self-selected on a first-claim basis, provided the team
 confirms that the resulting ownership remains reasonably balanced before
@@ -162,10 +162,10 @@ not weaken required checks or silently expand the urgent issue's scope.
 
 ## Release Lifecycle
 
-The team uses semantic versioning during this assignment:
+The team uses semantic versioning for published releases:
 
-- review releases use a prerelease version such as `v0.1.0-rc.1`;
-- the final assignment release uses `v0.1.0`;
+- review releases use a prerelease version such as `v0.2.0-rc.1`;
+- stable releases use an ordinary semantic version such as `v0.2.0`;
 - corrections after a published release use a new version rather than moving an
   existing tag.
 
@@ -181,8 +181,8 @@ For each release, the team assigns a release coordinator who:
 5. creates the annotated tag and GitHub Release only after verification;
 6. records the verification evidence.
 
-The review release is marked as a prerelease. A different teammate coordinates
-the final release. After the review release, the team records one observation
+A review release is marked as a prerelease. Release coordination may rotate
+between teammates. After a review release, the team records one observation
 about the process and any resulting adjustment.
 
 If a release is defective, the coordinator documents the impact and whether users

@@ -474,3 +474,25 @@ and requested-resource identity before returning an Event. Unsupported provider
 data uses the existing 502 mapping; cancelled GET/PUT/PATCH results use 404.
 HTTP list validation rejects decimal limit strings before provider construction.
 Public Event fields, service error categories, and cache architecture are unchanged.
+
+## Operation Cost Summary
+
+Let `S` be the total size of one event's identifier, title, and timestamp strings,
+`N` the number of events returned to a caller, and `G` the number of provider
+records inspected in the single list page. The bounds below describe local
+service work and memory; Google Calendar's internal storage, query, and mutation
+costs are external and unknown.
+
+| Public operation | Local time and data structures | Local auxiliary space | Google Calendar calls on a successful path |
+|---|---|---|---|
+| `GET /events/{event_id}` | Average `O(1)` dictionary cache lookup plus `O(S)` translation/serialization on a miss | `O(S)` for one returned/cached `Event`; the shared cache is capped at 256 entries | `0` on a cache hit; `1` `events.get` on a miss or after expiry |
+| `GET /events` | `O(G + N)` to inspect one provider page and build a list of at most `N` domain Events | `O(G + N)` plus provider payload bytes | `1` `events.list`; later pages are not traversed |
+| `POST /events` | `O(S)` validation, request construction, translation, and serialization | `O(S)` | `1` `events.insert` |
+| `PUT /events/{event_id}` | `O(S)` validation and fixed-size event translation | `O(S)` | `2`: a fresh `events.get` preflight, then `events.update` |
+| `PATCH /events/{event_id}` | `O(S)` validation, sparse dictionary construction, and translation | `O(S)` | Normally `2`: fresh `events.get` plus `events.patch`. A one-sided time change also performs an application read, for `2` calls on a cache hit or `3` on a miss |
+| `DELETE /events/{event_id}` | `O(S)` identifier validation and cache-key handling | `O(S)` for the request/cache key | `1` `events.delete` |
+
+The request-scoped Google client is constructed and closed for every HTTP
+request. Cache dictionary operations are average `O(1)`; insertion may scan up
+to 256 bounded entries to discard expired values. Network latency and provider
+processing dominate local work and are not expressed by these asymptotic bounds.
