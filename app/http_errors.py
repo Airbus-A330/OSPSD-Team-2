@@ -3,8 +3,10 @@
 import logging
 
 from fastapi import Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from starlette.exceptions import HTTPException
 
 from app.errors import (
     InvalidInputError,
@@ -75,6 +77,19 @@ def request_validation_error_response(
     """Render malformed requests through the shared invalid-input contract."""
     if not isinstance(error, RequestValidationError):
         raise error
+    return _invalid_request_response(request)
+
+
+async def http_error_response(request: Request, error: Exception) -> Response:
+    """Normalize body decoding errors while preserving other framework errors."""
+    if not isinstance(error, HTTPException):
+        raise error
+    if error.status_code == 400 and isinstance(error.__cause__, UnicodeDecodeError):
+        return _invalid_request_response(request)
+    return await http_exception_handler(request, error)
+
+
+def _invalid_request_response(request: Request) -> JSONResponse:
     route = request.scope.get("route")
     request.state.operation = getattr(route, "name", "request_validation")
     request.state.provider_involved = False

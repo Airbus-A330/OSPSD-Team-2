@@ -89,11 +89,12 @@ class EventCache:
             )
             return True
 
-    def remove(self, namespace: str, event_id: str) -> None:
-        """Remove an event if it is currently cached."""
+    def remove(self, namespace: str, event_id: str) -> int:
+        """Invalidate an event and return the new mutation epoch."""
         with self._lock:
             self._mutation_epoch += 1
             self._entries.pop((namespace, event_id), None)
+            return self._mutation_epoch
 
 
 class CachedEventProvider:
@@ -132,26 +133,47 @@ class CachedEventProvider:
         return self._provider.list_events(limit)
 
     def create_event(self, event: CreateEventRequest) -> Event:
-        """Create an event and cache the provider's resulting representation."""
+        """Create an event and reject older reads when its identifier is known."""
+        write_epoch = self._cache.current_epoch()
         created = self._provider.create_event(event)
-        self._cache.put(self._namespace, created.id, created)
+        self._finish_write(created.id, write_epoch, created)
         return created
 
+    def _finish_write(
+        self, event_id: str, write_epoch: int, result: Event | None = None
+    ) -> None:
+        # Clear reads cached during the write and reject late in-flight reads.
+        completed_epoch = self._cache.remove(self._namespace, event_id)
+        # Overlapping mutations make response order unreliable; let GET refresh.
+        if result is not None and completed_epoch == write_epoch + 1:
+            self._cache.put(
+                self._namespace, event_id, result, expected_epoch=completed_epoch
+            )
+
     def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
-        """Discard stale data and cache a successful complete replacement."""
-        self._cache.remove(self._namespace, event_id)
-        replaced = self._provider.replace_event(event_id, replacement)
-        self._cache.put(self._namespace, replaced.id, replaced)
-        return replaced
+        """Invalidate across a complete replacement, including uncertain failures."""
+        write_epoch = self._cache.remove(self._namespace, event_id)
+        replaced = None
+        try:
+            replaced = self._provider.replace_event(event_id, replacement)
+            return replaced
+        finally:
+            self._finish_write(event_id, write_epoch, replaced)
 
     def patch_event(self, event_id: str, changes: EventPatch) -> Event:
-        """Discard stale data and cache a successful partial update."""
-        self._cache.remove(self._namespace, event_id)
-        patched = self._provider.patch_event(event_id, changes)
-        self._cache.put(self._namespace, patched.id, patched)
-        return patched
+        """Invalidate across a partial update, including uncertain failures."""
+        write_epoch = self._cache.remove(self._namespace, event_id)
+        patched = None
+        try:
+            patched = self._provider.patch_event(event_id, changes)
+            return patched
+        finally:
+            self._finish_write(event_id, write_epoch, patched)
 
     def delete_event(self, event_id: str) -> None:
-        """Discard cached data before attempting deletion."""
-        self._cache.remove(self._namespace, event_id)
-        self._provider.delete_event(event_id)
+        """Invalidate before and after deletion, even if its outcome is uncertain."""
+        write_epoch = self._cache.remove(self._namespace, event_id)
+        try:
+            self._provider.delete_event(event_id)
+        finally:
+            self._finish_write(event_id, write_epoch)

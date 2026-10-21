@@ -6,6 +6,7 @@ from collections.abc import Iterator
 from fastapi import Body, Depends, FastAPI, Query, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import TypeAdapter, ValidationError
+from starlette.exceptions import HTTPException
 
 from app.event_cache import CachedEventProvider, EventCache
 from app.errors import (
@@ -27,11 +28,16 @@ from app.events import (
     validate_event_patch,
 )
 from app.google_calendar import GoogleCalendarProvider, build_google_calendar_client
-from app.http_errors import request_validation_error_response, service_error_response
+from app.http_errors import (
+    http_error_response,
+    request_validation_error_response,
+    service_error_response,
+)
 from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
 
 app = FastAPI()
+app.add_exception_handler(HTTPException, http_error_response)
 app.add_exception_handler(RequestValidationError, request_validation_error_response)
 event_cache = EventCache()
 

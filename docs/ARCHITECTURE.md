@@ -409,10 +409,16 @@ promised.
 
 Successful create, replace, and patch operations update the affected cached
 event. Delete invalidates the affected entry. Potentially stale entries are
-removed before replace, patch, and delete calls because a provider failure may
-leave the remote write outcome uncertain. Listing bypasses the single-event
-cache. A cache mutation epoch prevents a provider read that began before any
-concurrent write from restoring stale data after that write completes.
+removed before and after replace, patch, and delete calls, including failures
+whose remote outcome is uncertain. Advancing the mutation epoch at both boundaries
+rejects late reads that started before or during a write; completion also removes
+reads already cached during that write. A successful write populates the cache
+only if its epoch shows no overlapping mutation. Otherwise, a later GET refreshes
+from the provider rather than trusting response completion order. Once creation
+returns its provider-generated ID, it uses the same completion invalidation to
+reject older reads before caching its response. The existing global epoch
+can conservatively skip caching when another key is mutated; it does not serialize
+provider calls or add per-key state. Listing bypasses the single-event cache.
 
 ## Bounded Event Listing
 
