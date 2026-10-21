@@ -414,8 +414,9 @@ whose remote outcome is uncertain. Advancing the mutation epoch at both boundari
 rejects late reads that started before or during a write; completion also removes
 reads already cached during that write. A successful write populates the cache
 only if its epoch shows no overlapping mutation. Otherwise, a later GET refreshes
-from the provider rather than trusting response completion order. Creation also
-checks its starting epoch before caching its response. The existing global epoch
+from the provider rather than trusting response completion order. Once creation
+returns its provider-generated ID, it uses the same completion invalidation to
+reject older reads before caching its response. The existing global epoch
 can conservatively skip caching when another key is mutated; it does not serialize
 provider calls or add per-key state. Listing bypasses the single-event cache.
 

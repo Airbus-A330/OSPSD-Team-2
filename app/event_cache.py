@@ -133,12 +133,10 @@ class CachedEventProvider:
         return self._provider.list_events(limit)
 
     def create_event(self, event: CreateEventRequest) -> Event:
-        """Create an event and cache the provider's resulting representation."""
-        cache_epoch = self._cache.current_epoch()
+        """Create an event and reject older reads when its identifier is known."""
+        write_epoch = self._cache.current_epoch()
         created = self._provider.create_event(event)
-        self._cache.put(
-            self._namespace, created.id, created, expected_epoch=cache_epoch
-        )
+        self._finish_write(created.id, write_epoch, created)
         return created
 
     def _finish_write(

@@ -141,8 +141,10 @@ Gate-controlled HTTP regressions also start reads during DELETE, PUT, and PATCH,
 then release those reads both before and after write completion. They cover
 successful writes and writes that apply remotely but lose their response. Later
 GET requests must observe deletion or updated state. Separate overlapping-write
-and delayed-create cases ensure late responses cannot restore older state. These
-cases use the actual cache wrapper and controlled providers, with no sleeps.
+and delayed-create cases ensure late responses cannot restore older state. A
+creation-completion case verifies that an older read cannot overwrite the newly
+created value once its provider-generated ID is known. These cases use the actual
+cache wrapper and controlled providers, with no sleeps.
 
 `tests/test_http_errors.py` checks malformed JSON syntax and invalid UTF-8 on
 POST/PUT/PATCH: the shared 400 envelope, one sanitized failure log, and rejection

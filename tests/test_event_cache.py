@@ -494,3 +494,87 @@ def test_late_create_response_cannot_recache_a_deleted_event(event: Event) -> No
         assert pending.result(timeout=3) == event
     with pytest.raises(NotFoundError):
         cached.get_event(event.id)
+
+
+def test_create_completion_prevents_older_read_from_overwriting_result(
+    event: Event,
+) -> None:
+    provider = MagicMock(spec=EventProvider)
+    created_event = event.model_copy(update={"title": "Newly created"})
+    read_started, release_read = ThreadEvent(), ThreadEvent()
+    current = event
+
+    def read(event_id: str) -> Event:
+        snapshot = current
+        read_started.set()
+        assert release_read.wait(timeout=3)
+        return snapshot
+
+    def create(values: CreateEventRequest) -> Event:
+        nonlocal current
+        current = created_event
+        return created_event
+
+    provider.get_event.side_effect = read
+    provider.create_event.side_effect = create
+    cached = CachedEventProvider(provider, cache=EventCache(), namespace="primary")
+    values = CreateEventRequest(
+        title=created_event.title,
+        start=created_event.start,
+        end=created_event.end,
+    )
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending_read = pool.submit(cached.get_event, event.id)
+        try:
+            assert read_started.wait(timeout=3)
+            assert cached.create_event(values) == created_event
+        finally:
+            release_read.set()
+        assert pending_read.result(timeout=3) == event
+
+    assert cached.get_event(event.id) == created_event
+    provider.get_event.assert_called_once_with(event.id)
+
+
+@pytest.mark.parametrize("method", ["replace_event", "patch_event"])
+def test_read_started_before_update_cannot_overwrite_result(
+    event: Event,
+    method: str,
+) -> None:
+    provider = MagicMock(spec=EventProvider)
+    changed = event.model_copy(update={"title": "Updated"})
+    read_started, release_read = ThreadEvent(), ThreadEvent()
+
+    def read(event_id: str) -> Event:
+        read_started.set()
+        assert release_read.wait(timeout=3)
+        return event
+
+    provider.get_event.side_effect = read
+    provider.replace_event.return_value = changed
+    provider.patch_event.return_value = changed
+    cached = CachedEventProvider(provider, cache=EventCache(), namespace="primary")
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending_read = pool.submit(cached.get_event, event.id)
+        try:
+            assert read_started.wait(timeout=3)
+            if method == "replace_event":
+                result = cached.replace_event(
+                    event.id,
+                    EventReplacement(
+                        title=changed.title,
+                        start=changed.start,
+                        end=changed.end,
+                    ),
+                )
+            else:
+                result = cached.patch_event(event.id, EventPatch(title=changed.title))
+            assert result == changed
+        finally:
+            release_read.set()
+        assert pending_read.result(timeout=3) == event
+
+    assert cached.get_event(event.id) == changed
+    provider.get_event.assert_called_once_with(event.id)
