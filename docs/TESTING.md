@@ -137,6 +137,18 @@ refresh affected entries, deletion removes its entry, uncertain failed writes
 do not leave stale values, a blocked read cannot restore an entry after a
 concurrent deletion, and listing bypasses the single-event cache.
 
+Gate-controlled HTTP regressions also start reads during DELETE, PUT, and PATCH,
+then release those reads both before and after write completion. They cover
+successful writes and writes that apply remotely but lose their response. Later
+GET requests must observe deletion or updated state. Separate overlapping-write
+and delayed-create cases ensure late responses cannot restore older state. These
+cases use the actual cache wrapper and controlled providers, with no sleeps.
+
+`tests/test_http_errors.py` checks malformed JSON syntax and invalid UTF-8 on
+POST/PUT/PATCH: the shared 400 envelope, one sanitized failure log, and rejection
+before provider setup. Unrelated HTTP errors retain their original status, body,
+and headers, including ordinary 404/405 routing responses.
+
 These tests use no credentials, network access, or wall-clock delays.
 
 ## Level 5 HTTP Failures

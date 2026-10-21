@@ -99,10 +99,13 @@ evicts the event that has been cached longest.
 
 The cache is local to one running service process and is cleared when that
 process stops. Successful create, replacement, and partial-update operations
-cache their returned Event. Delete invalidates the identified entry. Replacement,
-partial update, and deletion remove the old entry before the provider write so
-an uncertain failed write cannot leave a known-stale value in the cache. Listing
-does not populate or read the single-event cache.
+normally cache their returned Event; overlapping mutations may instead leave a
+cache miss so a subsequent GET refreshes provider state. Delete invalidates the
+identified entry. Replacement, partial update, and deletion invalidate before
+and after the provider write, even on failure, so overlapping reads cannot leave
+known-stale data cached after completion. An already-overlapping read can still
+return its earlier snapshot; this is not transaction isolation. Listing does not
+populate or read the single-event cache.
 
 **Errors**
 

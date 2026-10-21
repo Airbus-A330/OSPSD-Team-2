@@ -8,6 +8,7 @@ from urllib.parse import quote
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.exceptions import HTTPException
 
 from app.errors import (
     InvalidInputError,
@@ -249,3 +250,80 @@ def test_unexpected_errors_are_not_disguised_as_expected_failures(
 
     assert caught.value is error
     assert not [record for record in caplog.records if record.name == "app.http_errors"]
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "operation", "message"),
+    [
+        ("POST", "/events", "create_event", "Invalid event data"),
+        ("PUT", "/events/private-id", "replace_event", "Invalid event replacement"),
+        ("PATCH", "/events/private-id", "patch_event", "Invalid input"),
+    ],
+)
+@pytest.mark.parametrize("body", [b'{"title":"private-body-\xff"}', b'{"title":'])
+def test_malformed_json_has_shared_error_and_safe_log_before_provider_setup(
+    method: str,
+    path: str,
+    operation: str,
+    message: str,
+    body: bytes,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def unexpected_client() -> None:
+        pytest.fail("Invalid JSON must not construct a provider or start OAuth")
+
+    monkeypatch.setattr("app.main.build_google_calendar_client", unexpected_client)
+    with caplog.at_level(logging.WARNING), TestClient(app) as client:
+        response = client.request(
+            method, path, content=body, headers={"Content-Type": "application/json"}
+        )
+    assert response.status_code == 400
+    assert response.json() == {"error": {"code": "invalid_input", "message": message}}
+    records = [record for record in caplog.records if record.name == "app.http_errors"]
+    assert len(records) == 1
+    record = records[0]
+    assert record.__dict__["operation"] == operation
+    assert record.__dict__["error_code"] == "invalid_input"
+    assert record.__dict__["http_status"] == 400
+    assert record.__dict__["provider_involved"] is False
+    assert record.exc_info is None and record.stack_info is None
+    assert "private-body" not in caplog.text + response.text
+    assert "private-id" not in caplog.text + response.text
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "status", "detail"),
+    [
+        ("GET", "/unknown-route", 404, "Not Found"),
+        ("DELETE", "/events", 405, "Method Not Allowed"),
+    ],
+)
+def test_framework_routing_errors_keep_their_existing_response(
+    method: str,
+    path: str,
+    status: int,
+    detail: str,
+) -> None:
+    with TestClient(app) as client:
+        response = client.request(method, path)
+    assert response.status_code == status
+    assert response.json() == {"detail": detail}
+    if status == 405:
+        assert "allow" in response.headers
+
+
+@pytest.mark.parametrize("status", [400, 403])
+def test_other_http_errors_preserve_details_and_headers(
+    status: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    error = HTTPException(
+        status, "Unrelated framework error", headers={"X-Test": "preserved"}
+    )
+    override_provider(ControlledProvider(error), monkeypatch)
+    with TestClient(app) as client:
+        response = client.get("/events/example")
+    assert response.status_code == status
+    assert response.json() == {"detail": "Unrelated framework error"}
+    assert response.headers["X-Test"] == "preserved"
