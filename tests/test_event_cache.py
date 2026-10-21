@@ -1,0 +1,580 @@
+"""Deterministic behavior tests for successful event retrieval caching."""
+
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
+from threading import Event as ThreadEvent
+from unittest.mock import MagicMock
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.errors import (
+    InvalidInputError,
+    NotFoundError,
+    PermissionDeniedError,
+    ProviderFailureError,
+    ServiceError,
+)
+from app.event_cache import CachedEventProvider, EventCache
+from app.events import get_event
+from app.main import app, get_event_provider
+from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
+from app.providers import EventProvider
+
+
+@dataclass
+class ControlledProvider:
+    """Return a configurable outcome and record provider calls."""
+
+    outcome: Event | ServiceError
+    calls: list[str] = field(default_factory=list)
+
+    def get_event(self, event_id: str) -> Event:
+        self.calls.append(event_id)
+        if isinstance(self.outcome, ServiceError):
+            raise self.outcome
+        return self.outcome
+
+    def list_events(self, limit: int) -> list[Event]:
+        raise AssertionError("Retrieval cache tests must not list events")
+
+    def create_event(self, event: CreateEventRequest) -> Event:
+        raise AssertionError("Retrieval cache tests must not create events")
+
+    def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
+        raise AssertionError("Retrieval cache tests must not replace events")
+
+    def patch_event(self, event_id: str, changes: EventPatch) -> Event:
+        raise AssertionError("Retrieval cache tests must not patch events")
+
+    def delete_event(self, event_id: str) -> None:
+        raise AssertionError("Retrieval cache tests must not delete events")
+
+
+@pytest.fixture
+def event() -> Event:
+    return Event(
+        id="event-123",
+        title="Cached event",
+        start="2026-10-19T09:00:00-04:00",
+        end="2026-10-19T10:00:00-04:00",
+    )
+
+
+def test_cache_miss_then_hit_calls_provider_once(event: Event) -> None:
+    provider = ControlledProvider(event)
+    cached_provider = CachedEventProvider(
+        provider,
+        cache=EventCache(),
+        namespace="primary",
+    )
+
+    assert cached_provider.get_event(event.id) == event
+    assert cached_provider.get_event(event.id) == event
+    assert provider.calls == [event.id]
+
+
+def test_expired_entry_is_refreshed_without_sleeping(event: Event) -> None:
+    current_time = 0.0
+    cache = EventCache(ttl_seconds=60.0, clock=lambda: current_time)
+    provider = ControlledProvider(event)
+    cached_provider = CachedEventProvider(
+        provider,
+        cache=cache,
+        namespace="primary",
+    )
+
+    assert cached_provider.get_event(event.id) == event
+    current_time = 59.9
+    assert cached_provider.get_event(event.id) == event
+
+    refreshed_event = event.model_copy(update={"title": "Refreshed event"})
+    provider.outcome = refreshed_event
+    current_time = 60.0
+    assert cached_provider.get_event(event.id) == refreshed_event
+    assert provider.calls == [event.id, event.id]
+
+
+def test_same_event_id_is_cached_separately_per_calendar(event: Event) -> None:
+    cache = EventCache()
+    primary_provider = ControlledProvider(event)
+    team_event = event.model_copy(update={"title": "Team calendar event"})
+    team_provider = ControlledProvider(team_event)
+    cached_primary = CachedEventProvider(
+        primary_provider,
+        cache=cache,
+        namespace="primary",
+    )
+    cached_team = CachedEventProvider(
+        team_provider,
+        cache=cache,
+        namespace="team@example.com",
+    )
+
+    assert cached_primary.get_event(event.id) == event
+    assert cached_team.get_event(event.id) == team_event
+    assert primary_provider.calls == [event.id]
+    assert team_provider.calls == [event.id]
+
+
+def test_cache_evicts_oldest_entry_when_capacity_is_reached(event: Event) -> None:
+    cache = EventCache(max_entries=2)
+    second_event = event.model_copy(update={"id": "event-456"})
+    third_event = event.model_copy(update={"id": "event-789"})
+
+    cache.put("primary", event.id, event)
+    cache.put("primary", second_event.id, second_event)
+    cache.put("primary", third_event.id, third_event)
+
+    assert cache.get("primary", event.id) is None
+    assert cache.get("primary", second_event.id) == second_event
+    assert cache.get("primary", third_event.id) == third_event
+
+
+@pytest.mark.parametrize("max_entries", [0, -1])
+def test_cache_rejects_nonpositive_capacity(max_entries: int) -> None:
+    with pytest.raises(ValueError, match="max_entries must be at least 1"):
+        EventCache(max_entries=max_entries)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [NotFoundError(), PermissionDeniedError(), ProviderFailureError()],
+)
+def test_service_failures_are_not_cached(error: ServiceError) -> None:
+    provider = ControlledProvider(error)
+    cached_provider = CachedEventProvider(
+        provider,
+        cache=EventCache(),
+        namespace="primary",
+    )
+
+    for _ in range(2):
+        with pytest.raises(type(error)):
+            cached_provider.get_event("event-123")
+
+    assert provider.calls == ["event-123", "event-123"]
+
+
+def test_invalid_input_is_rejected_before_cache_or_provider(event: Event) -> None:
+    provider = ControlledProvider(event)
+    cached_provider = CachedEventProvider(
+        provider,
+        cache=EventCache(),
+        namespace="primary",
+    )
+
+    for _ in range(2):
+        with pytest.raises(InvalidInputError):
+            get_event("   ", provider=cached_provider)
+
+    assert provider.calls == []
+
+
+def test_create_caches_returned_event(event: Event) -> None:
+    provider = MagicMock(spec=EventProvider)
+    provider.create_event.return_value = event
+    cached_provider = CachedEventProvider(
+        provider,
+        cache=EventCache(),
+        namespace="primary",
+    )
+    request = CreateEventRequest(title=event.title, start=event.start, end=event.end)
+
+    assert cached_provider.create_event(request) == event
+    assert cached_provider.get_event(event.id) == event
+    provider.create_event.assert_called_once_with(request)
+    provider.get_event.assert_not_called()
+
+
+def test_replace_refreshes_cached_event(event: Event) -> None:
+    provider = MagicMock(spec=EventProvider)
+    replacement = EventReplacement(
+        title="Replacement",
+        start=event.start,
+        end=event.end,
+    )
+    replaced = event.model_copy(update={"title": replacement.title})
+    provider.replace_event.return_value = replaced
+    cache = EventCache()
+    cache.put("primary", event.id, event)
+    cached_provider = CachedEventProvider(
+        provider,
+        cache=cache,
+        namespace="primary",
+    )
+
+    assert cached_provider.replace_event(event.id, replacement) == replaced
+    assert cached_provider.get_event(event.id) == replaced
+    provider.get_event.assert_not_called()
+
+
+def test_patch_refreshes_cached_event(event: Event) -> None:
+    provider = MagicMock(spec=EventProvider)
+    changes = EventPatch(title="Patched")
+    patched = event.model_copy(update={"title": changes.title})
+    provider.patch_event.return_value = patched
+    cache = EventCache()
+    cache.put("primary", event.id, event)
+    cached_provider = CachedEventProvider(
+        provider,
+        cache=cache,
+        namespace="primary",
+    )
+
+    assert cached_provider.patch_event(event.id, changes) == patched
+    assert cached_provider.get_event(event.id) == patched
+    provider.get_event.assert_not_called()
+
+
+def test_failed_delete_does_not_leave_stale_cached_event(event: Event) -> None:
+    provider = MagicMock(spec=EventProvider)
+    provider.delete_event.side_effect = ProviderFailureError("lost response")
+    provider.get_event.side_effect = NotFoundError()
+    cache = EventCache()
+    cache.put("primary", event.id, event)
+    cached_provider = CachedEventProvider(
+        provider,
+        cache=cache,
+        namespace="primary",
+    )
+
+    with pytest.raises(ProviderFailureError):
+        cached_provider.delete_event(event.id)
+    with pytest.raises(NotFoundError):
+        cached_provider.get_event(event.id)
+
+    provider.delete_event.assert_called_once_with(event.id)
+    provider.get_event.assert_called_once_with(event.id)
+
+
+def test_delete_prevents_in_flight_get_from_recaching_stale_event(
+    event: Event,
+) -> None:
+    provider = MagicMock(spec=EventProvider)
+    get_started = ThreadEvent()
+    release_get = ThreadEvent()
+    get_calls = 0
+
+    def blocked_get(event_id: str) -> Event:
+        nonlocal get_calls
+        get_calls += 1
+        if get_calls > 1:
+            raise NotFoundError()
+        get_started.set()
+        assert release_get.wait(timeout=2)
+        return event
+
+    provider.get_event.side_effect = blocked_get
+    cached_provider = CachedEventProvider(
+        provider,
+        cache=EventCache(),
+        namespace="primary",
+    )
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        pending_get = executor.submit(cached_provider.get_event, event.id)
+        assert get_started.wait(timeout=2)
+        cached_provider.delete_event(event.id)
+        release_get.set()
+        assert pending_get.result(timeout=2) == event
+
+    with pytest.raises(NotFoundError):
+        cached_provider.get_event(event.id)
+
+    assert provider.get_event.call_count == 2
+    provider.delete_event.assert_called_once_with(event.id)
+
+
+def test_listing_bypasses_single_event_cache(event: Event) -> None:
+    provider = MagicMock(spec=EventProvider)
+    provider.list_events.return_value = [event]
+    cached_provider = CachedEventProvider(
+        provider,
+        cache=EventCache(),
+        namespace="primary",
+    )
+
+    assert cached_provider.list_events(10) == [event]
+    provider.list_events.assert_called_once_with(10)
+
+
+def test_repeated_http_requests_return_cached_public_event(
+    event: Event, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider = ControlledProvider(event)
+    cached_provider = CachedEventProvider(
+        provider,
+        cache=EventCache(),
+        namespace="primary",
+    )
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        get_event_provider,
+        lambda: cached_provider,
+    )
+
+    with TestClient(app) as client:
+        first_response = client.get(f"/events/{event.id}")
+        second_response = client.get(f"/events/{event.id}")
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert first_response.json() == event.model_dump()
+    assert second_response.json() == event.model_dump()
+    assert provider.calls == [event.id]
+
+
+def test_production_composition_reuses_cache_across_requests(
+    event: Event, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    google_clients = [MagicMock(), MagicMock()]
+    for google_client in google_clients:
+        google_client.events.return_value.get.return_value.execute.return_value = {
+            "id": event.id,
+            "summary": event.title,
+            "start": {"dateTime": event.start},
+            "end": {"dateTime": event.end},
+        }
+    build_client = MagicMock(side_effect=google_clients)
+    monkeypatch.setattr("app.main.build_google_calendar_client", build_client)
+    monkeypatch.setattr("app.main.event_cache", EventCache())
+    monkeypatch.delenv("GOOGLE_CALENDAR_ID", raising=False)
+
+    with TestClient(app) as client:
+        first_response = client.get(f"/events/{event.id}")
+        second_response = client.get(f"/events/{event.id}")
+
+    assert first_response.json() == event.model_dump()
+    assert second_response.json() == event.model_dump()
+    assert build_client.call_count == 2
+    google_clients[0].events.return_value.get.assert_called_once_with(
+        calendarId="primary", eventId=event.id
+    )
+    google_clients[1].events.return_value.get.assert_not_called()
+    for google_client in google_clients:
+        google_client.close.assert_called_once_with()
+
+
+@pytest.mark.parametrize("method", ["DELETE", "PUT", "PATCH"])
+@pytest.mark.parametrize("lost_response", [False, True])
+@pytest.mark.parametrize("late_read", [False, True])
+def test_read_started_during_write_cannot_leave_stale_cache(
+    event: Event,
+    method: str,
+    lost_response: bool,
+    late_read: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = MagicMock(spec=EventProvider)
+    current: Event | None = event
+    changed = event.model_copy(update={"title": "Changed remotely"})
+    write_started, release_write = ThreadEvent(), ThreadEvent()
+    read_started, release_read = ThreadEvent(), ThreadEvent()
+
+    def write(*args: object) -> Event | None:
+        nonlocal current
+        write_started.set()
+        assert release_write.wait(timeout=3)
+        current = None if method == "DELETE" else changed
+        if lost_response:
+            raise ProviderFailureError("synthetic lost response")
+        return current
+
+    def read(event_id: str) -> Event:
+        snapshot = current
+        if snapshot is None:
+            raise NotFoundError()
+        if not read_started.is_set():
+            read_started.set()
+            assert release_read.wait(timeout=3)
+        return snapshot
+
+    provider.get_event.side_effect = read
+    provider.delete_event.side_effect = write
+    provider.replace_event.side_effect = write
+    provider.patch_event.side_effect = write
+    cached = CachedEventProvider(provider, cache=EventCache(), namespace="primary")
+    monkeypatch.setitem(app.dependency_overrides, get_event_provider, lambda: cached)
+    path = f"/events/{event.id}"
+    body = {"title": changed.title, "start": event.start, "end": event.end}
+
+    with TestClient(app) as client, ThreadPoolExecutor(max_workers=2) as pool:
+        pending_write = pool.submit(client.request, method, path, json=body)
+        try:
+            assert write_started.wait(timeout=3)
+            pending_read = pool.submit(client.get, path)
+            assert read_started.wait(timeout=3)
+            if not late_read:
+                release_read.set()
+                assert pending_read.result(timeout=3).json() == event.model_dump()
+            release_write.set()
+            response = pending_write.result(timeout=3)
+            expected_status = (
+                502 if lost_response else (204 if method == "DELETE" else 200)
+            )
+            assert response.status_code == expected_status
+        finally:
+            release_write.set()
+            release_read.set()
+        # An overlapping read may see the old value, but must not leave it cached.
+        assert pending_read.result(timeout=3).json() == event.model_dump()
+        after = client.get(path)
+
+    if method == "DELETE":
+        assert current is None
+        assert after.status_code == 404
+        assert after.json() == {
+            "error": {"code": "not_found", "message": "Event not found"}
+        }
+    else:
+        assert current == changed
+        assert after.status_code == 200
+        assert after.json() == changed.model_dump()
+
+
+def test_late_write_response_cannot_overwrite_a_newer_write(event: Event) -> None:
+    provider = MagicMock(spec=EventProvider)
+    first = event.model_copy(update={"title": "First write"})
+    second = event.model_copy(update={"title": "Second write"})
+    current = event
+    first_applied, release_first = ThreadEvent(), ThreadEvent()
+
+    def patch(event_id: str, changes: EventPatch) -> Event:
+        nonlocal current
+        if changes.title == first.title:
+            current = first
+            first_applied.set()
+            assert release_first.wait(timeout=3)
+            return first
+        current = second
+        return second
+
+    provider.patch_event.side_effect = patch
+    provider.get_event.side_effect = lambda event_id: current
+    cache = EventCache()
+    first_request = CachedEventProvider(provider, cache=cache, namespace="primary")
+    second_request = CachedEventProvider(provider, cache=cache, namespace="primary")
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(
+            first_request.patch_event, event.id, EventPatch(title=first.title)
+        )
+        try:
+            assert first_applied.wait(timeout=3)
+            assert (
+                second_request.patch_event(event.id, EventPatch(title=second.title))
+                == second
+            )
+        finally:
+            release_first.set()
+        assert pending.result(timeout=3) == first
+    assert second_request.get_event(event.id) == second
+
+
+def test_late_create_response_cannot_recache_a_deleted_event(event: Event) -> None:
+    provider = MagicMock(spec=EventProvider)
+    created, release_create = ThreadEvent(), ThreadEvent()
+
+    def create(values: CreateEventRequest) -> Event:
+        created.set()
+        assert release_create.wait(timeout=3)
+        return event
+
+    provider.create_event.side_effect = create
+    provider.get_event.side_effect = NotFoundError()
+    cached = CachedEventProvider(provider, cache=EventCache(), namespace="primary")
+    values = CreateEventRequest(title=event.title, start=event.start, end=event.end)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(cached.create_event, values)
+        try:
+            assert created.wait(timeout=3)
+            cached.delete_event(event.id)
+        finally:
+            release_create.set()
+        assert pending.result(timeout=3) == event
+    with pytest.raises(NotFoundError):
+        cached.get_event(event.id)
+
+
+def test_create_completion_prevents_older_read_from_overwriting_result(
+    event: Event,
+) -> None:
+    provider = MagicMock(spec=EventProvider)
+    created_event = event.model_copy(update={"title": "Newly created"})
+    read_started, release_read = ThreadEvent(), ThreadEvent()
+    current = event
+
+    def read(event_id: str) -> Event:
+        snapshot = current
+        read_started.set()
+        assert release_read.wait(timeout=3)
+        return snapshot
+
+    def create(values: CreateEventRequest) -> Event:
+        nonlocal current
+        current = created_event
+        return created_event
+
+    provider.get_event.side_effect = read
+    provider.create_event.side_effect = create
+    cached = CachedEventProvider(provider, cache=EventCache(), namespace="primary")
+    values = CreateEventRequest(
+        title=created_event.title,
+        start=created_event.start,
+        end=created_event.end,
+    )
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending_read = pool.submit(cached.get_event, event.id)
+        try:
+            assert read_started.wait(timeout=3)
+            assert cached.create_event(values) == created_event
+        finally:
+            release_read.set()
+        assert pending_read.result(timeout=3) == event
+
+    assert cached.get_event(event.id) == created_event
+    provider.get_event.assert_called_once_with(event.id)
+
+
+@pytest.mark.parametrize("method", ["replace_event", "patch_event"])
+def test_read_started_before_update_cannot_overwrite_result(
+    event: Event,
+    method: str,
+) -> None:
+    provider = MagicMock(spec=EventProvider)
+    changed = event.model_copy(update={"title": "Updated"})
+    read_started, release_read = ThreadEvent(), ThreadEvent()
+
+    def read(event_id: str) -> Event:
+        read_started.set()
+        assert release_read.wait(timeout=3)
+        return event
+
+    provider.get_event.side_effect = read
+    provider.replace_event.return_value = changed
+    provider.patch_event.return_value = changed
+    cached = CachedEventProvider(provider, cache=EventCache(), namespace="primary")
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending_read = pool.submit(cached.get_event, event.id)
+        try:
+            assert read_started.wait(timeout=3)
+            if method == "replace_event":
+                result = cached.replace_event(
+                    event.id,
+                    EventReplacement(
+                        title=changed.title,
+                        start=changed.start,
+                        end=changed.end,
+                    ),
+                )
+            else:
+                result = cached.patch_event(event.id, EventPatch(title=changed.title))
+            assert result == changed
+        finally:
+            release_read.set()
+        assert pending_read.result(timeout=3) == event
+
+    assert cached.get_event(event.id) == changed
+    provider.get_event.assert_called_once_with(event.id)

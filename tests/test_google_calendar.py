@@ -1,12 +1,15 @@
 """Credential-free tests for Google Calendar authentication and retrieval."""
 
+import socket
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from google.auth.exceptions import TransportError
 from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
 from httplib2 import Response  # type: ignore[import-untyped]
 
+from app.errors import ProviderFailureError
 from app.google_calendar import (
     GOOGLE_CALENDAR_SCOPES,
     build_google_calendar_client,
@@ -39,6 +42,12 @@ def test_build_client_uses_valid_saved_credentials(
     build.assert_called_once_with("calendar", "v3", credentials=credentials)
 
 
+def test_calendar_scope_allows_event_reads_and_writes() -> None:
+    assert GOOGLE_CALENDAR_SCOPES == (
+        "https://www.googleapis.com/auth/calendar.events",
+    )
+
+
 @patch("app.google_calendar.Request")
 @patch("app.google_calendar.build")
 @patch("app.google_calendar.Credentials.from_authorized_user_file")
@@ -64,6 +73,75 @@ def test_build_client_refreshes_expired_credentials(
 
     credentials.refresh.assert_called_once_with(request.return_value)
     assert token_path.read_text(encoding="utf-8") == '{"token": "new-token"}'
+
+
+@patch("app.google_calendar.Request")
+@patch("app.google_calendar.build")
+@patch("app.google_calendar.Credentials.from_authorized_user_file")
+@pytest.mark.parametrize(
+    "transport_error",
+    [
+        TransportError("private provider detail"),
+        socket.timeout("private provider detail"),
+        ConnectionResetError("private provider detail"),
+    ],
+)
+def test_build_client_translates_refresh_transport_failure(
+    load_credentials: MagicMock,
+    build: MagicMock,
+    request: MagicMock,
+    transport_error: Exception,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    token_path = tmp_path / "token.json"
+    token_path.write_text("saved-token", encoding="utf-8")
+    monkeypatch.setenv("GOOGLE_CALENDAR_TOKEN_FILE", str(token_path))
+    credentials = MagicMock(
+        valid=False,
+        expired=True,
+        refresh_token="refresh-token",
+    )
+    credentials.refresh.side_effect = transport_error
+    load_credentials.return_value = credentials
+
+    with pytest.raises(ProviderFailureError) as caught:
+        build_google_calendar_client()
+
+    credentials.refresh.assert_called_once_with(request.return_value)
+    build.assert_not_called()
+    assert token_path.read_text(encoding="utf-8") == "saved-token"
+    assert "private provider detail" not in str(caught.value)
+    assert caught.value.__cause__ is None
+
+
+@patch("app.google_calendar.build")
+@patch("app.google_calendar.Credentials.from_authorized_user_file")
+@pytest.mark.parametrize(
+    "transport_error",
+    [
+        socket.timeout("private setup detail"),
+        ConnectionResetError("private setup detail"),
+    ],
+)
+def test_build_client_translates_discovery_transport_failure(
+    load_credentials: MagicMock,
+    build: MagicMock,
+    transport_error: Exception,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    token_path = tmp_path / "token.json"
+    token_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("GOOGLE_CALENDAR_TOKEN_FILE", str(token_path))
+    load_credentials.return_value = MagicMock(valid=True)
+    build.side_effect = transport_error
+
+    with pytest.raises(ProviderFailureError) as caught:
+        build_google_calendar_client()
+
+    assert "private setup detail" not in str(caught.value)
+    assert caught.value.__cause__ is None
 
 
 @patch("app.google_calendar.InstalledAppFlow.from_client_secrets_file")

@@ -40,7 +40,7 @@ When making changes to this repository:
 - Keep changes focused on the assigned issue.
 - Do not modify unrelated code.
 - Preserve existing behavior unless the task explicitly requires a contract change.
-- Every change should be understandable and explainable by a student contributor.
+- Every change should be understandable and explainable by its contributor.
 - Avoid unnecessary lines of code, helper layers, wrapper classes, or duplicated abstractions.
 - Remove unused code, imports, dependencies, and temporary debugging artifacts.
 
@@ -257,20 +257,21 @@ Translate provider data into the service's own public models.
 
 Keep provider-specific code localized.
 
-### Levels 3–4 Provider Boundary
+### Event Provider Boundary
 
-`docs/ARCHITECTURE.md` is the source of truth for the Milestone 2
-`EventProvider` contract. Do not change that interface inside an implementation
-issue without team agreement; if it proves insufficient, raise the problem with
-the team before editing it. Application code must not import or construct the
-concrete Google provider. Provider SDK types, request construction, response
+`docs/ARCHITECTURE.md` is the source of truth for the current
+provider-independent `EventProvider` contract. Do not change that shared
+interface without team agreement; if it proves insufficient, raise the problem
+with the team before editing it. Application code must not import or construct
+the concrete Google provider. Provider SDK types, request construction, response
 translation, and Google-specific configuration belong behind the provider
 boundary.
 
-Use the smallest design that satisfies Levels 3–4. Do not introduce a
+The service supports six calendar operations and the shared service-error
+contract documented in `docs/CONTRACT.md`. Keep this design small. Do not add a
 dependency-injection framework, provider registry, factory hierarchy, plugin
-system, multiple-provider runtime switching, retries, pagination, or Level 5
-failure architecture.
+system, multiple-provider runtime switching, retries, pagination, or additional
+caching infrastructure without a concrete requirement.
 
 ---
 
@@ -290,7 +291,7 @@ Avoid unnecessary:
 - plugin systems;
 - event buses;
 - queues;
-- caches;
+- unnecessary caches or additional caching infrastructure;
 - custom frameworks;
 - generic abstractions;
 - large inheritance hierarchies.
@@ -1060,7 +1061,7 @@ Do not mix unrelated cleanup or refactoring into a feature pull request.
 
 Link the pull request to its GitHub issue.
 
-Use clear commit messages written or reviewed by the student contributor.
+Use clear commit messages written or reviewed by the contributor.
 
 Do not generate large amounts of unrelated code.
 
@@ -1102,7 +1103,7 @@ Document behavior that remains unsupported or unverified.
 
 Agent-generated code is not automatically trusted.
 
-Every substantive change must have a student owner who:
+Every substantive change must have an owner who:
 
 - understands the implementation;
 - reviews generated code;
@@ -1142,7 +1143,7 @@ When implementing a GitHub issue:
 10. Update relevant documentation.
 11. Report assumptions, limitations, or deviations in the pull request.
 
-If the issue contains a contract or acceptance criteria, treat them as authoritative unless they conflict with another documented repository contract or assignment requirement.
+If the issue contains a contract or acceptance criteria, treat them as authoritative unless they conflict with another documented repository contract or project requirement.
 
 If a task is ambiguous in a way that could materially change public behavior, do not guess.
 
@@ -1163,7 +1164,7 @@ A change is complete when:
 - no secrets or unrelated changes were introduced;
 - unnecessary code and dependencies were removed;
 - the change is focused enough for another teammate to review;
-- a student contributor can explain what the code does and why it is designed that way;
+- a contributor can explain what the code does and why it is designed that way;
 - all required CI checks pass.
 
 The required repository checks are:
