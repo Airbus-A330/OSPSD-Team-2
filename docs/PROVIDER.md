@@ -474,7 +474,7 @@ identifier are included here.
 A failed write may have taken effect. Inspect current state after an ambiguous
 failure before retrying or cleaning up; do not infer rollback from an error response.
 
-### Deleted-resource preflight tradeoff (#57)
+### Deleted-resource preflight tradeoff
 
 PUT/PATCH intentionally do not restore a tombstone observed by their fresh
 preflight. A cancelled write response is also a missing-resource failure, never
@@ -495,9 +495,10 @@ event. The fixed public text remains `Event not found`; no provider details or
 new error categories are exposed. This wording limitation is not proof of an
 individual event's absence on collection operations.
 
-### Issue #57 live verification — 2026-10-21
+### Deleted-resource live verification — 2026-10-21
 
-**Actually run locally on branch #57:** FastAPI `TestClient` invoked the normal
+**Actually run locally during deleted-resource verification:** FastAPI
+`TestClient` invoked the normal
 HTTP application with the real request-scoped Google provider and shared cache;
 there were no dependency overrides or SDK mocks. Existing saved authorization
 was refreshed. Two new, non-recurring, attendee-free disposable events were used.

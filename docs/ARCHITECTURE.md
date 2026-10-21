@@ -424,9 +424,10 @@ provider calls or add per-key state. Listing bypasses the single-event cache.
 
 The list route validates its limit before provider resolution, using the same
 integer parser as FastAPI, rejecting decimal notation before coercion, and the
-shared application bounds. Non-HTTP listing also checks the bounds. The existing error handler uses request-local operation
-context for listing logs and its fixed `Invalid event limit` message; GET-one
-messages and the shared error structure remain unchanged.
+shared application bounds. Non-HTTP listing also checks the bounds. The existing
+error handler uses request-local operation context for listing logs and its fixed
+`Invalid event limit` message; GET-one messages and the shared error structure
+remain unchanged.
 
 `GoogleCalendarProvider.list_events` performs one `events.list` call, expands
 recurrences, and translates at most `limit` items into domain Events. Google
@@ -459,7 +460,7 @@ validation also protects direct calls. One changed time boundary requires a doma
 to Google's patch body and returns the translated Event. Existing service errors,
 request-scoped client cleanup, cache coherence, and failure logging are reused.
 
-### Final provider-state validation (#57)
+### Final provider-state validation
 
 Google PUT/PATCH perform a fresh, uncached `events.get` inside the adapter before
 mutation. Missing/cancelled resources stop there with `NotFoundError`; the

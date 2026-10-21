@@ -1,4 +1,4 @@
-"""Issue #57: exercise the real composition with only the Google SDK controlled."""
+"""Exercise final provider contracts with only the Google SDK controlled."""
 
 from copy import deepcopy
 import json
@@ -137,6 +137,7 @@ def test_wrong_resource_identity_is_not_returned(
         ("PATCH", {"start": BODY["start"]}),
         ("PATCH", {"end": BODY["end"]}),
         ("PATCH", {"start": BODY["start"], "end": BODY["end"]}),
+        ("PATCH", {"title": "New", "start": BODY["start"]}),
     ],
 )
 def test_cancelled_fresh_state_blocks_writes_even_with_cached_active_event(
@@ -172,9 +173,37 @@ def test_cancelled_write_response_is_never_success(
     getattr(sdk, sdk_method).assert_called_once()
 
 
+@pytest.mark.parametrize("operation", ["GET", "PUT", "PATCH"])
+@pytest.mark.parametrize("provider_id", [None, "different-id"])
+def test_cancelled_wrong_identity_is_provider_failure(
+    operation: str, provider_id: str | None, sdk: Mock
+) -> None:
+    tombstone: dict[str, object] = {"status": "cancelled"}
+    if provider_id is not None:
+        tombstone["id"] = provider_id
+    sdk.get.return_value.execute.return_value = tombstone
+
+    response = request(operation)
+
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "provider_error"
+    sdk.update.assert_not_called()
+    sdk.patch.assert_not_called()
+
+
 @pytest.mark.parametrize("operation,sdk_method", OPERATIONS + [("DELETE", "delete")])
 @pytest.mark.parametrize(
-    "status,expected", [(404, 404), (403, 403), (500, 502), (503, 502), (0, 502)]
+    "status,expected",
+    [
+        (400, 502),
+        (401, 502),
+        (403, 403),
+        (404, 404),
+        (409, 502),
+        (500, 502),
+        (503, 502),
+        (0, 502),
+    ],
 )
 def test_all_operations_keep_service_error_mapping(
     operation: str,

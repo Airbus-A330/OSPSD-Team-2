@@ -110,6 +110,8 @@ def _validated_google_event(value: object, *, event_id: str | None = None) -> Ev
     """Reject unsupported success data and never expose a cancelled resource."""
     if not isinstance(value, Mapping):
         raise ProviderFailureError("Invalid Google Calendar event response")
+    if event_id is not None and value.get("id") != event_id:
+        raise ProviderFailureError("Unexpected Google Calendar event identifier")
     if value.get("status") == "cancelled":
         if event_id is not None:
             raise NotFoundError("Google Calendar event is cancelled")
@@ -121,7 +123,7 @@ def _validated_google_event(value: object, *, event_id: str | None = None) -> Ev
         EventReplacement(title=event.title, start=event.start, end=event.end)
     except (KeyError, TypeError, ValidationError):
         raise ProviderFailureError("Unsupported Google Calendar event data") from None
-    if not event.id.strip() or (event_id is not None and event.id != event_id):
+    if not event.id.strip():
         raise ProviderFailureError("Unexpected Google Calendar event identifier")
     return event
 

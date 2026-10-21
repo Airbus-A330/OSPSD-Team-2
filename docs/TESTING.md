@@ -347,7 +347,7 @@ translated domain responses, HTTP/transport failure mapping, unsupported respons
 and no retries. All these tests are credential-free and network-free. Live PATCH
 verification was completed on 2026-10-20 and is recorded in `PROVIDER.md`.
 
-## Final endpoint contract regressions (#57)
+## Final endpoint contract regressions
 
 `tests/test_final_provider_contracts.py` runs the real HTTP/application/cache/Google
 adapter composition with only the SDK controlled. It checks fresh tombstone
@@ -365,10 +365,9 @@ Positive cases preserve Unicode, Z/positive/negative offsets, all nonempty PATCH
 field combinations, and unchanged identifiers. Existing cache ordering and
 framework 404/405 tests remain part of `make check`.
 
-Before the fix, these new tests produced 51 failing parameter cases and 185 passing
-cases: the failures include tombstone writes, unchecked success payloads/identity,
-stale one-sided PATCH state, and decimal `limit=1.0`. These counts describe test
-cases, not 51 distinct defects. After the fix the initial 236 cases pass, with 12 additional checks for empty
-provider IDs and cancelled LIST/POST results. These tests require
-neither real credentials nor network access. Real-provider verification is recorded
-separately in `PROVIDER.md`; mocked SDK success is not live-provider evidence.
+Before the fix, these regressions failed for tombstone writes, unchecked success
+payloads and identities, stale one-sided PATCH state, and decimal `limit=1.0`.
+They now pass, including checks for empty provider IDs and cancelled LIST/POST
+results. These tests require neither real credentials nor network access.
+Real-provider verification is recorded separately in `PROVIDER.md`; mocked SDK
+success is not live-provider evidence.
