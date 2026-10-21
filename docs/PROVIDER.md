@@ -174,8 +174,8 @@ records the exact tagged revision and its CI results.
 | Retrieve one event | `client.events().get(calendarId=calendar_id, eventId=event_id).execute()` | Reads external state without modifying it |
 | List events | `client.events().list(calendarId=calendar_id, maxResults=limit, singleEvents=True).execute()` | One read-only page; returns at most the requested number of domain Events |
 | Create one event | `client.events().insert(calendarId=calendar_id, body=...).execute()` | Creates a timed event and returns the provider-generated ID |
-| Replace one event | `client.events().update(calendarId=calendar_id, eventId=event_id, body=...).execute()` | Replaces the service-editable values and returns a domain Event |
-| Partially update one event | `client.events().patch(calendarId=calendar_id, eventId=event_id, body=...).execute()` | Sends only supplied editable fields and returns a domain Event |
+| Replace one event | Fresh `events.get`, then `events.update` | Rejects missing/cancelled state before replacing service-editable values |
+| Partially update one event | Fresh `events.get`, then `events.patch` | Rejects missing/cancelled state; sends only supplied editable fields |
 | Delete one event | `client.events().delete(calendarId=calendar_id, eventId=event_id).execute()` | Deletes the identified event; returns no domain value or SDK response |
 
 Provider operation helpers receive an already configured client, which can be
@@ -299,15 +299,22 @@ following provider assumptions remain relevant to that contract:
   `start.dateTime`, and `end.dateTime`. Missing required fields are rejected; no
   placeholder title, identifier, or timestamp is invented. The domain-facing
   provider exposes this as the shared provider failure.
-- Timestamps are preserved as strings without parsing, timezone conversion, or
-  additional format validation. Public model validation checks their string type.
+- The low-level mapper preserves timestamp strings. Before a domain event leaves
+  the provider, its title and times are checked against the existing nonblank,
+  offset-aware, increasing-interval rules used by `EventReplacement`. Values are
+  not trimmed or normalized. Unsupported success data becomes `ProviderFailureError`.
 - Google's all-day events use `start.date` and `end.date` instead of `dateTime`.
   They are unsupported and become the shared provider failure; dates are not
   silently converted to midnight timestamps.
 - Google's end boundary is exclusive. It is copied unchanged; this mapper does
   not adjust the duration or define new public interval semantics.
-- Sparse cancelled event responses may lack required fields and are unsupported.
-  This function does not define HTTP error handling.
+- GET, PUT, and PATCH treat `status=cancelled` as `NotFoundError` before reading
+  fields; sparse tombstones cannot become successful Events. Cancelled records in
+  LIST/POST responses are unsupported provider data. GET/PUT/PATCH also reject a
+  returned ID different from the requested ID, without imposing Google ID syntax.
+- Non-object SDK results, malformed list items, missing fields, and invalid event
+  values become `ProviderFailureError`, not unhandled shape errors. A LIST object
+  with no `items` remains a valid empty page. DELETE does not require a response body.
 
 Provider field names and representations follow the official
 [Events resource reference](https://developers.google.com/workspace/calendar/api/v3/reference/events).
@@ -335,8 +342,10 @@ pagination, or other operations.
 
 ### PUT replacement implementation and manual verification
 
-`GoogleCalendarProvider.replace_event` makes one
-`client.events().update(calendarId=..., eventId=..., body=...).execute()` call.
+`GoogleCalendarProvider.replace_event` first makes one fresh `events.get` call,
+then one `events.update(calendarId=..., eventId=..., body=...).execute()` call
+only if the resource exists and is active. The preflight bypasses the application
+cache. A missing/cancelled resource causes no update attempt.
 It sends `summary`, `start.dateTime`, and `end.dateTime`, then translates the
 result into the four-field Event. It uses the shared Google HTTP/transport error
 translation and performs no retries. Client ownership remains request-scoped.
@@ -445,8 +454,12 @@ state before any manual retry. The adapter does not automatically retry.
 [Google events.patch](https://developers.google.com/workspace/calendar/api/v3/reference/events/patch).
 Only supplied fields are mapped: `title` to `summary`, `start` to `start.dateTime`,
 and `end` to `end.dateTime`. Google preserves unspecified fields. Each PATCH uses
-one SDK write; the application adds one GET when only one time boundary changes.
-Google charges three quota units for PATCH. The existing `calendar.events` scope
+one fresh SDK GET preflight and at most one SDK write. For a one-sided time
+change the application also reads the domain event (possibly cached); the adapter
+rechecks the combined interval against the fresh preflight before writing.
+Thus a successful one-sided PATCH uses two SDK calls on an application cache hit,
+or three on a miss. Other PATCH requests use two SDK calls.
+Google charges three quota units for the PATCH write itself. The existing `calendar.events` scope
 and request-scoped client lifecycle are reused. Failures use the shared Google
 classifier. No automatic retry or concurrency guarantee is added.
 
@@ -460,3 +473,58 @@ identifier are included here.
 
 A failed write may have taken effect. Inspect current state after an ambiguous
 failure before retrying or cleaning up; do not infer rollback from an error response.
+
+### Deleted-resource preflight tradeoff (#57)
+
+PUT/PATCH intentionally do not restore a tombstone observed by their fresh
+preflight. A cancelled write response is also a missing-resource failure, never
+HTTP 200. Preflight and mutation are separate requests: an external deletion or
+edit between them can still race the write. There are no ETags, retries, locks,
+or atomic conditional-update guarantees.
+
+A stale application cache can reject a one-sided PATCH that a newer external
+interval would permit. This remains within the documented external-change cache
+staleness window; retry after expiry or supply both time boundaries. The fresh
+provider check prevents the opposite case from sending an invalid combined
+interval based solely on an old cached boundary. Revisit conditional updates if
+atomic protection against concurrent external edits becomes required.
+
+Google 404s retain the existing shared `not_found` mapping. On LIST/POST this can
+mean the configured calendar is missing/inaccessible rather than an individual
+event. The fixed public text remains `Event not found`; no provider details or
+new error categories are exposed. This wording limitation is not proof of an
+individual event's absence on collection operations.
+
+### Issue #57 live verification — 2026-10-21
+
+**Actually run locally on branch #57:** FastAPI `TestClient` invoked the normal
+HTTP application with the real request-scoped Google provider and shared cache;
+there were no dependency overrides or SDK mocks. Existing saved authorization
+was refreshed. Two new, non-recurring, attendee-free disposable events were used.
+
+| Request / observation | Expected | Observed |
+| --- | --- | --- |
+| POST A; GET A | 201; 200 | 201; 200 |
+| DELETE A | 204 with empty body | 204, zero response bytes |
+| GET A after delete; repeat DELETE A | 404; 404 | 404; 404 |
+| PUT A after delete | 404 `not_found` | 404 with the fixed error envelope |
+| Direct Google check after PUT | Still deleted/cancelled | Confirmed inactive |
+| PATCH A: title, both times, start only, end only | 404 each | 404 each |
+| Direct Google check after PATCH | Still deleted/cancelled | Confirmed inactive |
+| POST B; normal full PUT B | 201; 200 | 201; 200 |
+| Fresh GET and direct Google read | Replacement persisted | Title/time replacement confirmed |
+| Title-only PATCH B; end-only PATCH B | 200; 200 | 200; 200 |
+| Fresh GET and direct Google read | Omitted fields preserved | Title, start and updated end confirmed |
+| LIST with limit=1 | 200, at most one four-field Event | Matched |
+| DELETE B cleanup; direct Google read | 204; inactive | Matched |
+
+Both owned test events were confirmed inactive in cleanup. No private event IDs,
+provider payloads, authorization codes, or token contents are recorded here.
+These observations verify the local changes, not a pushed commit, release tag,
+or a guarantee against external edits racing the preflight.
+
+To repeat before a release: POST a disposable event; GET 200; DELETE 204; GET 404;
+repeat DELETE 404; PUT the same ID and require 404; verify it remains cancelled in
+Google; PATCH it and require 404; verify cancellation again. Create a second
+event; PUT 200; GET the replacement; PATCH 200; GET the partial update with omitted
+fields preserved; DELETE 204 for cleanup. Use only test-owned events without guests.

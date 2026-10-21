@@ -70,9 +70,10 @@ def validate_list_request(request: Request) -> None:
     request.state.operation = "list_events"
     request.state.provider_involved = False
     try:
-        limit = TypeAdapter(int).validate_python(
-            request.query_params.get("limit", "10")
-        )
+        raw_limit = request.query_params.get("limit", "10")
+        if "." in raw_limit:
+            raise InvalidInputError("Event limit must be an integer")
+        limit = TypeAdapter(int).validate_python(raw_limit)
     except ValidationError:
         raise InvalidInputError("Event limit must be an integer") from None
     validate_event_limit(limit)

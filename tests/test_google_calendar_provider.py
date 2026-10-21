@@ -252,6 +252,12 @@ def test_provider_translates_create_transport_failure(
 
 def test_replace_uses_full_update_and_translates_result() -> None:
     client = Mock()
+    client.events.return_value.get.return_value.execute.return_value = {
+        "id": "opaque-id",
+        "summary": "Original",
+        "start": {"dateTime": "2026-10-20T09:00:00Z"},
+        "end": {"dateTime": "2026-10-20T10:00:00Z"},
+    }
     replacement = EventReplacement(
         title="New title", start="2026-10-20T10:00:00Z", end="2026-10-20T11:00:00Z"
     )
@@ -278,7 +284,9 @@ def test_replace_uses_full_update_and_translates_result() -> None:
     )
     request.execute.assert_called_once_with()
     client.events.return_value.patch.assert_not_called()
-    client.events.return_value.get.assert_not_called()
+    client.events.return_value.get.assert_called_once_with(
+        calendarId="team-calendar", eventId="opaque-id"
+    )
 
 
 @pytest.mark.parametrize(
@@ -299,6 +307,12 @@ def test_replace_translates_failures_without_retry(
     expected: type[ServiceError],
 ) -> None:
     client = Mock()
+    client.events.return_value.get.return_value.execute.return_value = {
+        "id": "event-id",
+        "summary": "Original",
+        "start": {"dateTime": "2026-10-20T09:00:00Z"},
+        "end": {"dateTime": "2026-10-20T10:00:00Z"},
+    }
     request = client.events.return_value.update.return_value
     request.execute.side_effect = error
     provider = GoogleCalendarProvider(client, calendar_id="primary")
@@ -315,6 +329,12 @@ def test_replace_translates_failures_without_retry(
 
 def test_replace_malformed_provider_result_is_provider_failure() -> None:
     client = Mock()
+    client.events.return_value.get.return_value.execute.return_value = {
+        "id": "event-id",
+        "summary": "Original",
+        "start": {"dateTime": "2026-10-20T09:00:00Z"},
+        "end": {"dateTime": "2026-10-20T10:00:00Z"},
+    }
     client.events.return_value.update.return_value.execute.return_value = {
         "id": "event-id"
     }
@@ -324,3 +344,4 @@ def test_replace_malformed_provider_result_is_provider_failure() -> None:
     )
     with pytest.raises(ProviderFailureError):
         provider.replace_event("event-id", replacement)
+    client.events.return_value.update.return_value.execute.assert_called_once_with()

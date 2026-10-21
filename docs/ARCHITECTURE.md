@@ -423,8 +423,8 @@ provider calls or add per-key state. Listing bypasses the single-event cache.
 ## Bounded Event Listing
 
 The list route validates its limit before provider resolution, using the same
-integer parser as FastAPI and the shared application bounds. Non-HTTP listing
-also checks the bounds. The existing error handler uses request-local operation
+integer parser as FastAPI, rejecting decimal notation before coercion, and the
+shared application bounds. Non-HTTP listing also checks the bounds. The existing error handler uses request-local operation
 context for listing logs and its fixed `Invalid event limit` message; GET-one
 messages and the shared error structure remain unchanged.
 
@@ -458,3 +458,18 @@ validation also protects direct calls. One changed time boundary requires a doma
 `get_event` read before interval validation. The adapter maps only supplied fields
 to Google's patch body and returns the translated Event. Existing service errors,
 request-scoped client cleanup, cache coherence, and failure logging are reused.
+
+### Final provider-state validation (#57)
+
+Google PUT/PATCH perform a fresh, uncached `events.get` inside the adapter before
+mutation. Missing/cancelled resources stop there with `NotFoundError`; the
+application continues to depend only on `EventProvider`. For one-sided PATCH the
+adapter rechecks the combined interval using that fresh state. It then sends only
+supplied fields. This is a read/check/write sequence, not an atomic conditional
+update. See `PROVIDER.md` for call counts and the remaining external-change race.
+
+The Google boundary validates successful response shapes, titled/timed values,
+and requested-resource identity before returning an Event. Unsupported provider
+data uses the existing 502 mapping; cancelled GET/PUT/PATCH results use 404.
+HTTP list validation rejects decimal limit strings before provider construction.
+Public Event fields, service error categories, and cache architecture are unchanged.
