@@ -1,6 +1,19 @@
 # Shared Calendar Contract Migration Design
 
-## Status
+| Metadata | Value |
+|---|---|
+| Authors | Alexander Freedman and OSPSD Team 2 |
+| Team / vertical | Team 2 / Calendar |
+| Team reviewer | Pending full-design review |
+| Cross-team reviewer | Karthik Ganeshan, Team 7 (contract-facing review comments addressed) |
+| Status | In review |
+| Last updated | 2026-11-04 |
+| Shared revision | [`v0.1.0-rc.1`](https://github.com/Airbus-A330/OSPSD-Calendar/tree/v0.1.0-rc.1), commit `1c1cad7a0732ddb242a05400d8833d94e4422424` |
+| Shared HTTP contract | [`docs/HTTP_CONTRACT.md`](https://github.com/Airbus-A330/OSPSD-Calendar/blob/v0.1.0-rc.1/docs/HTTP_CONTRACT.md) |
+| Joint decision memo | [Local preserved copy](JOINT_CALENDAR_CONTRACT.md) |
+| Implementation | [Migration pull request](https://github.com/Airbus-A330/OSPSD-Team-2/pull/60) |
+
+## Scope and status
 
 This design covers Team 2's first HW2 migration slice: `GET /events/{event_id}`.
 It was prepared from the final HW1 service, the HW1 architecture review, and the
@@ -113,12 +126,13 @@ the dependency has succeeded.
 
 ## Shared API and model mapping
 
-The shared release-candidate tag is pinned and locked with uv. The shared core
-will map as follows during the separate application migration:
+The shared release-candidate tag is pinned and locked with uv. The migrated GET
+slice uses the shared `Event`, `CalendarError`, and `ErrorCode` at runtime. The
+remaining shared models map to later operation migrations:
 
 | Shared package | Team 2 use |
 |---|---|
-| `Event` | GET/create/replace public response and provider translation |
+| `Event` | Runtime response and Google translation model, including GET |
 | `CreateEvent` | shared POST request fields |
 | `ReplaceEvent` | shared PUT request fields |
 | `CalendarError` / `ErrorCode` | provider-independent failure boundary |
@@ -136,11 +150,44 @@ The shared contract requires `invalid_input`, `not_found`, `access_denied`,
 the HTTP error body. HTTP status mapping remains a Team 2 HTTP concern;
 provider code raises shared errors rather than returning HTTP responses.
 
+Representative successful request and sanitized response:
+
+```http
+GET /events/example-event
+```
+
+```json
+{
+  "id": "example-event",
+  "title": "Team sync",
+  "start": "2026-11-04T15:00:00Z",
+  "end": "2026-11-04T15:30:00Z"
+}
+```
+
+An untitled provider event returns the same response with `"title": ""`. The
+example is synthetic, not a capture from a private calendar. The procedure for
+recording a sanitized live response is in [PROVIDER.md](PROVIDER.md); fresh live
+verification of this tagged migration remains a release task.
+
 Google HTTP and transport failures are logged before translation using safe
 operation context. HTTP logging records the public operation, shared code,
 status, and whether the error explicitly indicates provider involvement. No
 layer logs credentials, authorization headers, raw payloads, event IDs, or
 provider error messages.
+
+| Google/read outcome | HTTP | Shared code | `retryable` |
+|---|---:|---|---:|
+| Missing event | 404 | `not_found` | `false` |
+| Permission denied | 403 | `access_denied` | `false` |
+| Invalid or unexpected success payload | 502 | `provider_error` | `false` |
+| Quota/rate limit, 5xx, or transport failure on GET | 503 | `provider_unavailable` | `true` |
+| Invalid path input | 422 | `invalid_input` | `false` |
+
+Create and replace have a different safety constraint: when a write may have
+reached Google but its response is lost, the result is 502 `provider_error` with
+`retryable=false`. Neither the provider nor the application automatically
+retries an uncertain write, because doing so can duplicate or repeat a change.
 
 ## Operational considerations
 
@@ -160,11 +207,10 @@ credentials or network. The migrated slice needs evidence at four levels:
 3. HTTP tests for exact GET success and shared error responses;
 4. Google-adapter tests for SDK calls, translation, and sanitized provider logs.
 
-The shared conformance suite will be installed only as test code from the same
-tagged package. Team 2 will supply a controlled service factory and isolated
-event data, run applicable GET checks in normal CI, and clean mutable fixtures
-between cases. The complete suite will be enabled as create, replace, and delete
-are migrated.
+The service currently proves the migrated GET behavior with focused model,
+application, HTTP, and Google-adapter tests. The complete shared conformance
+suite requires create, replace, and delete and is therefore a Milestone 3 task;
+it will use the same tagged package, isolated event data, and fixture cleanup.
 
 Live verification follows [PROVIDER.md](PROVIDER.md): configure OAuth and the
 calendar ID, start the service, retrieve a known disposable event through the
@@ -185,7 +231,7 @@ tokens, credentials, calendar IDs, and private event IDs are never committed.
 - rename chronology-based test modules by behavior;
 - pin and consume the shared release once an upstream tag exists;
 - migrate GET success and failures to shared models/errors;
-- run applicable shared conformance checks and live GET verification.
+- verify GET with controlled tests and the documented live-provider procedure.
 
 ### Follow-up work
 
@@ -227,3 +273,12 @@ the required composition and test replacement points.
    broader test/module organization?
 3. Where will the sanitized live-provider response and exact CI links be
    recorded for submission?
+
+## Change history
+
+- 2026-11-04: pinned and locked shared release candidate `v0.1.0-rc.1`.
+- 2026-11-04: migrated GET response construction and error semantics to shared
+  runtime types; added controlled untitled-event and temporary-outage coverage.
+- 2026-11-04: incorporated Team 7 contract-facing review comments concerning
+  error codes, `retryable`, 422 validation, temporary failures, untitled events,
+  and uncertain writes.

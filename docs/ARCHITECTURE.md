@@ -102,6 +102,12 @@ Use Pydantic at API/configuration boundaries.
 
 Use simpler Python types or dataclasses internally when they communicate the model more clearly.
 
+The tagged `calendar-contract` package is the authoritative implementation of
+the shared `Event` returned by common operations. `app.models` re-exports that
+type for compatibility while retaining only Team 2 request/extension models
+that have not yet migrated. Shared error codes and the `CalendarError` base are
+used by the migrated GET slice; Google SDK values never cross that boundary.
+
 ---
 
 ### Provider Integration
@@ -408,8 +414,9 @@ calendars cannot collide.
 
 Successful reads remain cached for 60 seconds using a monotonic clock. Expired
 entries are ignored and refreshed through the provider. Exceptions are never
-stored, so invalid input and the `not_found`, `permission_denied`, and
-`provider_error` outcomes retain the Level 5 behavior in `CONTRACT.md`. The
+stored, so invalid input and the shared `not_found`, `access_denied`,
+`provider_error`, and `provider_unavailable` outcomes retain the behavior in
+`CONTRACT.md`. The
 cache holds at most 256 events per process and evicts the oldest stored entry
 when full. It is local to each service process; no distributed consistency is
 promised.

@@ -53,15 +53,15 @@ Real-provider verification remains separate and documented in [PROVIDER.md](PROV
 - Google HTTP errors, built with Google's structured error response shape:
   404 (`notFound`) translates to `NotFoundError`; 403 translates to
   `PermissionDeniedError` for a permission reason or no structured reason, and
-  to `ProviderFailureError` when the machine-readable reason reports a quota
+  to `ProviderUnavailableError` when the machine-readable reason reports a quota
   or rate limit (`rateLimitExceeded`, `userRateLimitExceeded`,
-  `quotaExceeded`); 429, 400, and 500 also translate to
-  `ProviderFailureError`. The raised service error is not the SDK exception,
+  `quotaExceeded`). A GET 429 or 5xx is also unavailable; a non-transient 400
+  remains `ProviderFailureError`. The raised service error is not the SDK exception,
   contains no provider error text, and does not retain the provider exception
   as its cause.
 - Transport failures: `httplib2`, Google authentication, socket timeout, and
-  connection-reset errors raised while executing requests translate to
-  `ProviderFailureError`, without retaining the original exception as the
+  connection-reset errors raised while executing reads translate to
+  retryable `ProviderUnavailableError`, without retaining the original exception as the
   cause.
 - Unsupported all-day and malformed create responses become
   `ProviderFailureError` instead of returning raw Google data, leaking mapping
@@ -156,7 +156,7 @@ These tests use no credentials, network access, or wall-clock delays.
 ## Level 5 HTTP Failures
 
 `tests/test_http_errors.py` sends requests through FastAPI and the application
-operation. A controlled `EventProvider` supplies the four shared service failures;
+operation. A controlled `EventProvider` supplies the shared service failures;
 tests assert exact HTTP statuses, codes, fixed messages, and the complete JSON
 shape defined in [CONTRACT.md](CONTRACT.md). Synthetic exception and authorization
 values must not appear in responses or logs. Each expected failure produces one
@@ -165,7 +165,7 @@ without exception or stack information.
 
 Additional cases verify that:
 
-- Whitespace-only IDs return 400 before Google client construction or OAuth.
+- Whitespace-only IDs return 422 before Google client construction or OAuth.
 - Valid IDs containing surrounding spaces or Unicode reach the provider unchanged,
   return the four public Event fields, and produce no failure warning.
 - Request-scoped clients close on missing-event, permission, and provider failures.
@@ -187,9 +187,10 @@ extends the Level 4 substitution tests with a repeated-request workflow through 
 same FastAPI app and controlled provider:
 
 1. Retrieve an existing event: 200 and exactly its four public fields.
-2. Request a whitespace-only ID: 400 and the fixed `invalid_input` response.
+2. Request a whitespace-only ID: 422 and the fixed `invalid_input` response.
 3. Request an explicitly configured failure: 404 `not_found`, 403
-   `permission_denied`, or 502 `provider_error`, with the exact public body.
+   `access_denied`, or 502 `provider_error`, with the exact public body including
+   required `retryable`.
 4. Retrieve the original event again: 200 and the unchanged response.
 
 The three parameterized cases verify that locally rejected and provider-failed

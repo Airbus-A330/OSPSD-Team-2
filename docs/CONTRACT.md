@@ -30,7 +30,8 @@ Provider-specific data must be translated into the service's public models befor
 
 **Purpose**
 
-Retrieve one titled, timed event from the calendar configured for this service.
+Retrieve one timed event from the calendar configured for this service. Provider
+events without a title are returned with an empty `title` string.
 
 **Method**
 
@@ -109,18 +110,19 @@ populate or read the single-event cache.
 
 **Errors**
 
-The team-approved Level 5 contract uses service exceptions from `app.errors`.
-All four categories inherit from `ServiceError` and use normal `Exception`
-construction, such as `InvalidInputError("internal context")`. Exception messages
-are internal/debugging context only; HTTP responses must use the fixed public
-messages below, never arbitrary exception text or Google error messages.
+This migrated operation follows the tagged shared Calendar contract. Local
+service exception names subclass the shared `CalendarError`, carry a shared
+`ErrorCode` and required `retryable` value, and retain only internal diagnostic
+text. HTTP responses use fixed safe messages, never arbitrary exception text or
+Google error messages.
 
 | Service exception | When it occurs | Code | HTTP status | Public message | Retry |
 |---|---|---|---:|---|---|
-| `InvalidInputError` | Event ID is empty or whitespace-only | `invalid_input` | 400 | `Invalid event ID` | No, unless the caller changes the input |
-| `NotFoundError` | Requested event does not exist | `not_found` | 404 | `Event not found` | No, unless the identifier/resource changes |
-| `PermissionDeniedError` | Access to the event is denied | `permission_denied` | 403 | `Permission denied` | No, unless access/authorization changes |
-| `ProviderFailureError` | Provider failure prevents retrieval | `provider_error` | 502 | `Calendar provider request failed` | Potentially, depending on the underlying failure |
+| `InvalidInputError` | Event ID is empty or whitespace-only | `invalid_input` | 422 | `Invalid event ID` | `false` |
+| `NotFoundError` | Requested event does not exist | `not_found` | 404 | `Event not found` | `false` |
+| `PermissionDeniedError` | Access to the event is denied | `access_denied` | 403 | `Access denied` | `false` |
+| `ProviderFailureError` | Provider returned invalid or unexpected data | `provider_error` | 502 | `Calendar provider request failed` | `false` |
+| `ProviderUnavailableError` | A temporary provider/transport failure prevents the read | `provider_unavailable` | 503 | `Calendar provider is unavailable` | `true` |
 
 Public error responses have exactly this shape:
 
@@ -128,7 +130,8 @@ Public error responses have exactly this shape:
 {
   "error": {
     "code": "invalid_input",
-    "message": "Invalid event ID"
+    "message": "Invalid event ID",
+    "retryable": false
   }
 }
 ```
@@ -142,14 +145,13 @@ remain the provider's responsibility.
 `GET /events` is the listing operation below. `GET /events/` redirects to
 `/events`; neither is a missing-ID `invalid_input` error.
 
-Implementation status: service exceptions, application-level validation, HTTP
-rendering of the four shared exceptions, and sanitized failure logging are
-implemented. HTTP validation runs before provider setup; the application operation
-also validates non-HTTP calls. Controlled-provider tests verify these responses.
-Google-specific failure translation is implemented in the Google provider. The
-real missing-event path was verified on 2026-10-20; permission and
-provider-outage behavior remains deterministic controlled-test coverage because
-those conditions are unsafe or impractical to induce during routine verification.
+Implementation status: the tagged shared package supplies the response `Event`,
+base error type, and error codes used by this operation. HTTP validation runs
+before provider setup; the application operation also validates non-HTTP calls.
+Controlled-provider and controlled-SDK tests verify the exact responses. The real
+missing-event path was verified on 2026-10-20; permission and provider-outage
+behavior remains deterministic controlled-test coverage because those conditions
+are unsafe or impractical to induce during routine verification.
 
 ### Create Event
 
@@ -408,9 +410,10 @@ For each model, document:
 | `start` | `string` | yes | Inclusive start date and time for a timed event |
 | `end` | `string` | yes | Exclusive end date and time for a timed event |
 
-All four fields are required strings. `start` and `end` preserve their source
-date-time strings without timezone conversion or normalization. The current
-contract supports titled, timed events only; all-day events are not supported.
+All four fields are required strings. A provider event without a title uses
+`title=""`. `start` and `end` preserve their source date-time strings without
+timezone conversion or normalization and must represent an increasing,
+offset-aware range. All-day events are not supported.
 
 ### CreateEventRequest
 
@@ -443,8 +446,9 @@ Do not modify the public API merely to match an external provider's representati
   to more than one calendar.
 - Event identifiers are opaque strings and must not be parsed by callers. Revisit
   this only if the service introduces its own identifier scheme.
-- Only titled, timed events are supported. Revisit the Event model before adding
-  all-day or untitled events.
+- Only timed events are supported. Provider events may be untitled and are
+  returned with `title=""`; write requests still require a nonblank title.
+  Revisit the Event model before adding all-day events.
 - Date-time strings are not normalized. Revisit their exact format
   before callers need date-time comparison or conversion guarantees.
 - The Level 5 error contract above is frozen; provider translation and HTTP

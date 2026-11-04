@@ -84,8 +84,8 @@ CI.
 
 ### End-to-end event verification
 
-After completing authentication, verify the full HTTP path against a titled,
-timed event in the configured test calendar:
+After completing authentication, verify the full HTTP path against a timed event
+in the configured test calendar:
 
 1. Set `GOOGLE_CALENDAR_ID` if the event is not in the authenticated account's
    primary calendar.
@@ -239,9 +239,10 @@ existing read scope. Google documents `maxResults` as a per-page maximum: pages
 can be short or empty even when a `nextPageToken` exists. This service deliberately
 returns only the first page and does not expose or follow that token. Recurrences
 are expanded with `singleEvents=True`; no chronological ordering is requested.
-Each result uses the existing four-field mapping below. Unsupported untitled or
-all-day events cause a shared provider failure, not a partial/silently filtered
-response. HTTP/transport failures use the existing Google error classifier.
+Each result uses the existing four-field mapping below. Untitled events use an
+empty title; unsupported all-day events cause a shared provider failure, not a
+partial or silently filtered response. HTTP/transport failures use the existing
+Google error classifier.
 
 After completing local OAuth setup and starting the service as documented above:
 
@@ -273,7 +274,7 @@ its domain-facing boundary. The mapping is:
 | Provider field | Domain field | Notes |
 |---|---|---|
 | `id` | `id` | Preserve the event ID; do not substitute `iCalUID` |
-| `summary` | `title` | Google names the event title `summary` |
+| `summary` | `title` | Google names the event title `summary`; a missing summary becomes `""` |
 | `start.dateTime` | `start` | Preserve the timestamp string, including its offset |
 | `end.dateTime` | `end` | Preserve the timestamp string, including its offset |
 
@@ -295,14 +296,14 @@ through the same four-field `Event` mapping used by retrieval.
 These mappings implement the four public fields approved in `CONTRACT.md`. The
 following provider assumptions remain relevant to that contract:
 
-- The mapper input is a titled, timed event with `id`, `summary`,
-  `start.dateTime`, and `end.dateTime`. Missing required fields are rejected; no
-  placeholder title, identifier, or timestamp is invented. The domain-facing
-  provider exposes this as the shared provider failure.
-- The low-level mapper preserves timestamp strings. Before a domain event leaves
-  the provider, its title and times are checked against the existing nonblank,
-  offset-aware, increasing-interval rules used by `EventReplacement`. Values are
-  not trimmed or normalized. Unsupported success data becomes `ProviderFailureError`.
+- The mapper input is a timed event with `id`, `start.dateTime`, and
+  `end.dateTime`. A missing Google `summary` is the shared Event value `title=""`;
+  no placeholder title is invented. Missing identifiers or timestamps are
+  rejected as shared provider failures.
+- The low-level mapper preserves timestamp strings. The shared `Event` validates
+  offset-aware, increasing timestamps without applying write-title rules. Values
+  are not trimmed or normalized. Unsupported success data becomes
+  `ProviderFailureError`.
 - Google's all-day events use `start.date` and `end.date` instead of `dateTime`.
   They are unsupported and become the shared provider failure; dates are not
   silently converted to midnight timestamps.
