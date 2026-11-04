@@ -209,6 +209,41 @@ threads. The process-local cache continues to share domain `Event` values only;
 it does not retain SDK objects. The migration does not change cache TTL,
 capacity, invalidation, or concurrency behavior.
 
+### Proposed deployment (pending team review)
+
+This proposal addresses HW2 section 4.6; it is not an approved platform choice
+or evidence of deployment. We propose one paid Render web service running a
+Docker image with one Uvicorn worker. The assumption is low-volume classroom
+use, with brief deployment downtime acceptable. Google remains the event store;
+the existing cache stays disposable and process-local. Render's
+[persistent-disk limits](https://render.com/docs/disks) rule out multiple
+instances and zero-downtime deployment for this proposal.
+
+Use a versioned `render.yaml` [Blueprint](https://render.com/docs/blueprint-spec)
+to declare the service, disk, and configuration placeholders. GitHub Actions
+would run the required checks, build the locked-dependency Docker image once,
+and publish it to GitHub Container Registry. The deployment workflow would
+deploy that [prebuilt image by digest](https://render.com/docs/deploying-an-image),
+run a shared-API smoke check with cleanup, and retain the previous digest for
+rollback. Validate infrastructure previews and repeatable application before
+accepting this approach for Milestone 3.
+
+Supply OAuth client configuration and initial authorization through
+[runtime secret files](https://render.com/docs/configure-environment-variables),
+never through Git or the image. Seed the token onto a private writable disk
+only when absent, using `GOOGLE_CALENDAR_TOKEN_FILE` for its path. Before hosting,
+replace browser-based authorization fallback with a sanitized setup failure,
+serialize credential refresh and persist tokens atomically. One worker still
+serves concurrent requests, so it does not remove that synchronization need.
+Restrict access to the hosted write API to authorized reviewers.
+
+Before provisioning, the team must confirm account access, an account/billing
+owner, current compute/disk/registry costs, a spending cap, and a teardown date.
+No free-tier or budget assumption is approved. Revisit the platform if cost,
+credential persistence, or required infrastructure checks cannot be supported.
+Provisioning, health checks, deployment/rollback, telemetry, and teardown
+verification remain November 11 Milestone 3 work; no resources have been created.
+
 ## Testing
 
 Fast tests continue to replace the provider or SDK boundary and require no
@@ -293,6 +328,10 @@ the required composition and test replacement points.
    Attach the reviewed commit and matching CI links when these changes are pushed.
 
 ## Change history
+
+- 2026-11-04: added a proposed deployment approach, tools, and operational
+  assumptions in response to Team 5's review; platform selection remains
+  pending team confirmation, with implementation planned for Milestone 3.
 
 - 2026-11-04: routed GET through `CalendarService.get`, reused shared GET
   conformance cases with seeded SDK fixtures, and recorded real-provider HTTP
