@@ -2,6 +2,7 @@
 
 import logging
 
+from calendar_contract import CalendarError, ErrorCode
 from fastapi import Request
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
@@ -13,6 +14,7 @@ from app.errors import (
     NotFoundError,
     PermissionDeniedError,
     ProviderFailureError,
+    ProviderUnavailableError,
     ServiceError,
 )
 
@@ -23,6 +25,19 @@ _ERROR_RESPONSES: dict[type[ServiceError], tuple[int, str, str]] = {
     NotFoundError: (404, "not_found", "Event not found"),
     PermissionDeniedError: (403, "permission_denied", "Permission denied"),
     ProviderFailureError: (502, "provider_error", "Calendar provider request failed"),
+    ProviderUnavailableError: (
+        503,
+        "provider_unavailable",
+        "Calendar provider is unavailable",
+    ),
+}
+
+_SHARED_ERROR_RESPONSES: dict[ErrorCode, tuple[int, str]] = {
+    ErrorCode.INVALID_INPUT: (422, "Invalid event ID"),
+    ErrorCode.NOT_FOUND: (404, "Event not found"),
+    ErrorCode.ACCESS_DENIED: (403, "Access denied"),
+    ErrorCode.PROVIDER_ERROR: (502, "Calendar provider request failed"),
+    ErrorCode.PROVIDER_UNAVAILABLE: (503, "Calendar provider is unavailable"),
 }
 
 _INVALID_MESSAGES = {
@@ -49,16 +64,23 @@ def service_error_response(request: Request, error: Exception) -> JSONResponse:
     involvement describes whether provider setup or retrieval was attempted,
     not whether a remote request completed. Unexpected errors are not mapped.
     """
-    for error_type, (status, code, message) in _ERROR_RESPONSES.items():
-        if isinstance(error, error_type):
-            break
-    else:
-        raise error
-
     operation = _operation_name(request)
+    shared_get = False
+    retryable = False
+    if operation == "get_event" and isinstance(error, CalendarError):
+        shared_get = True
+        status, message = _SHARED_ERROR_RESPONSES[error.code]
+        code = error.code.value
+        retryable = error.retryable
+    else:
+        for error_type, (status, code, message) in _ERROR_RESPONSES.items():
+            if isinstance(error, error_type):
+                break
+        else:
+            raise error
     if isinstance(error, InvalidInputError):
         message = error.public_message or _INVALID_MESSAGES.get(operation, message)
-    provider_involved = error.provider_involved
+    provider_involved = getattr(error, "provider_involved", None)
     if provider_involved is None:
         provider_involved = True
     logger.warning(
@@ -75,9 +97,10 @@ def service_error_response(request: Request, error: Exception) -> JSONResponse:
             "http_status": status,
         },
     )
-    return JSONResponse(
-        status_code=status, content={"error": {"code": code, "message": message}}
-    )
+    body: dict[str, object] = {"code": code, "message": message}
+    if shared_get:
+        body["retryable"] = retryable
+    return JSONResponse(status_code=status, content={"error": body})
 
 
 def request_validation_error_response(
@@ -86,7 +109,8 @@ def request_validation_error_response(
     """Render malformed requests through the shared invalid-input contract."""
     if not isinstance(error, RequestValidationError):
         raise error
-    return _invalid_request_response(request)
+    malformed_json = any(item.get("type") == "json_invalid" for item in error.errors())
+    return _invalid_request_response(request, malformed_json=malformed_json)
 
 
 async def http_error_response(request: Request, error: Exception) -> Response:
@@ -98,8 +122,10 @@ async def http_error_response(request: Request, error: Exception) -> Response:
     return await http_exception_handler(request, error)
 
 
-def _invalid_request_response(request: Request) -> JSONResponse:
-    return service_error_response(
+def _invalid_request_response(
+    request: Request, *, malformed_json: bool = True
+) -> JSONResponse:
+    response = service_error_response(
         request,
         InvalidInputError(
             "Request schema validation failed",
@@ -107,3 +133,6 @@ def _invalid_request_response(request: Request) -> JSONResponse:
             provider_involved=False,
         ),
     )
+    if _operation_name(request) == "get_event" and malformed_json:
+        response.status_code = 400
+    return response

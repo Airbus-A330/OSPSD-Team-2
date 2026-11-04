@@ -4,16 +4,10 @@ import re
 from datetime import datetime
 from typing import Self
 
+from calendar_contract import Event
 from pydantic import BaseModel, ConfigDict, model_validator
 
-
-class Event(BaseModel):
-    """Public event representation exposed by the service."""
-
-    id: str
-    title: str
-    start: str
-    end: str
+__all__ = ["CreateEventRequest", "Event", "EventPatch", "EventReplacement"]
 
 
 class CreateEventRequest(BaseModel):

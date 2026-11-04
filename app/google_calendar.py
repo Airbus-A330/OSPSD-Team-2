@@ -21,6 +21,7 @@ from app.errors import (
     NotFoundError,
     PermissionDeniedError,
     ProviderFailureError,
+    ProviderUnavailableError,
     ServiceError,
 )
 from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
@@ -50,7 +51,7 @@ def build_google_calendar_client() -> Resource:
         An authenticated Google Calendar v3 client.
 
     Raises:
-        ProviderFailureError: If refreshing saved authorization fails because
+        ProviderUnavailableError: If refreshing saved authorization fails because
             the authentication provider cannot be reached.
     """
     credentials_path = Path(
@@ -70,7 +71,9 @@ def build_google_calendar_client() -> Resource:
                 credentials.refresh(Request())
             except _TRANSPORT_ERRORS:
                 _raise_transport_failure(
-                    "refresh_credentials", "Google authorization refresh failed"
+                    "refresh_credentials",
+                    "Google authorization refresh failed",
+                    retryable=True,
                 )
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
@@ -80,7 +83,9 @@ def build_google_calendar_client() -> Resource:
                 credentials = flow.run_local_server(port=0)
             except _TRANSPORT_ERRORS:
                 _raise_transport_failure(
-                    "authorize_credentials", "Google authorization request failed"
+                    "authorize_credentials",
+                    "Google authorization request failed",
+                    retryable=True,
                 )
 
         token_path.write_text(credentials.to_json(), encoding="utf-8")
@@ -89,12 +94,14 @@ def build_google_calendar_client() -> Resource:
         return build("calendar", "v3", credentials=credentials)
     except _TRANSPORT_ERRORS:
         _raise_transport_failure(
-            "build_calendar_client", "Google Calendar client setup failed"
+            "build_calendar_client",
+            "Google Calendar client setup failed",
+            retryable=True,
         )
 
 
 def translate_google_event(provider_event: Mapping[str, Any]) -> Event:
-    """Translate a titled, timed Google event without exposing its metadata.
+    """Translate a timed Google event without exposing its metadata.
 
     Args:
         provider_event: JSON response from the Google Calendar events API.
@@ -104,7 +111,7 @@ def translate_google_event(provider_event: Mapping[str, Any]) -> Event:
     """
     return Event(
         id=provider_event["id"],
-        title=provider_event["summary"],
+        title=provider_event.get("summary", ""),
         start=provider_event["start"]["dateTime"],
         end=provider_event["end"]["dateTime"],
     )
@@ -122,9 +129,6 @@ def _validated_google_event(value: object, *, event_id: str | None = None) -> Ev
         raise ProviderFailureError("Unsupported cancelled Google Calendar event")
     try:
         event = translate_google_event(value)
-        # Apply the existing titled/timed contract without normalizing SDK values
-        # or imposing Google-specific identifier syntax on callers.
-        EventReplacement(title=event.title, start=event.start, end=event.end)
     except (KeyError, TypeError, ValidationError):
         raise ProviderFailureError("Unsupported Google Calendar event data") from None
     if not event.id.strip():
@@ -206,7 +210,9 @@ def _google_error_reasons(error: HttpError) -> set[str]:
     return reasons
 
 
-def _translate_google_error(error: HttpError) -> ServiceError:
+def _translate_google_error(
+    error: HttpError, *, retryable_read: bool = False
+) -> ServiceError:
     """Translate a Google HTTP failure into the matching service error.
 
     Classification uses the response status and, for 403, Google's
@@ -224,10 +230,18 @@ def _translate_google_error(error: HttpError) -> ServiceError:
         return NotFoundError("Google Calendar reported that the event does not exist")
     if error.status_code == 403 and not (_google_error_reasons(error) & _LIMIT_REASONS):
         return PermissionDeniedError("Google Calendar denied access to the event")
+    if retryable_read and (
+        error.status_code == 429
+        or error.status_code >= 500
+        or bool(_google_error_reasons(error) & _LIMIT_REASONS)
+    ):
+        return ProviderUnavailableError("Google Calendar is temporarily unavailable")
     return ProviderFailureError("Google Calendar request failed")
 
 
-def _raise_google_http_error(operation: str, error: HttpError) -> Never:
+def _raise_google_http_error(
+    operation: str, error: HttpError, *, retryable_read: bool = False
+) -> Never:
     """Log safe Google HTTP context and raise its service-level translation."""
     logger.warning(
         "Google Calendar operation failed: operation=%s status=%s",
@@ -238,16 +252,20 @@ def _raise_google_http_error(operation: str, error: HttpError) -> Never:
             "provider_status": error.status_code,
         },
     )
-    raise _translate_google_error(error) from None
+    raise _translate_google_error(error, retryable_read=retryable_read) from None
 
 
-def _raise_transport_failure(operation: str, message: str) -> Never:
+def _raise_transport_failure(
+    operation: str, message: str, *, retryable: bool = False
+) -> Never:
     """Log a transport category without exposing exception or request data."""
     logger.warning(
         "Google Calendar transport failed: operation=%s",
         operation,
         extra={"provider_operation": operation},
     )
+    if retryable:
+        raise ProviderUnavailableError(message) from None
     raise ProviderFailureError(message) from None
 
 
@@ -383,8 +401,10 @@ class GoogleCalendarProvider(EventProvider):
         Raises:
             NotFoundError: If Google reports that the event does not exist.
             PermissionDeniedError: If Google denies access to the event.
-            ProviderFailureError: If another Google failure, a quota or
-                rate-limit failure, or a transport failure prevents retrieval.
+            ProviderUnavailableError: If a quota, rate-limit, server, or
+                transport failure temporarily prevents retrieval.
+            ProviderFailureError: If Google rejects the request for another
+                reason or returns unsupported event data.
         """
         try:
             provider_event = execute_google_event_get(
@@ -393,9 +413,11 @@ class GoogleCalendarProvider(EventProvider):
                 event_id=event_id,
             )
         except HttpError as error:
-            _raise_google_http_error("get", error)
+            _raise_google_http_error("get", error, retryable_read=True)
         except _TRANSPORT_ERRORS:
-            _raise_transport_failure("get", "Google Calendar request failed")
+            _raise_transport_failure(
+                "get", "Google Calendar request failed", retryable=True
+            )
         return _validated_operation_result("get", provider_event, event_id=event_id)
 
     def create_event(self, event: CreateEventRequest) -> Event:
