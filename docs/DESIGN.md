@@ -10,10 +10,11 @@ It was prepared from the final HW1 service, the HW1 architecture review, and the
 The shared implementation is maintained in the
 [`OSPSD-Calendar`](https://github.com/Airbus-A330/OSPSD-Calendar) repository.
 
-The shared repository has not yet published a tag. The service will not depend
-on `master` or another moving branch. The exact dependency link and lockfile
-change remain blocked until the reviewed Team 2 and Team 5 branches are merged
-and an immutable `calendar-contract` release is tagged.
+The service depends on the immutable shared-package release-candidate tag
+[`v0.1.0-rc.1`](https://github.com/Airbus-A330/OSPSD-Calendar/tree/v0.1.0-rc.1),
+which resolves to commit `1c1cad7a0732ddb242a05400d8833d94e4422424` and
+declares package version `0.1.0`. It does not depend on `master` or another
+moving branch.
 
 ## Context
 
@@ -112,8 +113,8 @@ the dependency has succeeded.
 
 ## Shared API and model mapping
 
-After a shared release is tagged, Team 2 will pin that tag and lock it with uv.
-The shared core maps as follows:
+The shared release-candidate tag is pinned and locked with uv. The shared core
+will map as follows during the separate application migration:
 
 | Shared package | Team 2 use |
 |---|---|
@@ -220,12 +221,9 @@ the required composition and test replacement points.
 
 ## Open questions and release blockers
 
-1. What exact tag will be published after the shared Team 2 and Team 5 branches
-   merge? This design and `uv.lock` must link that immutable revision before the
-   integration PR is complete.
-2. Which Team 2 teammate and which external Calendar-team member will record
+1. Which Team 2 teammate and which external Calendar-team member will record
    design approval?
-3. Which issue numbers and owners will track each remaining shared operation and
+2. Which issue numbers and owners will track each remaining shared operation and
    broader test/module organization?
-4. Where will the sanitized live-provider response and exact CI links be
+3. Where will the sanitized live-provider response and exact CI links be
    recorded for submission?
