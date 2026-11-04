@@ -1,5 +1,6 @@
 """Thin FastAPI routes for Calendar operations."""
 
+from calendar_contract import CalendarService
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.api.validation import (
@@ -10,11 +11,10 @@ from app.api.validation import (
     validate_patch_request,
     validate_replacement_request,
 )
-from app.composition import get_event_provider
+from app.composition import get_calendar_service, get_event_provider
 from app.events import (
     create_event,
     delete_event,
-    get_event,
     list_events,
     patch_event,
     replace_event,
@@ -63,10 +63,10 @@ def read_events(
 )
 def read_event(
     event_id: str,
-    provider: EventProvider = Depends(get_event_provider),
+    service: CalendarService = Depends(get_calendar_service),
 ) -> Event:
     """Return one event from the configured calendar."""
-    return get_event(event_id, provider=provider, validate=False)
+    return service.get(event_id)
 
 
 @router.post(

@@ -89,6 +89,8 @@ translated without a provider-layer log describing the failed operation.
 app/main.py                 application creation and handler registration
     -> app/api/routes.py    thin HTTP routes
     -> app/api/validation.py HTTP-only early validation
+    -> CalendarService.get  shared Python operation boundary
+    -> app/calendar_service.py adapter to existing application operations
     -> app/events.py        provider-independent application behavior
     -> app/providers.py     Team 2 provider extension boundary
     -> app/event_cache.py   optional domain-event cache wrapper
@@ -112,7 +114,9 @@ credentials, exception text, and request headers are excluded.
 GET /events/{event_id}
     -> validate_get_request rejects a blank ID before OAuth/client setup
     -> get_event_provider composes a request-scoped Google client
-    -> read_event invokes application get_event with the validated ID
+    -> get_calendar_service wraps the provider as a CalendarService
+    -> read_event calls CalendarService.get with the validated ID
+    -> CalendarServiceAdapter delegates to application get_event
     -> CachedEventProvider serves a hit or delegates
     -> GoogleCalendarProvider executes events.get
     -> provider response is translated to the domain Event
@@ -122,7 +126,10 @@ GET /events/{event_id}
 The HTTP dependency is the authoritative blank-ID validation point for this
 migrated route. The application operation retains optional validation for
 non-HTTP callers, while the route explicitly skips the duplicate check after
-the dependency has succeeded.
+the dependency has succeeded. Non-HTTP consumers construct
+`CalendarServiceAdapter(provider)` with ID validation enabled by default. The
+HTTP composition opts out only after the route's early ID validation, retaining
+the existing request-scoped client cleanup and cache.
 
 ## Shared API and model mapping
 
@@ -136,11 +143,13 @@ remaining shared models map to later operation migrations:
 | `CreateEvent` | shared POST request fields |
 | `ReplaceEvent` | shared PUT request fields |
 | `CalendarError` / `ErrorCode` | provider-independent failure boundary |
-| `CalendarService` | create/get/replace/delete contract |
+| `CalendarService` | GET route consumes `get`; adapter bridges the existing four application operations |
 
 Team 2's list limit, `EventPatch`, listing, and PATCH methods remain local
 extensions. They must not be added to or presented as requirements of the
-shared core. Compatibility aliases may be retained briefly if needed to keep a
+shared core. Only GET has migrated its HTTP contract; the adapter's other methods
+reuse existing operations and do not claim full write/delete conformance.
+Compatibility aliases may be retained briefly if needed to keep a
 small migration diff, but validation and models must have one implementation.
 
 ## Failure behavior
@@ -167,8 +176,10 @@ GET /events/example-event
 
 An untitled provider event returns the same response with `"title": ""`. The
 example is synthetic, not a capture from a private calendar. The procedure for
-recording a sanitized live response is in [PROVIDER.md](PROVIDER.md); fresh live
-verification of this tagged migration remains a release task.
+recording a sanitized live response is in [PROVIDER.md](PROVIDER.md).
+[The observed GET verification](HW2_MS2_GET_VERIFICATION.md) records a real
+HTTP-to-Google success and missing-event run with the shared adapter, including
+the tested source revision, redactions, and reproduction steps.
 
 Google HTTP and transport failures are logged before translation using safe
 operation context. HTTP logging records the public operation, shared code,
@@ -185,9 +196,10 @@ provider error messages.
 | Invalid path input | 422 | `invalid_input` | `false` |
 
 Create and replace have a different safety constraint: when a write may have
-reached Google but its response is lost, the result is 502 `provider_error` with
-`retryable=false`. Neither the provider nor the application automatically
-retries an uncertain write, because doing so can duplicate or repeat a change.
+reached Google but its response is lost, the shared contract requires 502
+`provider_error` with `retryable=false`. The existing application does not retry
+uncertain writes; adding the shared error envelope to their legacy HTTP routes
+remains part of their migration. Resending could duplicate or repeat a change.
 
 ## Operational considerations
 
@@ -207,8 +219,14 @@ credentials or network. The migrated slice needs evidence at four levels:
 3. HTTP tests for exact GET success and shared error responses;
 4. Google-adapter tests for SDK calls, translation, and sanitized provider logs.
 
-The service currently proves the migrated GET behavior with focused model,
-application, HTTP, and Google-adapter tests. The complete shared conformance
+The service proves the migrated GET behavior with focused model, application,
+HTTP, and Google-adapter tests. `tests/test_shared_calendar_service.py` also
+reuses the tagged suite's GET success and missing-event cases. It overrides
+their fixtures with an isolated controlled Google SDK, so no shared create or
+delete is needed to seed or clean up state. The tests exercise the real adapter
+through a `CalendarService`-typed consumer; a separate HTTP test substitutes a
+shared-only service, which exposes any accidental dependency on local methods.
+The complete shared conformance
 suite requires create, replace, and delete and is therefore a Milestone 3 task;
 it will use the same tagged package, isolated event data, and fixture cleanup.
 
@@ -271,10 +289,14 @@ the required composition and test replacement points.
    design approval?
 2. Which issue numbers and owners will track each remaining shared operation and
    broader test/module organization?
-3. Where will the sanitized live-provider response and exact CI links be
-   recorded for submission?
+3. The [sanitized live-provider response](HW2_MS2_GET_VERIFICATION.md) is recorded.
+   Attach the reviewed commit and matching CI links when these changes are pushed.
 
 ## Change history
+
+- 2026-11-04: routed GET through `CalendarService.get`, reused shared GET
+  conformance cases with seeded SDK fixtures, and recorded real-provider HTTP
+  verification of the adapter working tree.
 
 - 2026-11-04: pinned and locked shared release candidate `v0.1.0-rc.1`.
 - 2026-11-04: migrated GET response construction and error semantics to shared

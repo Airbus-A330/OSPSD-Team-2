@@ -4,6 +4,15 @@ This document records what the project tests and why.
 
 Repository-wide testing rules are defined in `../AGENTS.md`.
 
+## Shared GET interface
+
+`tests/test_shared_calendar_service.py` checks the `CalendarService` adapter,
+the HTTP route with a shared-only substitute, direct-consumer ID validation,
+shared error propagation, and non-retrying delegation of existing writes.
+It reuses the tagged conformance suite's GET success and missing-event cases
+with isolated, preseeded SDK fixtures. These cases do not contact Google or
+claim complete create/replace/delete conformance.
+
 ## Test Layers
 
 ### Unit

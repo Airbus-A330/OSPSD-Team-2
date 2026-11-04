@@ -84,6 +84,10 @@ CI.
 
 ### End-to-end event verification
 
+For the HW2 shared-interface migration, see the dated, sanitized
+[GET verification record](HW2_MS2_GET_VERIFICATION.md). Earlier HW1 observations
+below do not establish verification of the new shared-interface path.
+
 After completing authentication, verify the full HTTP path against a timed event
 in the configured test calendar:
 
