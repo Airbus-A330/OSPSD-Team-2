@@ -478,7 +478,9 @@ def test_http_invalid_list_limit_is_rejected_before_google_setup(
             "Invalid limits must not construct a client or contact the provider"
         )
 
-    monkeypatch.setattr("app.main.build_google_calendar_client", unexpected_client)
+    monkeypatch.setattr(
+        "app.composition.build_google_calendar_client", unexpected_client
+    )
     with TestClient(app) as client:
         response = client.get("/events", params={"limit": limit})
     assert response.status_code == 400

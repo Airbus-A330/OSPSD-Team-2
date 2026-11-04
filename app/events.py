@@ -48,7 +48,9 @@ def delete_event(event_id: str, provider: EventProvider) -> None:
     provider.delete_event(event_id)
 
 
-def get_event(event_id: str, provider: EventProvider) -> Event:
+def get_event(
+    event_id: str, provider: EventProvider, *, validate: bool = True
+) -> Event:
     """Retrieve an event from the configured calendar.
 
     The provider dependency is supplied by composition code outside the application
@@ -64,7 +66,8 @@ def get_event(event_id: str, provider: EventProvider) -> Event:
     Raises:
         InvalidInputError: If event_id is empty or whitespace-only.
     """
-    validate_event_id(event_id)
+    if validate:
+        validate_event_id(event_id)
     return provider.get_event(event_id)
 
 

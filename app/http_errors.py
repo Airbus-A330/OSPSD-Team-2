@@ -25,6 +25,22 @@ _ERROR_RESPONSES: dict[type[ServiceError], tuple[int, str, str]] = {
     ProviderFailureError: (502, "provider_error", "Calendar provider request failed"),
 }
 
+_INVALID_MESSAGES = {
+    "create_event": "Invalid event data",
+    "delete_event": "Invalid event ID",
+    "get_event": "Invalid event ID",
+    "list_events": "Invalid event limit",
+    "patch_event": "Invalid input",
+    "replace_event": "Invalid event replacement",
+}
+
+
+def _operation_name(request: Request) -> str:
+    """Return the matched route name without mutating request-local state."""
+    route = request.scope.get("route")
+    name = getattr(route, "name", None)
+    return name if isinstance(name, str) else "request_validation"
+
 
 def service_error_response(request: Request, error: Exception) -> JSONResponse:
     """Render a supported service error using the fixed public contract.
@@ -39,19 +55,12 @@ def service_error_response(request: Request, error: Exception) -> JSONResponse:
     else:
         raise error
 
-    operation = getattr(request.state, "operation", "get_event")
-    if isinstance(error, InvalidInputError) and operation == "list_events":
-        message = "Invalid event limit"
-    elif isinstance(error, InvalidInputError) and operation == "create_event":
-        message = "Invalid event data"
-    elif isinstance(error, InvalidInputError) and operation not in {
-        "get_event",
-        "replace_event",
-    }:
-        message = "Invalid input"
-    provider_involved = getattr(request.state, "provider_involved", None)
+    operation = _operation_name(request)
     if isinstance(error, InvalidInputError):
-        message = getattr(request.state, "invalid_input_message", message)
+        message = error.public_message or _INVALID_MESSAGES.get(operation, message)
+    provider_involved = error.provider_involved
+    if provider_involved is None:
+        provider_involved = True
     logger.warning(
         "Calendar operation failed: operation=%s code=%s status=%s "
         "provider_involved=%s",
@@ -90,11 +99,11 @@ async def http_error_response(request: Request, error: Exception) -> Response:
 
 
 def _invalid_request_response(request: Request) -> JSONResponse:
-    route = request.scope.get("route")
-    request.state.operation = getattr(route, "name", "request_validation")
-    request.state.provider_involved = False
-    if request.state.operation == "replace_event":
-        request.state.invalid_input_message = "Invalid event replacement"
     return service_error_response(
-        request, InvalidInputError("Request schema validation failed")
+        request,
+        InvalidInputError(
+            "Request schema validation failed",
+            public_message=_INVALID_MESSAGES.get(_operation_name(request)),
+            provider_involved=False,
+        ),
     )

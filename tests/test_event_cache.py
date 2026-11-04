@@ -337,8 +337,8 @@ def test_production_composition_reuses_cache_across_requests(
             "end": {"dateTime": event.end},
         }
     build_client = MagicMock(side_effect=google_clients)
-    monkeypatch.setattr("app.main.build_google_calendar_client", build_client)
-    monkeypatch.setattr("app.main.event_cache", EventCache())
+    monkeypatch.setattr("app.composition.build_google_calendar_client", build_client)
+    monkeypatch.setattr("app.composition.event_cache", EventCache())
     monkeypatch.delenv("GOOGLE_CALENDAR_ID", raising=False)
 
     with TestClient(app) as client:

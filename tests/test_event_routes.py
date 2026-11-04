@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-from fastapi import Request
 from fastapi.testclient import TestClient
 
 from app.main import app, get_event_provider
@@ -32,9 +31,11 @@ def test_provider_composition_uses_configured_calendar(
         "start": {"dateTime": "2026-10-07T09:00:00-04:00"},
         "end": {"dateTime": "2026-10-07T10:00:00-04:00"},
     }
-    monkeypatch.setattr("app.main.build_google_calendar_client", lambda: google_client)
+    monkeypatch.setattr(
+        "app.composition.build_google_calendar_client", lambda: google_client
+    )
 
-    dependency = get_event_provider(Request({"type": "http"}))
+    dependency = get_event_provider()
     provider = next(dependency)
     try:
         assert provider.get_event("event-001") == Event(
@@ -84,7 +85,9 @@ def test_listing_uses_google_composition_and_closes_request_client(
             }
         ]
     }
-    monkeypatch.setattr("app.main.build_google_calendar_client", lambda: google_client)
+    monkeypatch.setattr(
+        "app.composition.build_google_calendar_client", lambda: google_client
+    )
     monkeypatch.setenv("GOOGLE_CALENDAR_ID", "listing-calendar")
     with TestClient(app) as client:
         response = client.get("/events?limit=1")
@@ -113,7 +116,9 @@ def test_get_malformed_google_response_uses_shared_provider_failure(
         "start": {"date": "2026-10-20"},
         "end": {"date": "2026-10-21"},
     }
-    monkeypatch.setattr("app.main.build_google_calendar_client", lambda: google_client)
+    monkeypatch.setattr(
+        "app.composition.build_google_calendar_client", lambda: google_client
+    )
 
     with TestClient(app) as client:
         response = client.get("/events/all-day-event")
@@ -135,7 +140,9 @@ def test_create_malformed_google_response_uses_shared_provider_failure(
     google_client.events.return_value.insert.return_value.execute.return_value = {
         "id": "created-event"
     }
-    monkeypatch.setattr("app.main.build_google_calendar_client", lambda: google_client)
+    monkeypatch.setattr(
+        "app.composition.build_google_calendar_client", lambda: google_client
+    )
 
     with TestClient(app) as client:
         response = client.post(

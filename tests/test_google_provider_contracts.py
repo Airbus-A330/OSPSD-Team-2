@@ -11,6 +11,7 @@ from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
 from httplib2 import Response  # type: ignore[import-untyped]
 
 import app.main as main
+import app.composition as composition
 from app.event_cache import EventCache
 from app.models import Event
 
@@ -44,8 +45,8 @@ def sdk(monkeypatch: pytest.MonkeyPatch) -> Mock:
     client.events.return_value.list.return_value.execute.return_value = {
         "items": [deepcopy(RAW)]
     }
-    monkeypatch.setattr(main, "build_google_calendar_client", lambda: client)
-    monkeypatch.setattr(main, "event_cache", EventCache())
+    monkeypatch.setattr(composition, "build_google_calendar_client", lambda: client)
+    monkeypatch.setattr(composition, "event_cache", EventCache())
     monkeypatch.setenv("GOOGLE_CALENDAR_ID", "primary")
     return client.events.return_value
 
@@ -143,7 +144,7 @@ def test_wrong_resource_identity_is_not_returned(
 def test_cancelled_fresh_state_blocks_writes_even_with_cached_active_event(
     method: str, changes: dict[str, str], sdk: Mock
 ) -> None:
-    main.event_cache.put("primary", "opaque-id", Event(id="opaque-id", **BODY))
+    composition.event_cache.put("primary", "opaque-id", Event(id="opaque-id", **BODY))
     sdk.get.return_value.execute.return_value = {
         "id": "opaque-id",
         "status": "cancelled",
@@ -245,7 +246,7 @@ def test_failed_preflight_never_attempts_write(
 def test_one_sided_patch_rechecks_interval_against_fresh_provider_state(
     sdk: Mock,
 ) -> None:
-    main.event_cache.put(
+    composition.event_cache.put(
         "primary",
         "opaque-id",
         Event(id="opaque-id", **{**BODY, "end": "2026-10-22T13:00:00Z"}),

@@ -134,7 +134,9 @@ def test_blank_http_id_is_rejected_before_client_setup(
     def unexpected_client() -> None:
         pytest.fail("Invalid DELETE must not construct a Google client")
 
-    monkeypatch.setattr("app.main.build_google_calendar_client", unexpected_client)
+    monkeypatch.setattr(
+        "app.composition.build_google_calendar_client", unexpected_client
+    )
     with TestClient(app) as client:
         response = client.delete("/events/%20%20")
     assert response.status_code == 400
@@ -271,7 +273,7 @@ def test_delete_composition_closes_client_on_success_or_failure(
     request = client.events.return_value.delete.return_value
     if fails:
         request.execute.side_effect = TransportError("lost")
-    monkeypatch.setattr("app.main.build_google_calendar_client", lambda: client)
+    monkeypatch.setattr("app.composition.build_google_calendar_client", lambda: client)
     monkeypatch.setenv("GOOGLE_CALENDAR_ID", "configured-calendar")
     with TestClient(app) as http:
         response = http.delete("/events/target")
@@ -298,7 +300,7 @@ def test_get_of_google_deleted_tombstone_is_not_found(
             }
         )
     client.events.return_value.get.return_value.execute.return_value = tombstone
-    monkeypatch.setattr("app.main.build_google_calendar_client", lambda: client)
+    monkeypatch.setattr("app.composition.build_google_calendar_client", lambda: client)
     monkeypatch.setenv("GOOGLE_CALENDAR_ID", "configured-calendar")
     with TestClient(app) as http:
         response = http.get("/events/deleted-target")

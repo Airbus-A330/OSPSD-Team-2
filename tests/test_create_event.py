@@ -146,7 +146,9 @@ def test_missing_create_field_is_rejected_before_client_construction(
         factory_calls.append(None)
         raise ProviderFailureError("synthetic provider setup failure")
 
-    monkeypatch.setattr("app.main.build_google_calendar_client", unavailable_client)
+    monkeypatch.setattr(
+        "app.composition.build_google_calendar_client", unavailable_client
+    )
     payload = create_request.model_dump()
     del payload["title"]
 

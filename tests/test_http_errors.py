@@ -125,7 +125,9 @@ def test_blank_http_input_fails_before_google_client_construction(
     def unexpected_client() -> None:
         pytest.fail("Blank input must not construct a Google client or start OAuth")
 
-    monkeypatch.setattr("app.main.build_google_calendar_client", unexpected_client)
+    monkeypatch.setattr(
+        "app.composition.build_google_calendar_client", unexpected_client
+    )
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
         response = client.get(f"/events/{quote(event_id, safe='')}")
 
@@ -170,9 +172,12 @@ def test_request_scoped_client_closes_on_handled_failure(
 ) -> None:
     google_client = MagicMock()
     provider = ControlledProvider(error)
-    monkeypatch.setattr("app.main.build_google_calendar_client", lambda: google_client)
     monkeypatch.setattr(
-        "app.main.GoogleCalendarProvider", lambda client, *, calendar_id: provider
+        "app.composition.build_google_calendar_client", lambda: google_client
+    )
+    monkeypatch.setattr(
+        "app.composition.GoogleCalendarProvider",
+        lambda client, *, calendar_id: provider,
     )
     with TestClient(app) as client:
         response = client.get("/events/test-event")
@@ -188,7 +193,7 @@ def test_service_failure_during_provider_setup_is_rendered_and_logged(
     def fail_setup() -> None:
         raise ProviderFailureError("synthetic-private-setup-details")
 
-    monkeypatch.setattr("app.main.build_google_calendar_client", fail_setup)
+    monkeypatch.setattr("app.composition.build_google_calendar_client", fail_setup)
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
         response = client.get("/events/test-event")
 
@@ -219,8 +224,10 @@ def test_socket_failure_is_sanitized_as_provider_error(
     google_client.events.return_value.get.return_value.execute.side_effect = (
         transport_error
     )
-    monkeypatch.setattr("app.main.build_google_calendar_client", lambda: google_client)
-    monkeypatch.setattr("app.main.event_cache", EventCache())
+    monkeypatch.setattr(
+        "app.composition.build_google_calendar_client", lambda: google_client
+    )
+    monkeypatch.setattr("app.composition.event_cache", EventCache())
 
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
         response = client.get("/events/network-failure")
@@ -273,7 +280,9 @@ def test_malformed_json_has_shared_error_and_safe_log_before_provider_setup(
     def unexpected_client() -> None:
         pytest.fail("Invalid JSON must not construct a provider or start OAuth")
 
-    monkeypatch.setattr("app.main.build_google_calendar_client", unexpected_client)
+    monkeypatch.setattr(
+        "app.composition.build_google_calendar_client", unexpected_client
+    )
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
         response = client.request(
             method, path, content=body, headers={"Content-Type": "application/json"}

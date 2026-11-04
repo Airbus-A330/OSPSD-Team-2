@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main
+import app.composition as composition
 from app.models import Event
 from app.providers import EventProvider
 
@@ -42,7 +43,7 @@ INVALID_VALUES: list[object] = [
 @pytest.fixture
 def setup_spy(monkeypatch: pytest.MonkeyPatch) -> Mock:
     setup = Mock(side_effect=AssertionError("Invalid input must not start OAuth"))
-    monkeypatch.setattr(main, "build_google_calendar_client", setup)
+    monkeypatch.setattr(composition, "build_google_calendar_client", setup)
     return setup
 
 
