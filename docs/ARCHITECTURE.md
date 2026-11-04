@@ -357,7 +357,10 @@ FastAPI composition are implemented as described above.
 
 | Module | Current Responsibility |
 |---|---|
-| `app/main.py` | FastAPI entry point and composition of the configured Google provider |
+| `app/main.py` | FastAPI application creation and error-handler registration |
+| `app/api/routes.py` | Thin FastAPI route functions for the six HTTP operations |
+| `app/api/validation.py` | Early HTTP input validation before provider construction |
+| `app/composition.py` | Selection, caching wrapper, and request lifetime of the configured Google provider |
 | `app/event_cache.py` | Process-local TTL cache and provider wrapper for successful domain `Event` reads |
 | `app/http_errors.py` | Fixed HTTP responses for shared service exceptions and sanitized failure logging |
 | `app/events.py` | Provider-independent application operations and validation |
@@ -380,12 +383,16 @@ dependency. Retrieval rejects blank IDs without changing other identifiers.
 Creation rejects invalid request bodies, blank titles, timestamps without UTC
 offsets, and end times that are not after their start before a provider write.
 
-Failure logs contain operation, service error code, HTTP status, and request-local
-`provider_involved` context. This flag means provider setup or retrieval was
-attempted, not that a remote call completed. It is false for locally rejected
-input and true when composition or retrieval begins; unavailable context is
-recorded as unknown. Logs exclude exception text, request headers, event IDs,
-provider payloads, and expected-failure tracebacks.
+Failure logs contain operation, service error code, HTTP status, and explicit
+`provider_involved` error context. Local validation marks that context false;
+provider-originated failures default to true. Route names and error attributes
+replace the former hidden `request.state` communication. Logs exclude exception
+text, request headers, event IDs, provider payloads, and expected-failure
+tracebacks.
+
+The Google adapter logs its safe operation name and numeric HTTP status, when
+available, before translating an SDK or transport failure. It does not log raw
+Google errors, response bodies, event identifiers, credentials, or tokens.
 
 The Google client remains request-scoped and is closed in the composition
 dependency's `finally`, including when an operation raises a handled service error.

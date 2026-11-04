@@ -284,6 +284,11 @@ Normal CI must not require provider credentials.
 
 Update this table whenever meaningful behavior is added.
 
+Google provider failure tests also verify that HTTP and transport failures are
+logged at the adapter boundary with the Google operation and numeric status when
+available. Assertions ensure event IDs and provider-only error text do not enter
+those logs.
+
 Event route tests also cover `/events` and `/events/` without the required ID.
 Their 404 responses reflect unmatched routes, not a lookup for a nonexistent event.
 
@@ -349,7 +354,7 @@ verification was completed on 2026-10-20 and is recorded in `PROVIDER.md`.
 
 ## Final endpoint contract regressions
 
-`tests/test_final_provider_contracts.py` runs the real HTTP/application/cache/Google
+`tests/test_google_provider_contracts.py` runs the real HTTP/application/cache/Google
 adapter composition with only the SDK controlled. It checks fresh tombstone
 preflights (including a stale active cache entry), no writes after failed
 preflight, cancelled write responses, wrong resource identities, unsupported
@@ -358,7 +363,7 @@ and fresh one-sided PATCH interval validation. DELETE accepts an empty SDK resul
 an empty LIST page remains valid. Existing SDK tests now configure the active
 preflight explicitly so malformed-write tests still reach the write response.
 
-`tests/test_final_endpoint_validation.py` covers non-object/empty/malformed JSON,
+`tests/test_endpoint_validation.py` covers non-object/empty/malformed JSON,
 invalid UTF-8, required/unknown/null fields, title and timestamp boundaries,
 opaque IDs, integer limit boundaries, and rejection before provider setup.
 Positive cases preserve Unicode, Z/positive/negative offsets, all nonempty PATCH

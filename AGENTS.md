@@ -18,6 +18,8 @@ Before implementing a task, consult the relevant source of truth:
 - `docs/TESTING.md` — testing strategy and coverage map
 - `docs/PROVIDER.md` — provider-specific behavior and verified assumptions
 - `docs/DECISIONS.md` — significant technical decisions
+- `docs/DESIGN.md` — current shared-contract migration design
+- `docs/JOINT_CALENDAR_CONTRACT.md` — agreed cross-team Calendar contract memo
 - `docs/TEAM_AGREEMENT.md` — collaboration expectations
 - `AGENTS.md` — repository-wide development rules
 

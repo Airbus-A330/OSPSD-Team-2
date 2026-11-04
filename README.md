@@ -434,8 +434,9 @@ Testing evidence is documented in:
 ```text
 .
 |-- .github/workflows/   # CI workflows
-|-- app/                 # FastAPI, application, domain, cache, and provider code
-|-- docs/                # Contract, architecture, provider, testing, and decision docs
+|-- app/                 # Application, composition, domain, cache, and provider code
+|   `-- api/             # Thin FastAPI routes and HTTP validation
+|-- docs/                # Contract, design, provider, testing, and decision docs
 |-- tests/               # Credential-free automated tests
 |-- AGENTS.md            # Repository-wide contribution rules
 |-- Makefile             # Canonical development commands
@@ -457,6 +458,8 @@ The project intentionally favors clear boundaries and straightforward Python ove
 | [`docs/PROVIDER.md`](docs/PROVIDER.md) | Google Calendar configuration and real-provider verification |
 | [`docs/TESTING.md`](docs/TESTING.md) | Test strategy, coverage, and regression evidence |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Engineering decisions and trade-offs |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | HW2 shared-contract migration design |
+| [`docs/JOINT_CALENDAR_CONTRACT.md`](docs/JOINT_CALENDAR_CONTRACT.md) | Cross-team Calendar contract decision memo |
 | [`docs/TEAM_AGREEMENT.md`](docs/TEAM_AGREEMENT.md) | Team workflow and collaboration |
 | [`AGENTS.md`](AGENTS.md) | Repository-wide contribution rules |
 
