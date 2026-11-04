@@ -306,7 +306,11 @@ def test_get_of_google_deleted_tombstone_is_not_found(
         response = http.get("/events/deleted-target")
     assert response.status_code == 404
     assert response.json() == {
-        "error": {"code": "not_found", "message": "Event not found"}
+        "error": {
+            "code": "not_found",
+            "message": "Event not found",
+            "retryable": False,
+        }
     }
     client.events.return_value.get.assert_called_once_with(
         calendarId="configured-calendar", eventId="deleted-target"

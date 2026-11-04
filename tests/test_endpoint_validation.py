@@ -58,9 +58,18 @@ def assert_invalid(
         response = client.request(
             method, path, content=content, headers={"content-type": "application/json"}
         )
-    assert response.status_code == 400
+    shared_get = method == "GET" and path.startswith("/events/")
+    assert response.status_code == (422 if shared_get else 400)
     assert response.json()["error"]["code"] == "invalid_input"
-    assert set(response.json()["error"]) == {"code", "message"}
+    expected_fields = (
+        {"code", "message", "retryable"}
+        if shared_get
+        else {
+            "code",
+            "message",
+        }
+    )
+    assert set(response.json()["error"]) == expected_fields
     setup.assert_not_called()
     assert "private-body" not in response.text + caplog.text
     assert all(record.exc_info is None for record in caplog.records)

@@ -9,7 +9,7 @@ from google.auth.exceptions import TransportError
 from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
 from httplib2 import Response  # type: ignore[import-untyped]
 
-from app.errors import ProviderFailureError
+from app.errors import ProviderUnavailableError
 from app.google_calendar import (
     GOOGLE_CALENDAR_SCOPES,
     build_google_calendar_client,
@@ -105,7 +105,7 @@ def test_build_client_translates_refresh_transport_failure(
     credentials.refresh.side_effect = transport_error
     load_credentials.return_value = credentials
 
-    with pytest.raises(ProviderFailureError) as caught:
+    with pytest.raises(ProviderUnavailableError) as caught:
         build_google_calendar_client()
 
     credentials.refresh.assert_called_once_with(request.return_value)
@@ -137,7 +137,7 @@ def test_build_client_translates_discovery_transport_failure(
     load_credentials.return_value = MagicMock(valid=True)
     build.side_effect = transport_error
 
-    with pytest.raises(ProviderFailureError) as caught:
+    with pytest.raises(ProviderUnavailableError) as caught:
         build_google_calendar_client()
 
     assert "private setup detail" not in str(caught.value)

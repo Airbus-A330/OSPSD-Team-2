@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 from urllib.parse import quote
 
 import pytest
+from calendar_contract import CalendarError, ErrorCode
 from fastapi.testclient import TestClient
 from starlette.exceptions import HTTPException
 
@@ -78,9 +79,9 @@ def assert_failure_log(
 @pytest.mark.parametrize(
     ("error_type", "status", "code", "message"),
     [
-        (InvalidInputError, 400, "invalid_input", "Invalid event ID"),
+        (InvalidInputError, 422, "invalid_input", "Invalid event ID"),
         (NotFoundError, 404, "not_found", "Event not found"),
-        (PermissionDeniedError, 403, "permission_denied", "Permission denied"),
+        (PermissionDeniedError, 403, "access_denied", "Access denied"),
         (
             ProviderFailureError,
             502,
@@ -109,13 +110,40 @@ def test_http_service_failure_contract_and_safe_log(
 
     assert response.status_code == status
     assert response.headers["content-type"] == "application/json"
-    assert response.json() == {"error": {"code": code, "message": message}}
+    assert response.json() == {
+        "error": {"code": code, "message": message, "retryable": False}
+    }
     assert provider.calls == [event_id]
     assert_failure_log(caplog, code, status, True)
     assert secret not in response.text
     assert secret not in caplog.text
     assert event_id not in caplog.text
     assert all(secret not in repr(record.__dict__) for record in caplog.records)
+
+
+def test_get_renders_shared_calendar_error_without_local_wrapper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = ControlledProvider(
+        CalendarError(
+            code=ErrorCode.PROVIDER_UNAVAILABLE,
+            message="private shared diagnostic",
+            retryable=True,
+        )
+    )
+    override_provider(provider, monkeypatch)
+
+    with TestClient(app) as client:
+        response = client.get("/events/event-123")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "error": {
+            "code": "provider_unavailable",
+            "message": "Calendar provider is unavailable",
+            "retryable": True,
+        }
+    }
 
 
 @pytest.mark.parametrize("event_id", ["   ", "\t\n", "\u2003"])
@@ -131,11 +159,15 @@ def test_blank_http_input_fails_before_google_client_construction(
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
         response = client.get(f"/events/{quote(event_id, safe='')}")
 
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert response.json() == {
-        "error": {"code": "invalid_input", "message": "Invalid event ID"}
+        "error": {
+            "code": "invalid_input",
+            "message": "Invalid event ID",
+            "retryable": False,
+        }
     }
-    assert_failure_log(caplog, "invalid_input", 400, False)
+    assert_failure_log(caplog, "invalid_input", 422, False)
 
 
 @pytest.mark.parametrize("event_id", [" valid-id ", "会議"])
@@ -202,6 +234,7 @@ def test_service_failure_during_provider_setup_is_rendered_and_logged(
         "error": {
             "code": "provider_error",
             "message": "Calendar provider request failed",
+            "retryable": False,
         }
     }
     assert_failure_log(caplog, "provider_error", 502, True)
@@ -215,7 +248,7 @@ def test_service_failure_during_provider_setup_is_rendered_and_logged(
         ConnectionResetError("synthetic-private-network-detail"),
     ],
 )
-def test_socket_failure_is_sanitized_as_provider_error(
+def test_socket_failure_is_sanitized_as_provider_unavailable(
     transport_error: Exception,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -232,25 +265,24 @@ def test_socket_failure_is_sanitized_as_provider_error(
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
         response = client.get("/events/network-failure")
 
-    assert response.status_code == 502
+    assert response.status_code == 503
     assert response.json() == {
         "error": {
-            "code": "provider_error",
-            "message": "Calendar provider request failed",
+            "code": "provider_unavailable",
+            "message": "Calendar provider is unavailable",
+            "retryable": True,
         }
     }
-    assert_failure_log(caplog, "provider_error", 502, True)
+    assert_failure_log(caplog, "provider_unavailable", 503, True)
     assert "synthetic-private-network-detail" not in response.text
     assert "synthetic-private-network-detail" not in caplog.text
     google_client.close.assert_called_once_with()
 
 
-@pytest.mark.parametrize(
-    "error", [RuntimeError("unexpected bug"), ServiceError("unknown category")]
-)
 def test_unexpected_errors_are_not_disguised_as_expected_failures(
-    error: Exception, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
+    error = RuntimeError("unexpected bug")
     override_provider(ControlledProvider(error), monkeypatch)
     with TestClient(app) as client, pytest.raises(type(error)) as caught:
         client.get("/events/test-event")

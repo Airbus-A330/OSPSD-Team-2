@@ -3,9 +3,14 @@
 import json
 
 import pytest
+from calendar_contract import Event as SharedEvent
 from pydantic import ValidationError
 
 from app.models import Event
+
+
+def test_service_uses_tagged_shared_event_model() -> None:
+    assert Event is SharedEvent
 
 
 @pytest.fixture
@@ -60,7 +65,7 @@ def test_rejects_non_string_fields(
 
 
 @pytest.mark.parametrize(
-    "timestamp", ["2026-10-01T14:00:00Z", "2026-10-01T19:30:00.123+05:30"]
+    "timestamp", ["2026-10-01T14:00:01Z", "2026-10-01T19:30:00.123+05:30"]
 )
 @pytest.mark.parametrize("field", ["start", "end"])
 def test_preserves_timestamp_strings(

@@ -15,6 +15,7 @@ from app.errors import (
     NotFoundError,
     PermissionDeniedError,
     ProviderFailureError,
+    ProviderUnavailableError,
     ServiceError,
 )
 from app.google_calendar import GoogleCalendarProvider
@@ -82,12 +83,12 @@ def _google_http_error(status: str, reason: str | None) -> HttpError:
         ("404", "notFound", NotFoundError),
         ("403", "forbidden", PermissionDeniedError),
         ("403", None, PermissionDeniedError),
-        ("403", "rateLimitExceeded", ProviderFailureError),
-        ("403", "userRateLimitExceeded", ProviderFailureError),
-        ("403", "quotaExceeded", ProviderFailureError),
-        ("429", "rateLimitExceeded", ProviderFailureError),
+        ("403", "rateLimitExceeded", ProviderUnavailableError),
+        ("403", "userRateLimitExceeded", ProviderUnavailableError),
+        ("403", "quotaExceeded", ProviderUnavailableError),
+        ("429", "rateLimitExceeded", ProviderUnavailableError),
         ("400", None, ProviderFailureError),
-        ("500", "backendError", ProviderFailureError),
+        ("500", "backendError", ProviderUnavailableError),
     ],
 )
 def test_provider_translates_google_failure(
@@ -131,14 +132,14 @@ def test_provider_translates_google_failure(
 def test_provider_translates_transport_failure(
     transport_error: Exception, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Map documented transport failures to ProviderFailureError."""
+    """Map documented read transport failures to provider unavailability."""
     client = Mock()
     client.events.return_value.get.return_value.execute.side_effect = transport_error
     provider = GoogleCalendarProvider(client, calendar_id="primary")
 
     with (
         caplog.at_level(logging.WARNING),
-        pytest.raises(ProviderFailureError) as caught,
+        pytest.raises(ProviderUnavailableError) as caught,
     ):
         provider.get_event("event123")
 

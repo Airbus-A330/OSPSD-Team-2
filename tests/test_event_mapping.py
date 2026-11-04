@@ -67,13 +67,21 @@ def test_metadata_is_not_required(provider_event: dict[str, Any]) -> None:
     )
 
 
-@pytest.mark.parametrize("field", ["id", "summary", "start", "end"])
+@pytest.mark.parametrize("field", ["id", "start", "end"])
 def test_missing_required_field_is_not_fabricated(
     provider_event: dict[str, Any], field: str
 ) -> None:
     del provider_event[field]
     with pytest.raises(KeyError, match=field):
         translate_google_event(provider_event)
+
+
+def test_missing_title_is_returned_as_empty_string(
+    provider_event: dict[str, Any],
+) -> None:
+    del provider_event["summary"]
+
+    assert translate_google_event(provider_event).title == ""
 
 
 @pytest.mark.parametrize("field", ["start", "end"])

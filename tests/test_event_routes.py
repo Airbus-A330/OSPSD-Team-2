@@ -128,9 +128,35 @@ def test_get_malformed_google_response_uses_shared_provider_failure(
         "error": {
             "code": "provider_error",
             "message": "Calendar provider request failed",
+            "retryable": False,
         }
     }
     google_client.close.assert_called_once_with()
+
+
+def test_get_untitled_google_event_returns_shared_event(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    google_client = MagicMock()
+    google_client.events.return_value.get.return_value.execute.return_value = {
+        "id": "untitled-event",
+        "start": {"dateTime": "2026-10-20T09:00:00Z"},
+        "end": {"dateTime": "2026-10-20T10:00:00Z"},
+    }
+    monkeypatch.setattr(
+        "app.composition.build_google_calendar_client", lambda: google_client
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/events/untitled-event")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": "untitled-event",
+        "title": "",
+        "start": "2026-10-20T09:00:00Z",
+        "end": "2026-10-20T10:00:00Z",
+    }
 
 
 def test_create_malformed_google_response_uses_shared_provider_failure(

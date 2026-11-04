@@ -185,9 +185,9 @@ def test_http_returns_configured_provider_event(
         pytest.param(
             PermissionDeniedError,
             403,
-            "permission_denied",
-            "Permission denied",
-            id="permission_denied",
+            "access_denied",
+            "Access denied",
+            id="access_denied",
         ),
         pytest.param(
             ProviderFailureError,
@@ -225,14 +225,20 @@ def test_http_failures_do_not_affect_subsequent_retrieval(
         assert response.json() == expected
 
         response = client.get("/events/%20%20%20")
-        assert response.status_code == 400
+        assert response.status_code == 422
         assert response.json() == {
-            "error": {"code": "invalid_input", "message": "Invalid event ID"}
+            "error": {
+                "code": "invalid_input",
+                "message": "Invalid event ID",
+                "retryable": False,
+            }
         }
 
         response = client.get("/events/failing-event")
         assert response.status_code == status
-        assert response.json() == {"error": {"code": code, "message": message}}
+        assert response.json() == {
+            "error": {"code": code, "message": message, "retryable": False}
+        }
 
         response = client.get(f"/events/{event_id}")
         assert response.status_code == 200

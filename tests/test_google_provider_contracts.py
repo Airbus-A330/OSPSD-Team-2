@@ -78,12 +78,13 @@ def test_malformed_sdk_response_is_sanitized_502(
     getattr(sdk, sdk_method).return_value.execute.return_value = result
     response = request(operation)
     assert response.status_code == 502
-    assert response.json() == {
-        "error": {
-            "code": "provider_error",
-            "message": "Calendar provider request failed",
-        }
+    expected_error: dict[str, object] = {
+        "code": "provider_error",
+        "message": "Calendar provider request failed",
     }
+    if operation == "GET":
+        expected_error["retryable"] = False
+    assert response.json() == {"error": expected_error}
     assert "private-invalid" not in caplog.text
     assert all(record.exc_info is None for record in caplog.records)
 
@@ -95,8 +96,6 @@ def test_malformed_sdk_response_is_sanitized_502(
         ("id", ""),
         ("id", "   "),
         ("summary", None),
-        ("summary", ""),
-        ("summary", "   "),
         ("summary", 42),
         ("start", None),
         ("end", {}),
@@ -224,14 +223,24 @@ def test_all_operations_keep_service_error_mapping(
     )
     getattr(sdk, sdk_method).return_value.execute.side_effect = error
     response = request(operation)
+    if operation == "GET" and (status == 0 or status >= 500):
+        expected = 503
     assert response.status_code == expected
     assert set(response.json()) == {"error"}
-    assert set(response.json()["error"]) == {"code", "message"}
+    expected_fields = (
+        {"code", "message", "retryable"}
+        if operation == "GET"
+        else {
+            "code",
+            "message",
+        }
+    )
+    assert set(response.json()["error"]) == expected_fields
     assert "private-provider-detail" not in response.text + caplog.text
 
 
 @pytest.mark.parametrize("method", ["PUT", "PATCH"])
-@pytest.mark.parametrize("status,expected", [(404, 404), (403, 403), (500, 502)])
+@pytest.mark.parametrize("status,expected", [(404, 404), (403, 403), (500, 503)])
 def test_failed_preflight_never_attempts_write(
     method: str, status: int, expected: int, sdk: Mock
 ) -> None:

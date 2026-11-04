@@ -425,7 +425,11 @@ def test_read_started_during_write_cannot_leave_stale_cache(
         assert current is None
         assert after.status_code == 404
         assert after.json() == {
-            "error": {"code": "not_found", "message": "Event not found"}
+            "error": {
+                "code": "not_found",
+                "message": "Event not found",
+                "retryable": False,
+            }
         }
     else:
         assert current == changed
