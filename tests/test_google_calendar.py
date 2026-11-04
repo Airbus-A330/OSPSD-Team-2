@@ -13,7 +13,7 @@ from app.errors import ProviderFailureError
 from app.google_calendar import (
     GOOGLE_CALENDAR_SCOPES,
     build_google_calendar_client,
-    get_event,
+    execute_google_event_get,
 )
 
 
@@ -171,7 +171,7 @@ def test_build_client_runs_oauth_flow_without_saved_credentials(
 def test_get_event_passes_identifiers_to_google(calendar_id: str) -> None:
     client = Mock()
 
-    get_event(client, calendar_id=calendar_id, event_id="event123")
+    execute_google_event_get(client, calendar_id=calendar_id, event_id="event123")
 
     client.events.return_value.get.assert_called_once_with(
         calendarId=calendar_id, eventId="event123"
@@ -190,7 +190,9 @@ def test_get_event_returns_raw_result_for_translation() -> None:
     }
     client.events.return_value.get.return_value.execute.return_value = provider_event
 
-    result = get_event(client, calendar_id="primary", event_id="event123")
+    result = execute_google_event_get(
+        client, calendar_id="primary", event_id="event123"
+    )
 
     assert result == provider_event
 
@@ -201,6 +203,6 @@ def test_get_event_propagates_provider_failure() -> None:
     client.events.return_value.get.return_value.execute.side_effect = error
 
     with pytest.raises(HttpError) as caught:
-        get_event(client, calendar_id="primary", event_id="missing123")
+        execute_google_event_get(client, calendar_id="primary", event_id="missing123")
 
     assert caught.value is error

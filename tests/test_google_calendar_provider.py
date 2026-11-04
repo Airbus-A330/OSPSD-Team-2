@@ -1,6 +1,7 @@
 """Test the Google provider boundary with a controlled SDK client."""
 
 import json
+import logging
 import socket
 from typing import Any
 from unittest.mock import Mock
@@ -90,7 +91,10 @@ def _google_http_error(status: str, reason: str | None) -> HttpError:
     ],
 )
 def test_provider_translates_google_failure(
-    status: str, reason: str | None, service_error: type[ServiceError]
+    status: str,
+    reason: str | None,
+    service_error: type[ServiceError],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Map Google HTTP failures to service errors at the provider boundary."""
     client = Mock()
@@ -98,13 +102,20 @@ def test_provider_translates_google_failure(
     client.events.return_value.get.return_value.execute.side_effect = error
     provider = GoogleCalendarProvider(client, calendar_id="primary")
 
-    with pytest.raises(service_error) as caught:
+    with caplog.at_level(logging.WARNING), pytest.raises(service_error) as caught:
         provider.get_event("event123")
 
     assert isinstance(caught.value, ServiceError)
     assert not isinstance(caught.value, HttpError)
     assert "provider-only detail" not in str(caught.value)
     assert caught.value.__cause__ is None
+    record = next(
+        record for record in caplog.records if record.name == "app.google_calendar"
+    )
+    assert record.__dict__["provider_operation"] == "get"
+    assert record.__dict__["provider_status"] == int(status)
+    assert "event123" not in record.getMessage()
+    assert "provider-only detail" not in record.getMessage()
 
 
 @pytest.mark.parametrize(
@@ -117,18 +128,29 @@ def test_provider_translates_google_failure(
     ],
     ids=["httplib2", "google_auth", "socket_timeout", "connection_reset"],
 )
-def test_provider_translates_transport_failure(transport_error: Exception) -> None:
+def test_provider_translates_transport_failure(
+    transport_error: Exception, caplog: pytest.LogCaptureFixture
+) -> None:
     """Map documented transport failures to ProviderFailureError."""
     client = Mock()
     client.events.return_value.get.return_value.execute.side_effect = transport_error
     provider = GoogleCalendarProvider(client, calendar_id="primary")
 
-    with pytest.raises(ProviderFailureError) as caught:
+    with (
+        caplog.at_level(logging.WARNING),
+        pytest.raises(ProviderFailureError) as caught,
+    ):
         provider.get_event("event123")
 
     assert isinstance(caught.value, ServiceError)
     assert "provider-only detail" not in str(caught.value)
     assert caught.value.__cause__ is None
+    record = next(
+        record for record in caplog.records if record.name == "app.google_calendar"
+    )
+    assert record.__dict__["provider_operation"] == "get"
+    assert "event123" not in record.getMessage()
+    assert "provider-only detail" not in record.getMessage()
 
 
 def test_provider_does_not_return_untranslatable_google_data() -> None:
