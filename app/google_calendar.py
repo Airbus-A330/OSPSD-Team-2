@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import ssl
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Never
@@ -28,7 +29,13 @@ from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
 
 GOOGLE_CALENDAR_SCOPES = ("https://www.googleapis.com/auth/calendar.events",)
-_TRANSPORT_ERRORS = (HttpLib2Error, TransportError, TimeoutError, ConnectionError)
+_TRANSPORT_ERRORS = (
+    HttpLib2Error,
+    TransportError,
+    TimeoutError,
+    ConnectionError,
+    ssl.SSLError,
+)
 logger = logging.getLogger(__name__)
 
 # Machine-readable Google error reasons that report a quota or rate limit
@@ -336,7 +343,8 @@ class GoogleCalendarProvider(EventProvider):
             # Application validation may have read cached state. Recheck the
             # resulting interval against this fresh preflight before writing.
             try:
-                EventReplacement(
+                Event(
+                    id=current.id,
                     title=current.title,
                     start=changes.start if changes.start is not None else current.start,
                     end=changes.end if changes.end is not None else current.end,

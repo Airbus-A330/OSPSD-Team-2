@@ -90,6 +90,40 @@ def test_google_patch_sends_only_supplied_fields(
 
 
 @pytest.mark.parametrize(
+    ("changes", "expected_title"),
+    [
+        ({"end": "2026-10-22T12:00:00-04:00"}, ""),
+        (
+            {"title": "Named now", "end": "2026-10-22T12:00:00-04:00"},
+            "Named now",
+        ),
+    ],
+)
+def test_google_patch_validates_untitled_event_interval_without_title_rules(
+    changes: dict[str, str], expected_title: str
+) -> None:
+    client = Mock()
+    client.events.return_value.get.return_value.execute.return_value = {
+        "id": "untitled-event",
+        "start": {"dateTime": "2026-10-22T10:00:00-04:00"},
+        "end": {"dateTime": "2026-10-22T11:00:00-04:00"},
+    }
+    client.events.return_value.patch.return_value.execute.return_value = {
+        "id": "untitled-event",
+        "summary": expected_title,
+        "start": {"dateTime": "2026-10-22T10:00:00-04:00"},
+        "end": {"dateTime": "2026-10-22T12:00:00-04:00"},
+    }
+
+    result = GoogleCalendarProvider(client, calendar_id="primary").patch_event(
+        "untitled-event", EventPatch(**changes)
+    )
+
+    assert result.title == expected_title
+    client.events.return_value.patch.assert_called_once()
+
+
+@pytest.mark.parametrize(
     ("status", "reason", "expected_error"),
     [
         (404, "notFound", NotFoundError),

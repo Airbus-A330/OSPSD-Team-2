@@ -2,6 +2,7 @@
 
 import logging
 import socket
+import ssl
 from dataclasses import dataclass, field
 from unittest.mock import MagicMock
 from urllib.parse import quote
@@ -246,9 +247,10 @@ def test_service_failure_during_provider_setup_is_rendered_and_logged(
     [
         socket.timeout("synthetic-private-network-detail"),
         ConnectionResetError("synthetic-private-network-detail"),
+        ssl.SSLError("synthetic-private-network-detail"),
     ],
 )
-def test_socket_failure_is_sanitized_as_provider_unavailable(
+def test_transport_failure_is_sanitized_as_provider_unavailable(
     transport_error: Exception,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
