@@ -78,6 +78,14 @@ wheels = [
 ]
 
 [[package]]
+name = "calendar-contract"
+version = "0.1.0"
+source = { git = "https://github.com/Airbus-A330/OSPSD-Calendar.git?rev=v0.1.0-rc.1#1c1cad7a0732ddb242a05400d8833d94e4422424" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.7.22"
 source = { registry = "https://pypi.org/simple" }
@@ -485,6 +493,7 @@ name = "ospsd-team-2-calendar-service"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "calendar-contract" },
     { name = "fastapi" },
     { name = "google-api-python-client" },
     { name = "google-auth-httplib2" },
@@ -503,6 +512,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "calendar-contract", git = "https://github.com/Airbus-A330/OSPSD-Calendar.git?rev=v0.1.0-rc.1" },
     { name = "fastapi", specifier = "==0.124.4" },
     { name = "google-api-python-client", specifier = "==2.201.0" },
     { name = "google-auth-httplib2", specifier = "==0.4.4" },
