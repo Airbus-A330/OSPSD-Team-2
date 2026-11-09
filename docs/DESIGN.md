@@ -1,5 +1,20 @@
 # Shared Calendar Contract Migration Design
 
+## Milestone 3 observability
+
+The four shared CRUD operations retain their existing routes, application/cache
+behavior, and Google provider semantics. `app/telemetry/` supplies bounded OTLP
+metrics/logs/traces through the application factory's lifespan and ASGI middleware.
+Google Create/Get/Replace/Delete operations have CLIENT spans including response
+translation; PUT's fresh GET preflight is a separate span. Cache hits have no
+outbound span. Success requires the operation's exact contract status, and
+unexpected 2xx/3xx responses use `unexpected_status` for reliability consumers.
+No body, raw identifier, provider payload, or exception text is exported.
+Saturation measures occupied AnyIO workers relative to the actual worker limit.
+Configuration, golden-signals dashboard, hosted-lifecycle integration, Level 4
+schema, and outstanding deployed evidence are canonical in
+[OBSERVABILITY.md](OBSERVABILITY.md). Listing and PATCH remain supported extensions.
+
 | Metadata | Value |
 |---|---|
 | Authors | Alexander Freedman and OSPSD Team 2 |

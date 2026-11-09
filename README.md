@@ -21,6 +21,9 @@ The repository is designed so that another developer can clone it, install depen
 
 Each operation is implemented through the shared provider-independent `EventProvider` boundary and integrated into the same Calendar service.
 
+Telemetry configuration, the golden-signals dashboard, and deployed verification
+are documented in [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
+
 ---
 
 # Quick Start

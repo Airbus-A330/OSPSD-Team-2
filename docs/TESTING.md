@@ -2,6 +2,12 @@
 
 This document records what the project tests and why.
 
+`tests/telemetry/` covers the real CRUD/application/Google boundaries, operation
+metrics, safe logs, HTTP/provider spans, worker saturation, bounded export and
+failure isolation. It also verifies exact success statuses and preservation of
+all six Calendar routes. See [OBSERVABILITY.md](OBSERVABILITY.md) for evidence and
+deployed verification.
+
 Repository-wide testing rules are defined in `../AGENTS.md`.
 
 ## Shared contract integration
