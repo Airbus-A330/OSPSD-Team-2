@@ -1,0 +1,35 @@
+# DRAFT: requires PR #73 metrics in a Team-2-only backend. Not provisioned.
+# Replace GRAFANA_HOST.invalid and get policy approval before loading in deployment.
+groups:
+  - name: team2-calendar-reliability
+    interval: 1m
+    rules:
+      - record: team2_calendar:get_eligible:increase24h
+        expr: sum(increase(calendar_requests_total{operation="Get",outcome!~"invalid_input|not_found|client_error"}[24h]))
+      - record: team2_calendar:get_success:increase24h
+        expr: sum(increase(calendar_requests_total{operation="Get",outcome="success"}[24h])) or vector(0)
+      - record: team2_calendar:get_fast_success:increase24h
+        expr: sum(increase(calendar_request_duration_seconds_bucket{operation="Get",outcome="success",le="1"}[24h])) or vector(0)
+      - record: team2_calendar:get_latency_eligible:increase24h
+        expr: sum(increase(calendar_request_duration_seconds_count{operation="Get",outcome!~"invalid_input|not_found|client_error"}[24h]))
+      - record: team2_calendar:get_eligible:increase5m
+        expr: sum(increase(calendar_requests_total{operation="Get",outcome!~"invalid_input|not_found|client_error"}[5m]))
+      - record: team2_calendar:get_success:increase5m
+        expr: sum(increase(calendar_requests_total{operation="Get",outcome="success"}[5m])) or vector(0)
+      - alert: Team2CalendarGetHighFailureRate
+        expr: |
+          (
+            (team2_calendar:get_eligible:increase5m - team2_calendar:get_success:increase5m)
+            / team2_calendar:get_eligible:increase5m > 0.2
+          )
+          and team2_calendar:get_eligible:increase5m >= 5
+        for: 2m
+        labels:
+          service: team2-calendar
+          operation: Get
+          severity: warning
+        annotations:
+          summary: Team 2 Calendar Get requests are failing
+          description: More than 20% of eligible Get requests failed over 5 minutes, with at least 5 eligible requests, for 2 minutes. Inspect the dashboard and runbook.
+          dashboard_url: https://GRAFANA_HOST.invalid/d/team2-calendar
+          runbook_url: https://github.com/Airbus-A330/OSPSD-Team-2/blob/master/docs/RELIABILITY.md#runbook
