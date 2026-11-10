@@ -17,6 +17,7 @@ from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
 from httplib2 import HttpLib2Error  # type: ignore[import-untyped]
 from pydantic import ValidationError
 
+from app.credential_store import load_hosted_credentials
 from app.errors import (
     InvalidInputError,
     NotFoundError,
@@ -68,35 +69,45 @@ def build_google_calendar_client() -> Resource:
     token_path = Path(os.getenv("GOOGLE_CALENDAR_TOKEN_FILE", "token.json"))
 
     credentials: Credentials | None = None
-    if token_path.exists():
-        credentials = Credentials.from_authorized_user_file(
-            str(token_path), GOOGLE_CALENDAR_SCOPES
-        )
-
-    if not credentials or not credentials.valid:
-        if credentials and credentials.expired and credentials.refresh_token:
-            try:
-                credentials.refresh(Request())
-            except _TRANSPORT_ERRORS:
-                _raise_transport_failure(
-                    "refresh_credentials",
-                    "Google authorization refresh failed",
-                    retryable=True,
-                )
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                str(credentials_path), GOOGLE_CALENDAR_SCOPES
+    if os.getenv("GOOGLE_CALENDAR_NONINTERACTIVE") == "1":
+        try:
+            credentials = load_hosted_credentials(token_path, GOOGLE_CALENDAR_SCOPES)
+        except _TRANSPORT_ERRORS:
+            _raise_transport_failure(
+                "refresh_credentials",
+                "Google authorization refresh failed",
+                retryable=True,
             )
-            try:
-                credentials = flow.run_local_server(port=0)
-            except _TRANSPORT_ERRORS:
-                _raise_transport_failure(
-                    "authorize_credentials",
-                    "Google authorization request failed",
-                    retryable=True,
-                )
+    else:
+        if token_path.exists():
+            credentials = Credentials.from_authorized_user_file(
+                str(token_path), GOOGLE_CALENDAR_SCOPES
+            )
 
-        token_path.write_text(credentials.to_json(), encoding="utf-8")
+        if not credentials or not credentials.valid:
+            if credentials and credentials.expired and credentials.refresh_token:
+                try:
+                    credentials.refresh(Request())
+                except _TRANSPORT_ERRORS:
+                    _raise_transport_failure(
+                        "refresh_credentials",
+                        "Google authorization refresh failed",
+                        retryable=True,
+                    )
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    str(credentials_path), GOOGLE_CALENDAR_SCOPES
+                )
+                try:
+                    credentials = flow.run_local_server(port=0)
+                except _TRANSPORT_ERRORS:
+                    _raise_transport_failure(
+                        "authorize_credentials",
+                        "Google authorization request failed",
+                        retryable=True,
+                    )
+
+            token_path.write_text(credentials.to_json(), encoding="utf-8")
 
     try:
         return build("calendar", "v3", credentials=credentials)

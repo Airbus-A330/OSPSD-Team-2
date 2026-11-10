@@ -409,3 +409,18 @@ They now pass, including checks for empty provider IDs and cancelled LIST/POST
 results. These tests require neither real credentials nor network access.
 Real-provider verification is recorded separately in `PROVIDER.md`; mocked SDK
 success is not live-provider evidence.
+
+## Hosted entry-point composition
+
+`tests/test_hosting.py` verifies that `create_hosted_app()` enters/exits the base
+factory's lifecycle, forwards lifespan request state, and clears readiness and
+access state on shutdown or lifecycle failure. Controlled base instrumentation
+observes both authorized responses and early 403 rejections, and exports its
+recorded responses on shutdown; rejected requests never reach the route.
+These four regressions failed before the hosting fix.
+
+`make container-check` runs the actual `app.hosting:app` instance, including
+configuration failures, private ephemeral credential recovery, protected access
+and provider-independent readiness. Controlled integration with #73's real OTel
+runtime/middleware is recorded in [DEPLOYMENT.md](DEPLOYMENT.md); it is distinct
+from a full merge of #73 or real-provider/cloud acceptance.
