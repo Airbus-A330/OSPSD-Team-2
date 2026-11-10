@@ -82,7 +82,7 @@ def test_malformed_sdk_response_is_sanitized_502(
         "code": "provider_error",
         "message": "Calendar provider request failed",
     }
-    if operation == "GET":
+    if operation in ("GET", "POST", "PUT", "DELETE"):
         expected_error["retryable"] = False
     assert response.json() == {"error": expected_error}
     assert "private-invalid" not in caplog.text
@@ -152,7 +152,11 @@ def test_cancelled_fresh_state_blocks_writes_even_with_cached_active_event(
         response = client.request(method, "/events/opaque-id", json=changes)
     assert response.status_code == 404
     assert response.json() == {
-        "error": {"code": "not_found", "message": "Event not found"}
+        "error": {
+            "code": "not_found",
+            "message": "Event not found",
+            **({"retryable": False} if method == "PUT" else {}),
+        }
     }
     sdk.get.assert_called_once_with(calendarId="primary", eventId="opaque-id")
     sdk.update.assert_not_called()
@@ -229,7 +233,7 @@ def test_all_operations_keep_service_error_mapping(
     assert set(response.json()) == {"error"}
     expected_fields = (
         {"code", "message", "retryable"}
-        if operation == "GET"
+        if operation in ("GET", "POST", "PUT", "DELETE")
         else {
             "code",
             "message",

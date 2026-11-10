@@ -130,9 +130,13 @@ def test_invalid_create_is_rejected_before_provider_write(
     with TestClient(app) as client:
         response = client.post("/events", json=payload)
 
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert response.json() == {
-        "error": {"code": "invalid_input", "message": "Invalid event data"}
+        "error": {
+            "code": "invalid_input",
+            "message": "Invalid event data",
+            "retryable": False,
+        }
     }
     assert provider.created == []
 
@@ -155,9 +159,13 @@ def test_missing_create_field_is_rejected_before_client_construction(
     with TestClient(app) as client:
         response = client.post("/events", json=payload)
 
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert response.json() == {
-        "error": {"code": "invalid_input", "message": "Invalid event data"}
+        "error": {
+            "code": "invalid_input",
+            "message": "Invalid event data",
+            "retryable": False,
+        }
     }
     assert factory_calls == []
 
@@ -177,9 +185,13 @@ def test_create_requires_each_request_field_before_provider_write(
     with TestClient(app) as client:
         response = client.post("/events", json=payload)
 
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert response.json() == {
-        "error": {"code": "invalid_input", "message": "Invalid event data"}
+        "error": {
+            "code": "invalid_input",
+            "message": "Invalid event data",
+            "retryable": False,
+        }
     }
     assert provider.created == []
 
@@ -196,9 +208,13 @@ def test_create_rejects_unknown_fields_before_provider_write(
     with TestClient(app) as client:
         response = client.post("/events", json=payload)
 
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert response.json() == {
-        "error": {"code": "invalid_input", "message": "Invalid event data"}
+        "error": {
+            "code": "invalid_input",
+            "message": "Invalid event data",
+            "retryable": False,
+        }
     }
     assert provider.created == []
 
@@ -215,8 +231,8 @@ def test_create_openapi_marks_request_body_required() -> None:
         (
             PermissionDeniedError("private provider detail"),
             403,
-            "permission_denied",
-            "Permission denied",
+            "access_denied",
+            "Access denied",
         ),
         (
             ProviderFailureError("private provider detail"),
@@ -242,7 +258,9 @@ def test_http_create_renders_provider_failures(
         response = client.post("/events", json=create_request.model_dump())
 
     assert response.status_code == status
-    assert response.json() == {"error": {"code": code, "message": message}}
+    assert response.json() == {
+        "error": {"code": code, "message": message, "retryable": False}
+    }
     assert provider.created == [create_request]
     assert "private provider detail" not in response.text
     records = [record for record in caplog.records if record.name == "app.http_errors"]
