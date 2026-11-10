@@ -8,6 +8,8 @@ real Slack delivery, an independent recovery, or an extra-credit game day.**
 - Producer: isolated archive of PR #73, commit
   `3c7980a54b01bf302b5fff8177365559353fb3ca`; `uv sync --locked` with uv 0.12.17,
   Python 3.12.10. Its actual middleware, SDK instruments and OTLP exporter ran.
+  Later rule/doc revalidation used Nicolas’s `822457f` exact-200 classification;
+  metric names were unchanged, so this retained capture was not regenerated.
 - Consumer: these #72 recording rules; checksum-verified native Prometheus
   **3.16.0**, OTLP receiver enabled, loopback-only, temporary storage. No Docker
   daemon, production service, cloud resources or Google credentials involved.

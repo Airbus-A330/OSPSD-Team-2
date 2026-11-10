@@ -102,7 +102,7 @@ tests:
               summary: Team 2 Calendar Get requests are failing
               description: More than 20% of eligible Get requests failed over 5 minutes, with at least 5 eligible requests, for 2 minutes. Inspect the dashboard and runbook.
               dashboard_url: https://GRAFANA_HOST.invalid/d/team2-calendar
-              runbook_url: https://github.com/Airbus-A330/OSPSD-Team-2/blob/master/docs/RELIABILITY.md#runbook
+              runbook_url: https://github.com/Airbus-A330/OSPSD-Team-2/blob/assgn2-ms3-submission/docs/RELIABILITY.md#runbook
       - eval_time: 10m
         alertname: Team2CalendarGetHighFailureRate
         exp_alerts: []
