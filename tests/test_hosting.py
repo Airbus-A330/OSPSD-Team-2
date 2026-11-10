@@ -2,15 +2,19 @@
 
 import json
 import os
+from collections.abc import AsyncIterator
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from google.auth.exceptions import RefreshError, TransportError
 
-from app import credential_store, google_calendar
+from app import credential_store, google_calendar, hosting
 from app.composition import get_calendar_service
 from app.errors import ProviderFailureError, ProviderUnavailableError
 from app.hosting import StartupConfigurationError, create_hosted_app, prepare_runtime
@@ -274,3 +278,89 @@ def test_sdk_refresh_persists_and_stale_client_reuses_new_token(runtime, monkeyp
     assert refreshed == [1]
     assert first.token == stale.token == "sdk-refreshed-test-token"
     assert json.loads(runtime.read_text())["token"] == first.token
+
+
+@pytest.mark.parametrize("authorized", [False, True])
+def test_hosted_factory_preserves_lifecycle_state_and_observes_access(
+    runtime, monkeypatch, authorized
+):
+    lifecycle = []
+    observed = []
+    exported = []
+    route_calls = []
+
+    @asynccontextmanager
+    async def base_lifespan(app: FastAPI) -> AsyncIterator[dict[str, str]]:
+        lifecycle.append("start")
+        assert app.state.ready is False
+        try:
+            yield {"base_resource": "available"}
+        finally:
+            assert app.state.ready is False
+            exported.extend(observed)
+            lifecycle.append("stop")
+
+    class ObserveRequests:
+        """Controlled telemetry: record responses, export at base shutdown."""
+
+        def __init__(self, app: ASGIApp) -> None:
+            self.app = app
+
+        async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+            async def observe(message: Message) -> None:
+                if scope["type"] == "http" and message["type"] == "http.response.start":
+                    observed.append(message["status"])
+                await send(message)
+
+            await self.app(scope, receive, observe)
+
+    base = FastAPI(lifespan=base_lifespan)
+    base.add_middleware(ObserveRequests)
+
+    @base.get("/events/{event_id}")
+    def read(request: Request, event_id: str) -> dict[str, str]:
+        route_calls.append(event_id)
+        return {"resource": request.state.base_resource}
+
+    monkeypatch.setattr(hosting, "create_app", lambda: base)
+    application = create_hosted_app()
+    with TestClient(application) as client:
+        assert lifecycle == ["start"]
+        assert application.state.ready is True
+        response = client.get(
+            "/events/synthetic-id",
+            headers={"Authorization": f"Bearer {API_TOKEN}"} if authorized else {},
+        )
+        assert response.status_code == (200 if authorized else 403)
+        if authorized:
+            assert response.json() == {"resource": "available"}
+        else:
+            assert response.json()["error"]["code"] == "access_denied"
+        assert route_calls == (["synthetic-id"] if authorized else [])
+        assert observed == [response.status_code]
+        assert exported == []
+    assert lifecycle == ["start", "stop"]
+    assert exported == [response.status_code]
+    assert application.state.ready is False
+    assert application.state.api_token == ""
+
+
+@pytest.mark.parametrize("failure_phase", ["startup", "shutdown"])
+def test_hosted_factory_clears_readiness_and_access_after_base_failure(
+    runtime, monkeypatch, failure_phase
+):
+    @asynccontextmanager
+    async def base_lifespan(app: FastAPI) -> AsyncIterator[None]:
+        if failure_phase == "startup":
+            raise RuntimeError("controlled startup failure")
+        yield
+        raise RuntimeError("controlled shutdown failure")
+
+    base = FastAPI(lifespan=base_lifespan)
+    monkeypatch.setattr(hosting, "create_app", lambda: base)
+    application = create_hosted_app()
+    with pytest.raises(RuntimeError, match=f"controlled {failure_phase} failure"):
+        with TestClient(application):
+            assert application.state.ready is True
+    assert application.state.ready is False
+    assert application.state.api_token == ""

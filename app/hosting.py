@@ -7,12 +7,13 @@ never attempt interactive Google authorization or probe Google for readiness.
 import json
 import os
 import secrets
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from google.oauth2.credentials import Credentials
+from starlette.middleware import Middleware
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -114,19 +115,31 @@ def create_hosted_app() -> FastAPI:
     """Wrap the existing API with deployment-only lifecycle and access checks."""
     application = create_app()
     application.state.ready = False
+    application.state.api_token = ""
+    base_lifespan = application.router.lifespan_context
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        app.state.api_token = prepare_runtime()
-        app.state.ready = True
+    async def lifespan(app: FastAPI) -> AsyncIterator[Mapping[str, object]]:
         try:
-            yield
+            app.state.api_token = prepare_runtime()
+            # Preserve base startup/shutdown (including telemetry) and any
+            # lifespan state that the base factory exposes to requests.
+            async with base_lifespan(app) as state:
+                app.state.ready = True
+                try:
+                    yield state if state is not None else {}
+                finally:
+                    app.state.ready = False
         finally:
             app.state.ready = False
             app.state.api_token = ""
 
     application.router.lifespan_context = lifespan
-    application.add_middleware(HostedAccess, application=application)
+    # Starlette runs user middleware from outermost to innermost. Append access
+    # inside existing instrumentation so early 403 responses are observable.
+    application.user_middleware.append(
+        Middleware(HostedAccess, application=application)
+    )
 
     @application.get("/healthz", include_in_schema=False)
     async def health() -> dict[str, str]:

@@ -85,6 +85,12 @@ required for this issue.
 Containers run `app.hosting:app`; local development continues to use
 `app.main:app`. Both use the same Calendar routes and provider implementation.
 The hosted wrapper adds startup validation and a deployment access boundary.
+It composes the base factory's lifespan instead of replacing its startup/shutdown
+work, and forwards any yielded lifespan state. Readiness is enabled only after
+base startup completes, and disabled before shutdown. Base request middleware
+remains outside hosted access checks so it can observe early 403 responses.
+The #73 telemetry implementation can therefore initialize, export and clean up
+through the actual container entry point.
 
 | Variable | Value / handling |
 | --- | --- |
@@ -305,8 +311,9 @@ These CI results do not cover the following local free-plan changes.
 
 ## Free-plan verification — 2026-11-09
 
-Source: local, uncommitted changes on top of review-fix commit `f48a62b`. No cloud resources,
-real Google requests, commit or push were performed for this update.
+Historical local verification for the free-plan update based on `f48a62b`,
+subsequently committed and pushed as `f7d60dc`. No cloud resources or real Google
+requests were used for that verification.
 
 - `make check`: PASS — formatting, lint, mypy (39 files), **636 tests**,
   compilation and application import. The existing Starlette/AnyIO warning remains.
@@ -331,6 +338,45 @@ Real cold-start recovery with Google, cloud reapplication and independent teamma
 acceptance still need deployment evidence. Local tests do not resolve Hobby's
 shared-state/access limitation.
 
+## Hosted integration review verification — 2026-11-10
+
+Source: local fixes on `f7d60dc`. An earlier verification temporarily included
+`assgn2-ms3-submission@9e663a9`. That local merge was subsequently aborted at
+the author's request; DESIGN conflict resolution is deferred. The current
+working tree retains only the hosted integration repairs and their tests/docs.
+The combined-baseline results below are historical verification evidence, not
+the current branch's test count.
+
+After aborting that merge, the retained repairs were revalidated on `f7d60dc`:
+`make check` passed with **640 tests**; Windows-targeted mypy passed for 39 files;
+`make container-build container-check` passed. No baseline synchronization or
+DESIGN conflict resolution is included in the current working tree.
+
+- Before the fix: all four new hosted-factory regressions failed.
+- In the temporary combined baseline: `make check` passed (format, lint, mypy, **750 passed / 1 skipped**,
+  compilation and import). The existing live Google workflow is opt-in and was
+  skipped; no actual provider verification is claimed.
+- `uv run --locked mypy --platform win32 .`: passed, 42 files. This is still a
+  static Windows-target check, not native Windows pytest.
+- `make infra-check container-build container-check`: passed. The container
+  smoke test now uses the module-level `app.hosting:app` entry point.
+- In a separate temporary source snapshot, combined these changes with #73's
+  `app/main.py`, `app/telemetry/` and locked dependencies at `822457f`.
+  Ten selected hosted/lifecycle/access tests passed.
+- Built that snapshot as `ospsd-team2-issue68-telemetry:verify`. Inside a
+  linux/amd64 container with `--network none`, ran `app.hosting:app` under
+  Uvicorn against a loopback-only OTLP receiver and a controlled Calendar service.
+  Confirmed actual telemetry startup and shutdown, HTTP 200 and early 403
+  correlated logs/traces, request metrics for success/access_denied, no service
+  call on denial, and no credentials/event contents in the exported signals.
+
+The temporary snapshot is a focused hosted/HTTP telemetry integration check.
+It does not merge #73's provider instrumentation or unrelated changes into this
+branch, and does not prove the full #73 merge or deployed OTLP connectivity.
+The production lockfile and telemetry implementation are unchanged by this fix.
+Nicolas/Max should recheck the final integrated revision before deployment.
+No cloud resources, notifications, commits or pushes were made for this update.
+
 ### Issue #68 acceptance criteria, in issue order
 
 PASS below refers only to the stated local evidence. Cloud results are not inferred.
@@ -340,7 +386,7 @@ PASS below refers only to the stated local evidence. Cloud results are not infer
 | 1 | Reproducible deployable artifact | PASS | Pinned bases, locked install, successful linux/amd64 build and runtime check |
 | 2 | Locked application dependencies | PASS | `uv sync --locked --no-dev --no-editable`; lockfile unchanged |
 | 3 | No credentials/environment secrets in artifact | PASS | Allowlisted build context, explicit copies, no secret build inputs |
-| 4 | Version-controlled IaC | PARTIAL | Template/generator committed in `fcc8858`; free-plan changes remain local and the digest-specific file still needs generation, review and application |
+| 4 | Version-controlled IaC | PARTIAL | Free-plan template committed in `f7d60dc`; digest-specific file still needs generation, review and application |
 | 5 | Hosting/IaC tools and rationale documented | PASS | Selected approach above |
 | 6 | Preview before apply | PARTIAL | Template/schema and review procedure ready; actual workspace preview pending |
 | 7 | Unchanged reapply avoids duplicates/replacement | PARTIAL | Stable resource names/digest; actual second sync pending |
@@ -360,4 +406,4 @@ PASS below refers only to the stated local evidence. Cloud results are not infer
 | 21 | Second actual IaC apply has no unexpected change | NOT COMPLETED | Repeat-generation test is not evidence of cloud reapply |
 | 22 | Teammate tears down from documentation | NOT COMPLETED | External acceptance exercise pending |
 | 23 | No secrets in source/build/logs/plans/CI artifacts | PARTIAL | Local checks used synthetic fixtures; real cloud/CI handling remains to verify |
-| 24 | Required CI checks pass | PARTIAL | Build/Format/Tests passed for `f48a62b`; free-plan checks pass locally, but their remote CI awaits push |
+| 24 | Required CI checks pass | PARTIAL | Build/Format/Tests passed for `f7d60dc`; hosted integration fixes pass locally but their remote CI awaits push |

@@ -15,7 +15,8 @@ import uvicorn
 
 from app.composition import get_calendar_service
 from app.errors import ProviderUnavailableError
-from app.hosting import create_hosted_app, prepare_runtime
+from app.hosting import app as application
+from app.hosting import prepare_runtime
 
 
 def main() -> None:
@@ -61,7 +62,6 @@ def main() -> None:
                 ),
             }
         )
-        application = create_hosted_app()
 
         # No volume is mounted. Exercise the image's actual writable cache path,
         # including a fresh start after its local token file disappears.
