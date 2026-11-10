@@ -154,9 +154,11 @@ After account owner, budget, access and deployment authorization are confirmed:
    approved repository branch, with path `infra/render.yaml`. Review Render's
    proposed resources before deploying. Supply the three `sync: false` inputs
    from the runtime configuration table through Render's protected UI.
-2. Disable Blueprint **Auto Sync** in its Settings. `autoDeployTrigger: off` in
-   the file controls service auto-deploy, not Blueprint Auto Sync. Keep automatic
-   syncing off until #69 defines the reviewed delivery workflow.
+2. Disable Blueprint **Auto Sync** manually in its Settings. Render's
+   [Blueprint reference](https://render.com/docs/blueprint-spec#autodeploytrigger)
+   states that `autoDeployTrigger` has no effect for prebuilt-image services, so
+   the template omits it. Keep Blueprint Auto Sync off until #69 defines the
+   reviewed delivery workflow.
 3. Verify the service/disk are owned by that Blueprint, and record their IDs,
    Blueprint link, applied source commit, image digest and authorized operators.
    These mappings and current configuration are the protected/shared IaC state.
@@ -223,8 +225,11 @@ References: [Blueprint management](https://render.com/docs/infrastructure-as-cod
 
 ## Local verification record — 2026-11-09
 
-Source: uncommitted issue #68 working tree based on `7116084`. This is not a
-published release or a deployed revision. The local image tag is
+Reviewed branch revision: [`fcc8858`](https://github.com/Airbus-A330/OSPSD-Team-2/commit/fcc8858d30f85cc99f3b9379b975d3dbc8e65b37),
+committed and pushed in PR #75, based on `7116084`. The following local results
+were recorded on macOS for that implementation; they do not establish Windows
+compatibility. This is not a published image release or a deployed revision.
+The local image tag is
 `ospsd-team2-issue68:local`; its final runtime image config ID was
 `sha256:c9d1b4e76cff74311781f88adbb37ced030bb67578d5dff935c389fe9e0d7cd2`.
 Do not use that local config ID as a registry pull digest.
@@ -248,8 +253,24 @@ Commands actually run:
 
 One existing Starlette/AnyIO deprecation warning remains. An initial mypy module
 naming error and an incorrect schema URL were corrected before these final runs.
-No actual credentials, provider requests, cloud provisioning, registry push,
-Git commit/push or GitHub mutations were performed.
+No actual credentials, provider requests, cloud provisioning or registry push
+were used in these local checks. The implementation was subsequently committed
+and pushed as `fcc8858`.
+
+GitHub CI for `fcc8858`: all six Build, Format and Tests checks (push and pull
+request) passed. PR runs: [Build](https://github.com/Airbus-A330/OSPSD-Team-2/actions/runs/42749202853),
+[Format](https://github.com/Airbus-A330/OSPSD-Team-2/actions/runs/42749203141),
+and [Tests](https://github.com/Airbus-A330/OSPSD-Team-2/actions/runs/42749202844).
+These results apply to that commit, not subsequent unpushed review fixes.
+
+### Review-fix verification — 2026-11-09
+
+Local review fixes on top of `fcc8858` passed `make check` (632 tests),
+`uv run --locked mypy --platform win32 .` (39 files), `make infra-check`,
+and `make container-build container-check`. The Linux container check explicitly
+verifies UID 10001 and token mode 0600. The Windows-targeted mypy check ran on
+macOS; native Windows pytest still needs teammate confirmation. Remote CI for
+these fixes remains pending until they are committed and pushed.
 
 ### Issue #68 acceptance criteria, in issue order
 
@@ -260,7 +281,7 @@ PASS below refers only to the stated local evidence. Cloud results are not infer
 | 1 | Reproducible deployable artifact | PASS | Pinned bases, locked install, successful linux/amd64 build and runtime check |
 | 2 | Locked application dependencies | PASS | `uv sync --locked --no-dev --no-editable`; lockfile unchanged |
 | 3 | No credentials/environment secrets in artifact | PASS | Allowlisted build context, explicit copies, no secret build inputs |
-| 4 | Version-controlled IaC | PARTIAL | Blueprint template/generator written locally; intentionally not committed/pushed yet |
+| 4 | Version-controlled IaC | PARTIAL | Template/generator committed and pushed in `fcc8858`; digest-specific `infra/render.yaml` still needs generation, review and application |
 | 5 | Hosting/IaC tools and rationale documented | PASS | Selected approach above |
 | 6 | Preview before apply | PARTIAL | Template/schema and review procedure ready; actual workspace preview pending |
 | 7 | Unchanged reapply avoids duplicates/replacement | PARTIAL | Stable resource names/digest; actual second sync pending |
@@ -280,4 +301,4 @@ PASS below refers only to the stated local evidence. Cloud results are not infer
 | 21 | Second actual IaC apply has no unexpected change | NOT COMPLETED | Repeat-generation test is not evidence of cloud reapply |
 | 22 | Teammate tears down from documentation | NOT COMPLETED | External acceptance exercise pending |
 | 23 | No secrets in source/build/logs/plans/CI artifacts | PARTIAL | Local checks used synthetic fixtures; real cloud/CI handling remains to verify |
-| 24 | Required CI checks pass | PARTIAL | Canonical checks pass locally; no remote CI run because no push authorized |
+| 24 | Required CI checks pass | PASS at `fcc8858` | Six GitHub Build/Format/Tests checks passed; subsequent review fixes require a new CI run after push |

@@ -20,7 +20,9 @@ from app.hosting import create_hosted_app
 
 def main() -> None:
     """Verify startup, health and access controls with networking disabled."""
-    assert os.getuid() == 10001, "Runtime must use the unprivileged service user"
+    getuid = getattr(os, "getuid", None)
+    assert callable(getuid), "Container check requires a POSIX runtime"
+    assert getuid() == 10001, "Runtime must use the unprivileged service user"
     assert not list(Path("/app").glob("*.json")), "Unexpected runtime JSON inputs"
     assert not Path("/app/.git").exists(), "Git history must not enter the image"
     assert not list(Path("/app/app").rglob("*.json")), "Unexpected JSON in app sources"
@@ -86,6 +88,10 @@ def main() -> None:
             ):
                 time.sleep(0.05)
             assert server.started, "Server failed to start"
+            token_path = Path(os.environ["GOOGLE_CALENDAR_TOKEN_FILE"])
+            assert token_path.stat().st_mode & 0o777 == 0o600, (
+                "Runtime token must be readable/writable only by its owner"
+            )
 
             def request(path: str, *, authorized: bool = False) -> tuple[int, dict]:
                 headers = (

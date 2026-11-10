@@ -76,7 +76,8 @@ def test_invalid_authorization_is_sanitized(runtime, monkeypatch, payload):
 
 def test_seed_is_private_and_never_overwrites_refreshed_state(runtime, monkeypatch):
     prepare_runtime()
-    assert runtime.stat().st_mode & 0o777 == 0o600
+    if os.name != "nt":
+        assert runtime.stat().st_mode & 0o777 == 0o600
     updated = dict(TOKEN_INFO, refresh_token="new-test-refresh")
     runtime.write_text(json.dumps(updated))
     monkeypatch.setenv("GOOGLE_CALENDAR_TOKEN_JSON", "invalid-old-seed")
@@ -166,7 +167,8 @@ def test_concurrent_refresh_reloads_persisted_token_once(runtime, monkeypatch):
     assert len(calls) == 1
     assert all(result.token == "updated-test-access" for result in results)
     assert json.loads(runtime.read_text())["token"] == "updated-test-access"
-    assert runtime.stat().st_mode & 0o777 == 0o600
+    if os.name != "nt":
+        assert runtime.stat().st_mode & 0o777 == 0o600
 
 
 @pytest.mark.parametrize(
