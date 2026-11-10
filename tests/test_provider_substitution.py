@@ -301,9 +301,13 @@ def test_invalid_put_values_rejected_before_provider_setup(
         response = client.put(
             "/events/event-002", json={**replacement_values, **changes}
         )
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert response.json() == {
-        "error": {"code": "invalid_input", "message": "Invalid event replacement"}
+        "error": {
+            "code": "invalid_input",
+            "message": "Invalid event replacement",
+            "retryable": False,
+        }
     }
 
 
@@ -319,7 +323,7 @@ def test_put_requires_every_editable_field_without_provider_write(
     del replacement_values[omitted]
     with TestClient(app) as client:
         response = client.put("/events/event-002", json=replacement_values)
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_input"
     assert provider.replacement_calls == []
     assert provider.outcomes == configured_events
@@ -342,7 +346,7 @@ def test_put_rejects_missing_or_malformed_body_before_provider_setup(
             content=body,
             headers={"Content-Type": "application/json"},
         )
-    assert response.status_code == 400
+    assert response.status_code == (400 if body in ("", "{") else 422)
     assert response.json()["error"]["code"] == "invalid_input"
 
 
@@ -350,7 +354,7 @@ def test_put_rejects_missing_or_malformed_body_before_provider_setup(
     ("error", "status", "code", "message"),
     [
         (NotFoundError(), 404, "not_found", "Event not found"),
-        (PermissionDeniedError(), 403, "permission_denied", "Permission denied"),
+        (PermissionDeniedError(), 403, "access_denied", "Access denied"),
         (
             ProviderFailureError(),
             502,
@@ -373,7 +377,9 @@ def test_put_shared_failures(
     with TestClient(app) as client:
         response = client.put("/events/failed-event", json=replacement_values)
     assert response.status_code == status
-    assert response.json() == {"error": {"code": code, "message": message}}
+    assert response.json() == {
+        "error": {"code": code, "message": message, "retryable": False}
+    }
     assert provider.replacement_calls == ["failed-event"]
     record = next(r for r in caplog.records if r.name == "app.http_errors")
     assert record.__dict__["operation"] == "replace_event"
@@ -411,7 +417,7 @@ def test_put_missing_event_does_not_create_it(
         response = client.put("/events/missing-event", json=replacement_values)
     assert response.status_code == 404
     assert response.json() == {
-        "error": {"code": "not_found", "message": "Event not found"}
+        "error": {"code": "not_found", "message": "Event not found", "retryable": False}
     }
     assert provider.outcomes == {}
 
@@ -427,9 +433,13 @@ def test_put_blank_id_rejected_before_provider_setup(
     )
     with TestClient(app) as client:
         response = client.put("/events/%20%20", json=replacement_values)
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert response.json() == {
-        "error": {"code": "invalid_input", "message": "Invalid event ID"}
+        "error": {
+            "code": "invalid_input",
+            "message": "Invalid event ID",
+            "retryable": False,
+        }
     }
 
 

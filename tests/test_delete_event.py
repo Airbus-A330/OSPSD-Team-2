@@ -17,6 +17,7 @@ from app.errors import (
     NotFoundError,
     PermissionDeniedError,
     ProviderFailureError,
+    ProviderUnavailableError,
     ServiceError,
 )
 from app.events import delete_event
@@ -96,7 +97,11 @@ def test_delete_removes_only_target_and_repeated_delete_is_not_found(
         repeated = client.delete("/events/target")
         assert repeated.status_code == 404
         assert repeated.json() == {
-            "error": {"code": "not_found", "message": "Event not found"}
+            "error": {
+                "code": "not_found",
+                "message": "Event not found",
+                "retryable": False,
+            }
         }
     assert provider.calls == ["target", "target"]
     assert provider.events["untouched"].model_dump() == untouched
@@ -139,9 +144,13 @@ def test_blank_http_id_is_rejected_before_client_setup(
     )
     with TestClient(app) as client:
         response = client.delete("/events/%20%20")
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert response.json() == {
-        "error": {"code": "invalid_input", "message": "Invalid event ID"}
+        "error": {
+            "code": "invalid_input",
+            "message": "Invalid event ID",
+            "retryable": False,
+        }
     }
     record = caplog.records[-1]
     assert record.__dict__["operation"] == "delete_event"
@@ -152,7 +161,7 @@ def test_blank_http_id_is_rejected_before_client_setup(
     ("failure", "status", "code", "message"),
     [
         (NotFoundError, 404, "not_found", "Event not found"),
-        (PermissionDeniedError, 403, "permission_denied", "Permission denied"),
+        (PermissionDeniedError, 403, "access_denied", "Access denied"),
         (
             ProviderFailureError,
             502,
@@ -176,7 +185,9 @@ def test_delete_failure_is_sanitized_logged_and_does_not_retry(
     with TestClient(app) as client:
         response = client.delete("/events/target")
     assert response.status_code == status
-    assert response.json() == {"error": {"code": code, "message": message}}
+    assert response.json() == {
+        "error": {"code": code, "message": message, "retryable": False}
+    }
     assert provider.calls == ["target"]
     assert provider.events == before
     assert len(caplog.records) == 1
@@ -224,8 +235,8 @@ def test_google_delete_uses_configured_calendar_and_returns_no_data() -> None:
         (410, "deleted", NotFoundError),
         (410, "fullSyncRequired", ProviderFailureError),
         (403, "forbidden", PermissionDeniedError),
-        (403, "rateLimitExceeded", ProviderFailureError),
-        (429, "rateLimitExceeded", ProviderFailureError),
+        (403, "rateLimitExceeded", ProviderUnavailableError),
+        (429, "rateLimitExceeded", ProviderUnavailableError),
         (500, "backendError", ProviderFailureError),
     ],
 )

@@ -322,7 +322,13 @@ def test_malformed_json_has_shared_error_and_safe_log_before_provider_setup(
             method, path, content=body, headers={"Content-Type": "application/json"}
         )
     assert response.status_code == 400
-    assert response.json() == {"error": {"code": "invalid_input", "message": message}}
+    assert response.json() == {
+        "error": {
+            "code": "invalid_input",
+            "message": message,
+            **({"retryable": False} if method in ("POST", "PUT") else {}),
+        }
+    }
     records = [record for record in caplog.records if record.name == "app.http_errors"]
     assert len(records) == 1
     record = records[0]

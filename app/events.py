@@ -84,19 +84,8 @@ def _parse_event_time(value: str, field_name: str) -> datetime:
     return parsed
 
 
-def validate_create_event(event: CreateEventRequest) -> None:
-    """Validate locally checkable create constraints before a provider write."""
-    if not event.title.strip():
-        raise InvalidInputError("Event title must contain non-whitespace content")
-
-    start = _parse_event_time(event.start, "Event start")
-    end = _parse_event_time(event.end, "Event end")
-    if end <= start:
-        raise InvalidInputError("Event end must be after its start")
-
-
 def create_event(event: CreateEventRequest, provider: EventProvider) -> Event:
-    """Validate and create an event through the configured provider.
+    """Create an event from a validated shared request through the provider.
 
     Args:
         event: Provider-independent values for the event to create.
@@ -105,10 +94,8 @@ def create_event(event: CreateEventRequest, provider: EventProvider) -> Event:
     Returns:
         The created event, including its provider-generated identifier.
 
-    Raises:
-        InvalidInputError: If the title or timed-event boundaries are invalid.
+    The shared request model owns title and time validation.
     """
-    validate_create_event(event)
     return provider.create_event(event)
 
 

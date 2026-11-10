@@ -2,16 +2,39 @@
 
 This document records what the project tests and why.
 
+`tests/telemetry/` covers the real CRUD/application/Google boundaries, operation
+metrics, safe logs, HTTP/provider spans, worker saturation, bounded export and
+failure isolation. It also verifies exact success statuses and preservation of
+all six Calendar routes. See [OBSERVABILITY.md](OBSERVABILITY.md) for evidence and
+deployed verification.
+
 Repository-wide testing rules are defined in `../AGENTS.md`.
 
-## Shared GET interface
+## Shared contract integration
 
-`tests/test_shared_calendar_service.py` checks the `CalendarService` adapter,
-the HTTP route with a shared-only substitute, direct-consumer ID validation,
-shared error propagation, and non-retrying delegation of existing writes.
-It reuses the tagged conformance suite's GET success and missing-event cases
-with isolated, preseeded SDK fixtures. These cases do not contact Google or
-claim complete create/replace/delete conformance.
+`tests/integration/test_shared_conformance.py` subclasses the complete upstream
+`CalendarServiceConformance` from pinned `v0.1.0-rc.1`. It runs through both
+`CalendarServiceAdapter` and HTTP, with the actual Google adapter and cache over
+a stateful controlled Google SDK. Upstream fixtures create and delete isolated
+events. Error fixtures fail at the SDK boundary, not inside application code.
+Additional regressions verify quota rejection and lost responses after a write
+has actually changed controlled state; no automatic retry is allowed.
+
+`tests/integration/test_shared_http.py` verifies shared-only service substitution,
+strict write validation before provider setup, exact string preservation, and
+sanitized shared errors without depending on local exception subclasses.
+`tests/test_shared_calendar_service.py` retains the original GET migration checks.
+Existing operation/cache tests remain regression coverage; assertions for common
+HTTP operations now expect the approved 400/422 split, `access_denied`, and
+`retryable`. Listing and PATCH retain their extension assertions.
+
+Run these tests with `uv run --locked python -m pytest tests/integration -q`.
+They are also collected by `make test` and `make check`, so existing Tests CI
+runs the complete conformance suite without network access or credentials.
+
+`tests/live/test_shared_workflow.py` is explicitly skipped unless
+`RUN_LIVE_CALENDAR=1`. See [live verification](PROVIDER.md#hw2-shared-workflow-verification)
+for prerequisites, cleanup, and the outstanding verification record.
 
 ## Test Layers
 

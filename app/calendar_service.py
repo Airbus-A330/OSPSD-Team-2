@@ -3,16 +3,11 @@
 from calendar_contract import CreateEvent, Event, ReplaceEvent
 
 from app import events
-from app.models import CreateEventRequest, EventReplacement
 from app.providers import EventProvider
 
 
 class CalendarServiceAdapter:
-    """Reuse Team 2 operations without exposing its extension methods.
-
-    GET is the migrated HTTP slice. The other methods bridge existing operations;
-    their complete conformance and HTTP migration remain follow-up work.
-    """
+    """Expose the four shared operations through Team 2 application behavior."""
 
     def __init__(self, provider: EventProvider, *, validate_get: bool = True) -> None:
         self._provider = provider
@@ -24,15 +19,11 @@ class CalendarServiceAdapter:
 
     def create(self, request: CreateEvent) -> Event:
         """Bridge a shared request to the existing create operation, without retries."""
-        return events.create_event(
-            CreateEventRequest(**request.model_dump()), self._provider
-        )
+        return events.create_event(request, self._provider)
 
     def replace(self, event_id: str, request: ReplaceEvent) -> Event:
         """Bridge a shared replacement to the existing application operation."""
-        return events.replace_event(
-            event_id, EventReplacement(**request.model_dump()), self._provider
-        )
+        return events.replace_event(event_id, request, self._provider)
 
     def delete(self, event_id: str) -> None:
         """Delegate deletion without changing its existing provider behavior."""

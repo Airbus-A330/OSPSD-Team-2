@@ -40,6 +40,10 @@ _SHARED_ERROR_RESPONSES: dict[ErrorCode, tuple[int, str]] = {
     ErrorCode.PROVIDER_UNAVAILABLE: (503, "Calendar provider is unavailable"),
 }
 
+_SHARED_OPERATIONS = frozenset(
+    {"create_event", "get_event", "replace_event", "delete_event"}
+)
+
 _INVALID_MESSAGES = {
     "create_event": "Invalid event data",
     "delete_event": "Invalid event ID",
@@ -57,7 +61,9 @@ def _operation_name(request: Request) -> str:
     return name if isinstance(name, str) else "request_validation"
 
 
-def service_error_response(request: Request, error: Exception) -> JSONResponse:
+def service_error_response(
+    request: Request, error: Exception, *, status_override: int | None = None
+) -> JSONResponse:
     """Render a supported service error using the fixed public contract.
 
     Exception text and request contents are deliberately excluded. Provider
@@ -65,13 +71,15 @@ def service_error_response(request: Request, error: Exception) -> JSONResponse:
     not whether a remote request completed. Unexpected errors are not mapped.
     """
     operation = _operation_name(request)
-    shared_get = False
+    shared_core = False
     retryable = False
-    if operation == "get_event" and isinstance(error, CalendarError):
-        shared_get = True
+    if operation in _SHARED_OPERATIONS and isinstance(error, CalendarError):
+        shared_core = True
         status, message = _SHARED_ERROR_RESPONSES[error.code]
         code = error.code.value
         retryable = error.retryable
+        if error.code is ErrorCode.INVALID_INPUT:
+            message = _INVALID_MESSAGES.get(operation, message)
     else:
         for error_type, (status, code, message) in _ERROR_RESPONSES.items():
             if isinstance(error, error_type):
@@ -80,6 +88,8 @@ def service_error_response(request: Request, error: Exception) -> JSONResponse:
             raise error
     if isinstance(error, InvalidInputError):
         message = error.public_message or _INVALID_MESSAGES.get(operation, message)
+    if status_override is not None:
+        status = status_override
     provider_involved = getattr(error, "provider_involved", None)
     if provider_involved is None:
         provider_involved = True
@@ -98,7 +108,7 @@ def service_error_response(request: Request, error: Exception) -> JSONResponse:
         },
     )
     body: dict[str, object] = {"code": code, "message": message}
-    if shared_get:
+    if shared_core:
         body["retryable"] = retryable
     return JSONResponse(status_code=status, content={"error": body})
 
@@ -125,14 +135,12 @@ async def http_error_response(request: Request, error: Exception) -> Response:
 def _invalid_request_response(
     request: Request, *, malformed_json: bool = True
 ) -> JSONResponse:
-    response = service_error_response(
+    return service_error_response(
         request,
         InvalidInputError(
             "Request schema validation failed",
             public_message=_INVALID_MESSAGES.get(_operation_name(request)),
             provider_involved=False,
         ),
+        status_override=400 if malformed_json else None,
     )
-    if _operation_name(request) == "get_event" and malformed_json:
-        response.status_code = 400
-    return response

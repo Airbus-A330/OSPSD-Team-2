@@ -6,6 +6,8 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException
 
 from app.api.routes import router
+from app.telemetry.http import CalendarTelemetryMiddleware
+from app.telemetry.runtime import telemetry_lifespan
 from app.composition import get_event_provider
 from app.errors import (
     InvalidInputError,
@@ -23,7 +25,8 @@ from app.http_errors import (
 
 def create_app() -> FastAPI:
     """Create the HTTP application and register routes and error handlers."""
-    application = FastAPI()
+    application = FastAPI(lifespan=telemetry_lifespan)
+    application.add_middleware(CalendarTelemetryMiddleware)
     application.add_exception_handler(HTTPException, http_error_response)
     application.add_exception_handler(
         RequestValidationError, request_validation_error_response

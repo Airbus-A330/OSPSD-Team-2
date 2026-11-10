@@ -110,7 +110,7 @@ populate or read the single-event cache.
 
 **Errors**
 
-This migrated operation follows the tagged shared Calendar contract. Local
+The four common operations follow the tagged shared Calendar contract. Local
 service exception names subclass the shared `CalendarError`, carry a shared
 `ErrorCode` and required `retryable` value, and retain only internal diagnostic
 text. HTTP responses use fixed safe messages, never arbitrary exception text or
@@ -208,9 +208,11 @@ service does not retry or supply idempotency guarantees.
 
 | Condition | Code | HTTP status | Public message | Retry |
 |---|---|---:|---|---|
-| Missing or invalid event data | `invalid_input` | 400 | `Invalid event data` | No, unless the caller changes the input |
-| Provider denies event creation | `permission_denied` | 403 | `Permission denied` | No, unless access/authorization changes |
-| Provider failure prevents completion | `provider_error` | 502 | `Calendar provider request failed` | Potentially; the write outcome may be unknown |
+| Malformed/non-JSON or empty body | `invalid_input` | 400 | `Invalid event data` | `false` |
+| Valid JSON with missing, invalid, or unknown fields | `invalid_input` | 422 | `Invalid event data` | `false` |
+| Provider denies event creation | `access_denied` | 403 | `Access denied` | `false` |
+| Unexpected response or uncertain write | `provider_error` | 502 | `Calendar provider request failed` | `false` |
+| Confirmed quota rejection or unavailable setup/preflight | `provider_unavailable` | 503 | `Calendar provider is unavailable` | `true` |
 
 Errors use the shared response shape documented above. Raw provider failures
 and provider-specific response fields are not exposed.
@@ -237,13 +239,13 @@ operation is read-only and safe to repeat; separate requests are not a snapshot.
 
 This first version returns one provider page in provider order. It does not
 promise chronological order, a full calendar traversal, or a full page. No Google
-page tokens or collection metadata are exposed. Only titled, timed events are
-supported, as for GET-one; an unsupported event in the page produces the shared
+page tokens or collection metadata are exposed. Timed events, including
+untitled events, are supported; an unsupported event in the page produces the shared
 502 `provider_error` response instead of silently dropping it or inventing fields.
 
-Other provider failures reuse the existing shared response shape and status/code
-mapping above (403 permission denial, 404 provider-reported missing resource, 502
-provider failure). Retry advice remains the same; this service does not retry
+This optional extension retains its legacy two-field error envelope: 403
+`permission_denied`, 404 `not_found`, and 502 `provider_error` (503
+`provider_unavailable` for failed client setup). Retry advice remains the same; this service does not retry
 requests automatically. Locally rejected limits cause no provider work.
 
 With provider setup complete, run:
@@ -268,7 +270,7 @@ public `Event` (`id`, `title`, `start`, `end`). It does not create missing event
 The JSON body requires all three string fields: `title`, `start`, and `end`.
 Unknown fields, nulls, omitted fields, and non-string values are invalid.
 `title` must contain a non-whitespace character. Times must be valid RFC3339
-date-time strings using `T`, seconds, optional fractional seconds, and `Z` or an
+date-time strings using `T`/`t`, seconds, optional fractional seconds, and `Z`/`z` or an
 explicit `+HH:MM`/`-HH:MM` offset. Date-only and timezone-free values are invalid.
 `end` must be strictly after `start`, comparing instants across offsets. Accepted
 request strings are passed unchanged; the response preserves the provider's
@@ -276,10 +278,13 @@ result strings. The existing Event response model and GET semantics are unchange
 
 The shared event-ID rule applies: reject blank IDs, pass every nonblank ID
 unchanged. All locally checkable validation completes before provider setup or
-writes. Invalid input returns the shared **400 `invalid_input`** envelope with
-`Invalid event ID` for a blank ID or `Invalid event replacement` for body errors,
-including malformed JSON. Other applicable errors use the existing fixed messages:
-**404 `not_found`**, **403 `permission_denied`**, **502 `provider_error`**.
+writes. Schema/value errors and blank IDs return **422 `invalid_input`**;
+malformed/non-JSON or empty bodies return **400 `invalid_input`**. Messages are
+`Invalid event ID` for a blank ID and `Invalid event replacement` for body errors.
+Errors include `retryable` and use **404 `not_found`**, **403 `access_denied`**,
+**502 `provider_error`**, or **503 `provider_unavailable`**. Unexpected responses
+and uncertain writes have `retryable=false`; confirmed quota refusals and failed
+setup/read preflights have `retryable=true`.
 
 Success changes all three editable values. This is full replacement, not PATCH;
 provider fields outside the public representation are not guaranteed to survive
@@ -308,7 +313,7 @@ Omitted fields remain unchanged; this is distinct from PUT replacement.
 The JSON object accepts any nonempty subset of `title`, `start`, and `end`.
 Unknown fields, explicit nulls, non-string values, and an empty object are invalid.
 A supplied title must contain non-whitespace content. Supplied times follow the
-existing RFC3339-compatible, offset-aware timestamp rules for creation; the
+existing Team 2 RFC3339-compatible, offset-aware timestamp rules; the
 resulting `end` must be strictly after `start`, comparing instants. Strings are
 preserved, including whitespace in meaningful titles and nonblank event IDs.
 Google ID syntax is not validated locally.
@@ -327,7 +332,7 @@ Locally rejected changes perform no provider write. A provider failure or lost
 response can leave the write outcome uncertain; the service never retries
 writes automatically. Inspect the current event before deciding to retry.
 
-Errors use the shared envelope: **400 `invalid_input`** (`Invalid event ID` for a
+This optional extension retains its legacy two-field envelope: **400 `invalid_input`** (`Invalid event ID` for a
 blank ID, otherwise `Invalid input`), **404 `not_found`**, **403
 `permission_denied`**, and **502 `provider_error`**, with the existing safe public
 messages. Fix invalid input/access or a missing identifier before retrying;
@@ -356,14 +361,18 @@ before provider setup, and pass every other identifier unchanged. There is no
 local Google ID syntax check or trimming. A missing path segment does not match
 this route.
 
-Errors use the existing `{"error":{"code":"...","message":"..."}}` envelope:
+Errors use the shared `{"error":{"code":"...","message":"...","retryable":false}}` envelope:
 
 | Condition | HTTP | Code | Message |
 |---|---:|---|---|
-| Blank ID | 400 | `invalid_input` | `Invalid event ID` |
+| Blank ID | 422 | `invalid_input` | `Invalid event ID` |
 | Missing/already deleted event | 404 | `not_found` | `Event not found` |
-| Access denied | 403 | `permission_denied` | `Permission denied` |
-| Provider failure | 502 | `provider_error` | `Calendar provider request failed` |
+| Access denied | 403 | `access_denied` | `Access denied` |
+| Unexpected response or uncertain deletion | 502 | `provider_error` | `Calendar provider request failed` |
+| Confirmed quota rejection or unavailable setup | 503 | `provider_unavailable` | `Calendar provider is unavailable` |
+
+`retryable` is true only for the documented temporary/unavailable case; it is
+false for invalid input, absence, access denial, and uncertain deletion.
 
 Only the identified event is deleted; other events are not changed. Repeating a
 confirmed deletion reports the missing-event error rather than a second success.
@@ -415,7 +424,13 @@ All four fields are required strings. A provider event without a title uses
 timezone conversion or normalization and must represent an increasing,
 offset-aware range. All-day events are not supported.
 
-### CreateEventRequest
+### Shared write requests
+
+`app.models.CreateEventRequest` and `EventReplacement` are compatibility import
+aliases for shared `CreateEvent` and `ReplaceEvent`, not separate model classes.
+Both use the tagged package's strict title and timestamp validation, reject unknown
+fields, and preserve supplied strings. No local title-length limit is imposed.
+Team 2 does not deliberately truncate fractional seconds.
 
 `CreateEventRequest` contains exactly the caller-supplied editable values
 `title`, `start`, and `end`. It has no `id` because the provider generates the

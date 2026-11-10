@@ -58,12 +58,19 @@ def assert_invalid(
         response = client.request(
             method, path, content=content, headers={"content-type": "application/json"}
         )
-    shared_get = method == "GET" and path.startswith("/events/")
-    assert response.status_code == (422 if shared_get else 400)
+    shared_core = method in ("POST", "PUT", "DELETE") or (
+        method == "GET" and path.startswith("/events/")
+    )
+    try:
+        json.loads(content)
+        malformed = False
+    except (ValueError, UnicodeDecodeError):
+        malformed = True
+    assert response.status_code == (422 if shared_core and not malformed else 400)
     assert response.json()["error"]["code"] == "invalid_input"
     expected_fields = (
         {"code", "message", "retryable"}
-        if shared_get
+        if shared_core
         else {
             "code",
             "message",

@@ -28,6 +28,7 @@ from app.errors import (
 )
 from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
+from app.telemetry.runtime import provider_span
 
 GOOGLE_CALENDAR_SCOPES = ("https://www.googleapis.com/auth/calendar.events",)
 _TRANSPORT_ERRORS = (
@@ -229,7 +230,7 @@ def _google_error_reasons(error: HttpError) -> set[str]:
 
 
 def _translate_google_error(
-    error: HttpError, *, retryable_read: bool = False
+    error: HttpError, *, retryable_read: bool = False, shared_write: bool = False
 ) -> ServiceError:
     """Translate a Google HTTP failure into the matching service error.
 
@@ -248,17 +249,22 @@ def _translate_google_error(
         return NotFoundError("Google Calendar reported that the event does not exist")
     if error.status_code == 403 and not (_google_error_reasons(error) & _LIMIT_REASONS):
         return PermissionDeniedError("Google Calendar denied access to the event")
-    if retryable_read and (
-        error.status_code == 429
-        or error.status_code >= 500
-        or bool(_google_error_reasons(error) & _LIMIT_REASONS)
+    quota_rejected = error.status_code == 429 or (
+        error.status_code == 403 and bool(_google_error_reasons(error) & _LIMIT_REASONS)
+    )
+    if ((retryable_read or shared_write) and quota_rejected) or (
+        retryable_read and error.status_code >= 500
     ):
         return ProviderUnavailableError("Google Calendar is temporarily unavailable")
     return ProviderFailureError("Google Calendar request failed")
 
 
 def _raise_google_http_error(
-    operation: str, error: HttpError, *, retryable_read: bool = False
+    operation: str,
+    error: HttpError,
+    *,
+    retryable_read: bool = False,
+    shared_write: bool = False,
 ) -> Never:
     """Log safe Google HTTP context and raise its service-level translation."""
     logger.warning(
@@ -270,7 +276,9 @@ def _raise_google_http_error(
             "provider_status": error.status_code,
         },
     )
-    raise _translate_google_error(error, retryable_read=retryable_read) from None
+    raise _translate_google_error(
+        error, retryable_read=retryable_read, shared_write=shared_write
+    ) from None
 
 
 def _raise_transport_failure(
@@ -322,26 +330,29 @@ class GoogleCalendarProvider(EventProvider):
             ProviderFailureError: If another Google or transport failure occurs.
                 A lost response may leave the deletion outcome uncertain.
         """
-        try:
-            self._client.events().delete(
-                calendarId=self._calendar_id, eventId=event_id
-            ).execute()
-        except HttpError as error:
-            if error.status_code == 410 and "deleted" in _google_error_reasons(error):
-                logger.warning(
-                    "Google Calendar operation failed: operation=delete status=%s",
-                    error.status_code,
-                    extra={
-                        "provider_operation": "delete",
-                        "provider_status": error.status_code,
-                    },
-                )
-                raise NotFoundError(
-                    "Google Calendar event is already deleted"
-                ) from None
-            _raise_google_http_error("delete", error)
-        except _TRANSPORT_ERRORS:
-            _raise_transport_failure("delete", "Google Calendar request failed")
+        with provider_span("Delete"):
+            try:
+                self._client.events().delete(
+                    calendarId=self._calendar_id, eventId=event_id
+                ).execute()
+            except HttpError as error:
+                if error.status_code == 410 and "deleted" in _google_error_reasons(
+                    error
+                ):
+                    logger.warning(
+                        "Google Calendar operation failed: operation=delete status=%s",
+                        error.status_code,
+                        extra={
+                            "provider_operation": "delete",
+                            "provider_status": error.status_code,
+                        },
+                    )
+                    raise NotFoundError(
+                        "Google Calendar event is already deleted"
+                    ) from None
+                _raise_google_http_error("delete", error, shared_write=True)
+            except _TRANSPORT_ERRORS:
+                _raise_transport_failure("delete", "Google Calendar request failed")
 
     def patch_event(self, event_id: str, changes: EventPatch) -> Event:
         """Check fresh existence, then send only supplied fields using patch.
@@ -425,19 +436,20 @@ class GoogleCalendarProvider(EventProvider):
             ProviderFailureError: If Google rejects the request for another
                 reason or returns unsupported event data.
         """
-        try:
-            provider_event = execute_google_event_get(
-                self._client,
-                calendar_id=self._calendar_id,
-                event_id=event_id,
-            )
-        except HttpError as error:
-            _raise_google_http_error("get", error, retryable_read=True)
-        except _TRANSPORT_ERRORS:
-            _raise_transport_failure(
-                "get", "Google Calendar request failed", retryable=True
-            )
-        return _validated_operation_result("get", provider_event, event_id=event_id)
+        with provider_span("Get"):
+            try:
+                provider_event = execute_google_event_get(
+                    self._client,
+                    calendar_id=self._calendar_id,
+                    event_id=event_id,
+                )
+            except HttpError as error:
+                _raise_google_http_error("get", error, retryable_read=True)
+            except _TRANSPORT_ERRORS:
+                _raise_transport_failure(
+                    "get", "Google Calendar request failed", retryable=True
+                )
+            return _validated_operation_result("get", provider_event, event_id=event_id)
 
     def create_event(self, event: CreateEventRequest) -> Event:
         """Create a Google event and return its translated domain representation.
@@ -452,17 +464,18 @@ class GoogleCalendarProvider(EventProvider):
             PermissionDeniedError: If Google denies the event creation.
             ProviderFailureError: If another Google or transport failure occurs.
         """
-        try:
-            provider_event = execute_google_event_insert(
-                self._client,
-                calendar_id=self._calendar_id,
-                event=event,
-            )
-        except HttpError as error:
-            _raise_google_http_error("insert", error)
-        except _TRANSPORT_ERRORS:
-            _raise_transport_failure("insert", "Google Calendar request failed")
-        return _validated_operation_result("insert", provider_event)
+        with provider_span("Create"):
+            try:
+                provider_event = execute_google_event_insert(
+                    self._client,
+                    calendar_id=self._calendar_id,
+                    event=event,
+                )
+            except HttpError as error:
+                _raise_google_http_error("insert", error, shared_write=True)
+            except _TRANSPORT_ERRORS:
+                _raise_transport_failure("insert", "Google Calendar request failed")
+            return _validated_operation_result("insert", provider_event)
 
     def replace_event(self, event_id: str, replacement: EventReplacement) -> Event:
         """Fully update an event using Google events.update, without retries.
@@ -473,22 +486,25 @@ class GoogleCalendarProvider(EventProvider):
         A lost response can leave the write outcome unknown to the caller.
         """
         self.get_event(event_id)
-        try:
-            provider_event = (
-                self._client.events()
-                .update(
-                    calendarId=self._calendar_id,
-                    eventId=event_id,
-                    body={
-                        "summary": replacement.title,
-                        "start": {"dateTime": replacement.start},
-                        "end": {"dateTime": replacement.end},
-                    },
+        with provider_span("Replace"):
+            try:
+                provider_event = (
+                    self._client.events()
+                    .update(
+                        calendarId=self._calendar_id,
+                        eventId=event_id,
+                        body={
+                            "summary": replacement.title,
+                            "start": {"dateTime": replacement.start},
+                            "end": {"dateTime": replacement.end},
+                        },
+                    )
+                    .execute()
                 )
-                .execute()
+            except HttpError as error:
+                _raise_google_http_error("update", error, shared_write=True)
+            except _TRANSPORT_ERRORS:
+                _raise_transport_failure("update", "Google Calendar request failed")
+            return _validated_operation_result(
+                "update", provider_event, event_id=event_id
             )
-        except HttpError as error:
-            _raise_google_http_error("update", error)
-        except _TRANSPORT_ERRORS:
-            _raise_transport_failure("update", "Google Calendar request failed")
-        return _validated_operation_result("update", provider_event, event_id=event_id)

@@ -317,7 +317,7 @@ def test_replace_uses_full_update_and_translates_result() -> None:
     [
         (_google_http_error("404", "notFound"), NotFoundError),
         (_google_http_error("403", "forbidden"), PermissionDeniedError),
-        (_google_http_error("403", "rateLimitExceeded"), ProviderFailureError),
+        (_google_http_error("403", "rateLimitExceeded"), ProviderUnavailableError),
         (_google_http_error("500", "backendError"), ProviderFailureError),
         (TransportError("private detail"), ProviderFailureError),
         (HttpLib2Error("private detail"), ProviderFailureError),
