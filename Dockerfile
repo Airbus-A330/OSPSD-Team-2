@@ -10,6 +10,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-editable
 
 FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS runtime
+# Writable ephemeral cache; no volume or persistent disk is required.
 RUN groupadd --gid 10001 calendar && useradd --uid 10001 --gid calendar --no-create-home calendar && mkdir -p /var/data && chown calendar:calendar /var/data
 WORKDIR /app
 COPY --from=dependencies /app/.venv /app/.venv

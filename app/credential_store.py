@@ -1,4 +1,4 @@
-"""Persistent, non-interactive OAuth credentials for a single hosted worker."""
+"""Non-interactive OAuth credentials cached locally for a single hosted worker."""
 
 import os
 import tempfile
@@ -18,7 +18,7 @@ _credential_lock = RLock()
 
 
 def write_token_atomically(path: Path, contents: str) -> None:
-    """Replace a token with a private file on the same persistent filesystem."""
+    """Replace a token cache with a private file on the same filesystem."""
     temporary: str | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -35,8 +35,8 @@ def write_token_atomically(path: Path, contents: str) -> None:
             Path(temporary).unlink(missing_ok=True)
 
 
-class _PersistentCredentials(Credentials):
-    """Persist refreshes initiated either by us or by the Google HTTP client."""
+class _CachedCredentials(Credentials):
+    """Cache refreshes initiated either by us or by the Google HTTP client."""
 
     token_path: Path
 
@@ -60,14 +60,14 @@ class _PersistentCredentials(Credentials):
 
 
 def load_hosted_credentials(path: Path, scopes: tuple[str, ...]) -> Credentials:
-    """Load a request-local client that also persists later SDK refreshes.
+    """Load a request-local client that also caches later SDK refreshes.
 
     Transport failures propagate to the provider's existing error translator.
     Refresh rejection and local file failures become sanitized service errors.
     """
     with _credential_lock:
         try:
-            credentials = _PersistentCredentials.from_authorized_user_file(
+            credentials = _CachedCredentials.from_authorized_user_file(
                 str(path), scopes
             )
             credentials.token_path = path

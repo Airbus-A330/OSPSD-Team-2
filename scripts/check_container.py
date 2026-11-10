@@ -15,7 +15,7 @@ import uvicorn
 
 from app.composition import get_calendar_service
 from app.errors import ProviderUnavailableError
-from app.hosting import create_hosted_app
+from app.hosting import create_hosted_app, prepare_runtime
 
 
 def main() -> None:
@@ -62,6 +62,16 @@ def main() -> None:
             }
         )
         application = create_hosted_app()
+
+        # No volume is mounted. Exercise the image's actual writable cache path,
+        # including a fresh start after its local token file disappears.
+        cache = Path("/var/data/token.json")
+        os.environ["GOOGLE_CALENDAR_TOKEN_FILE"] = str(cache)
+        for _ in range(2):
+            prepare_runtime()
+            assert cache.stat().st_mode & 0o777 == 0o600
+            assert json.loads(cache.read_text())["refresh_token"] == "synthetic-refresh"
+            cache.unlink()
 
         class UnavailableService:
             def get(self, event_id: str) -> None:
@@ -121,7 +131,7 @@ def main() -> None:
             thread.join(timeout=10)
             assert not thread.is_alive(), "Server failed to stop"
     print(
-        "PASS: non-root image, configuration failure, runtime token, protected API, provider-independent readiness"
+        "PASS: non-root image, configuration failure, ephemeral token recovery, protected API, provider-independent readiness"
     )
 
 

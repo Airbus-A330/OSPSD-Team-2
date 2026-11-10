@@ -1,4 +1,4 @@
-"""Credential-free deployment lifecycle and persistent authorization checks."""
+"""Credential-free deployment lifecycle and disposable authorization checks."""
 
 import json
 import os
@@ -74,15 +74,59 @@ def test_invalid_authorization_is_sanitized(runtime, monkeypatch, payload):
     assert not runtime.exists()
 
 
-def test_seed_is_private_and_never_overwrites_refreshed_state(runtime, monkeypatch):
+def test_restart_uses_rotated_runtime_secret_instead_of_cached_token(
+    runtime, monkeypatch
+):
     prepare_runtime()
     if os.name != "nt":
         assert runtime.stat().st_mode & 0o777 == 0o600
     updated = dict(TOKEN_INFO, refresh_token="new-test-refresh")
-    runtime.write_text(json.dumps(updated))
-    monkeypatch.setenv("GOOGLE_CALENDAR_TOKEN_JSON", "invalid-old-seed")
+    monkeypatch.setenv("GOOGLE_CALENDAR_TOKEN_JSON", json.dumps(updated))
     prepare_runtime()
     assert json.loads(runtime.read_text()) == updated
+    if os.name != "nt":
+        assert runtime.stat().st_mode & 0o777 == 0o600
+
+
+def test_cached_file_cannot_hide_missing_runtime_secret(runtime, monkeypatch):
+    prepare_runtime()
+    monkeypatch.delenv("GOOGLE_CALENDAR_TOKEN_JSON")
+    with pytest.raises(StartupConfigurationError):
+        with TestClient(create_hosted_app()):
+            pass
+
+
+@pytest.mark.parametrize("discard_cache", [True, False])
+def test_restart_recovers_authorization_from_runtime_secret(
+    runtime, monkeypatch, discard_cache
+):
+    from datetime import datetime, timedelta, timezone
+
+    calls = []
+
+    def refresh(credentials, request):
+        assert credentials.refresh_token == TOKEN_INFO["refresh_token"]
+        calls.append(1)
+        credentials.token = f"refreshed-test-access-{len(calls)}"
+        credentials.expiry = datetime.now(timezone.utc).replace(
+            tzinfo=None
+        ) + timedelta(hours=1)
+
+    monkeypatch.setattr(credential_store.Credentials, "refresh", refresh)
+    for start in range(2):
+        with TestClient(create_hosted_app()) as client:
+            assert client.get("/readyz").status_code == 200
+            assert len(calls) == start  # Startup never contacts Google.
+            credentials = credential_store.load_hosted_credentials(
+                runtime, google_calendar.GOOGLE_CALENDAR_SCOPES
+            )
+            assert credentials.token == f"refreshed-test-access-{start + 1}"
+            if os.name != "nt":
+                assert runtime.stat().st_mode & 0o777 == 0o600
+            assert client.get("/events/test-event").status_code == 403
+        if discard_cache:
+            runtime.unlink()  # Simulate Render discarding the local filesystem.
+    assert len(calls) == 2
 
 
 def test_unwritable_or_missing_token_directory_fails_safely(runtime, monkeypatch):

@@ -211,27 +211,32 @@ capacity, invalidation, or concurrency behavior.
 
 ### Container and deployment foundation (issue #68)
 
-The local implementation follows the Render proposal: one image-backed web
-service, one worker, and one persistent OAuth disk. `Dockerfile` uses digest-pinned
-Python/uv bases and `uv sync --locked --no-dev --no-editable`. The Blueprint
-in `infra/render.template.yaml` is materialized with an immutable published image
-reference; its resource state will be managed in the shared Render workspace.
-The exact bootstrap, preview/reapply and teardown procedures are in
-[DEPLOYMENT.md](DEPLOYMENT.md), including pending owner/budget decisions.
+The local implementation uses one Render **Free** image-backed web service,
+one worker, and ephemeral storage, following Alexander's November 9 clarification.
+`Dockerfile` uses digest-pinned Python/uv bases and locked application dependencies.
+The Blueprint in `infra/render.template.yaml` takes an immutable published image
+reference and does not provision a disk or database. See
+[DEPLOYMENT.md](DEPLOYMENT.md) for bootstrap, preview/reapply, cost limits and teardown.
 
-The hosted entry point, `app.hosting:app`, validates the calendar ID, deployment
-access key and persistent authorization at startup without contacting Google.
-It seeds the token only if absent, requires bearer authorization for API traffic,
-and exposes provider-independent `/healthz` and `/readyz`. Local development
-retains `app.main:app`. Hosted OAuth refresh is serialized between request threads
-and written atomically with private permissions; it never opens a browser.
+The hosted entry point, `app.hosting:app`, validates runtime authorization and
+initializes a private disposable token cache on every start without contacting
+Google. Render's protected runtime JSON is the source for restart recovery;
+operator credential updates replace stale cached state on restart. The service
+requires bearer authorization for API traffic and exposes provider-independent
+`/healthz` and `/readyz`. Local development retains `app.main:app`. Refresh is
+serialized between threads and cached atomically, without interactive login.
 
-This is a local implementation, not cloud deployment evidence. Account ownership,
-budget approval, workspace permissions, platform-aware validation, and an
-independent teammate's provision/reapply/live-API/teardown exercise remain pending.
-The pipeline and rollback are #69's work; observability and reliability remain
-with their assigned owners. Brief downtime remains acceptable for the disk-backed
-single-instance proposal. No cloud resources have been provisioned by #68.
+Free instances sleep on idle, lose local files across restarts, and have cold-start
+latency and usage limits. Credential expiry/revocation requires updating the
+runtime secret. The pipeline/smoke tests (#69) and SLO work must account for these
+constraints without blindly retrying writes. Calendar data remains in Google.
+
+This is local implementation, not cloud deployment evidence. Account ownership,
+platform-aware validation and independent teammate deployment/reapply/API/teardown
+verification remain pending. Hobby workspaces allow only one member: the protected,
+shared infrastructure-state requirement remains unresolved. Choosing ephemeral
+storage does not waive it or authorize a paid workspace. No cloud resources have
+been provisioned by #68.
 
 ## Testing
 
@@ -317,6 +322,9 @@ the required composition and test replacement points.
    Attach the reviewed commit and matching CI links when these changes are pushed.
 
 ## Change history
+
+- 2026-11-09: changed #68 to Render Free without a persistent disk; restored OAuth
+  cache from runtime configuration on each start and documented cold-start/access limits.
 
 - 2026-11-09: added the issue #68 container/Blueprint foundation, hosted startup
   validation and health/access behavior; recorded pending cloud and teammate checks.

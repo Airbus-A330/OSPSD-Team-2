@@ -8,14 +8,10 @@ services:
     runtime: image
     image:
       url: __IMAGE_DIGEST_REF__
-    plan: 0.5c-512mb
+    plan: free
     region: ohio
     numInstances: 1
     healthCheckPath: /readyz
-    disk:
-      name: calendar-oauth
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: PORT
         value: "10000"

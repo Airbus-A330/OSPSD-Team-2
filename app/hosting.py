@@ -7,7 +7,6 @@ never attempt interactive Google authorization or probe Google for readiness.
 import json
 import os
 import secrets
-import tempfile
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -27,7 +26,7 @@ class StartupConfigurationError(RuntimeError):
 
 
 def prepare_runtime() -> str:
-    """Validate runtime inputs and seed persistent OAuth state only if absent.
+    """Validate runtime inputs and initialize the disposable OAuth token cache.
 
     No network request is made. Actual authorization and provider availability
     are checked by the post-deploy smoke test, not the platform health probe.
@@ -51,11 +50,7 @@ def prepare_runtime() -> str:
         )
     path = Path(token_file)
     try:
-        raw = (
-            path.read_text(encoding="utf-8")
-            if path.exists()
-            else os.environ.get("GOOGLE_CALENDAR_TOKEN_JSON", "")
-        )
+        raw = os.environ.get("GOOGLE_CALENDAR_TOKEN_JSON", "")
         info = json.loads(raw)
         if not isinstance(info, dict) or any(
             not isinstance(info.get(key), str) or not info[key].strip()
@@ -70,20 +65,14 @@ def prepare_runtime() -> str:
         if not credentials.refresh_token:
             raise ValueError("Missing refresh token")
         if not path.parent.is_dir():
-            raise ValueError("Persistent directory must be mounted first")
-        if not path.exists():
-            write_token_atomically(path, raw)
-        else:
-            os.chmod(path, 0o600)
-            # Check actual write access without changing the saved authorization.
-            with path.open("a", encoding="utf-8"):
-                pass
-        # Atomic refresh also needs a writable parent directory.
-        with tempfile.TemporaryFile(dir=path.parent):
-            pass
+            raise ValueError("Token cache directory must exist")
+        # Render's protected runtime configuration is authoritative across starts.
+        # Never rely on a file surviving a restart, or retain an old credential
+        # after the operator has rotated the runtime secret.
+        write_token_atomically(path, raw)
     except (OSError, ValueError, TypeError):
         raise StartupConfigurationError(
-            "OAuth setup invalid: provide authorized-user JSON and a writable persistent token directory"
+            "OAuth setup invalid: provide authorized-user JSON and a writable token cache directory"
         ) from None
     os.environ["GOOGLE_CALENDAR_NONINTERACTIVE"] = "1"
     return api_token

@@ -27,3 +27,12 @@ def test_same_digest_produces_identical_configuration():
     assert first == render_blueprint(image)
     assert image in first
     assert "__IMAGE_DIGEST_REF__" not in first
+
+
+def test_service_uses_free_compute_without_persistent_resources():
+    rendered = render_blueprint("ghcr.io/team/calendar@sha256:" + "a" * 64)
+    # Schema validation is separate; guard the cost/storage choice here.
+    assert "    plan: free\n" in rendered
+    assert "disk:" not in rendered
+    assert "databases:" not in rendered
+    assert "    healthCheckPath: /readyz\n" in rendered
