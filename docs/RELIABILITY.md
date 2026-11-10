@@ -7,10 +7,11 @@ is not a substitute for those executions.
 
 ## Agreed policy and measurement
 
-[Alexander's direction](https://github.com/Airbus-A330/OSPSD-Team-2/pull/74#issuecomment-6757433749)
-is authoritative: **Get availability 99%; latency 95% under 1 second; both rolling
-7 days**. These replace the earlier 24-hour candidates. Keep the one-second
-threshold unless actual measurements clearly justify a change. The rationale is
+[Alexander's direction](https://github.com/Airbus-A330/OSPSD-Team-2/pull/74#issuecomment-6757433749),
+with his [bucket clarification](https://github.com/Airbus-A330/OSPSD-Team-2/pull/73#issuecomment-6757791352),
+sets **Get availability 99%; latency 95% at <=1 second; both rolling 7 days**.
+These replace the earlier 24-hour candidates. Keep the one-second threshold
+unless actual measurements clearly justify a change. The rationale is
 the team's interactive-read requirement with explicit nonzero budgets, not an
 industry guarantee or a claim of observed production performance.
 
@@ -32,15 +33,15 @@ The rules integrate against PR #73 at
 with `operation`, `outcome`, and `release`. Invalid input combines 400/422;
 `not_found` represents 404. Other client errors remain eligible, not excluded.
 
-Two producer limitations must stay visible:
+Status classification remains pending; the bucket boundary is now agreed:
 
 - `success` currently means any HTTP <400, not exactly 200. Until the producer
   distinguishes unexpected GET 2xx/3xx, `success|not_found` is an availability
   **proxy**, not proof of exact-status compliance. This is
   [coordinated with Nicolas](https://github.com/Airbus-A330/OSPSD-Team-2/pull/73#issuecomment-6757594976).
-- Its existing `le="1"` bucket is **upper-inclusive**: <=1 second, not strict <1.
-  The query cannot distinguish an exactly-one-second event. Do not describe it
-  as higher precision than the producer; agree any stricter bucket with #70.
+- The `le="1"` bucket is **upper-inclusive**: <=1 second, not strict <1.
+  Alexander explicitly confirmed this interpretation; no stricter bucket is
+  required. The query cannot distinguish an exactly-one-second event.
 
 Counters cannot verify an Event/error body. A contract-broken 404 or unexpected
 404 for a known existing fixture can appear good; shared conformance and the
@@ -117,8 +118,10 @@ Activation steps owned by #72, coordinated with #68/#69/#70:
 
 1. Confirm deployed source names, scope/stream identities, retention and immutable
    `CALENDAR_RELEASE`. Ensure the **hosted** entry point preserves telemetry
-   startup/shutdown; #68 currently replaces the app lifespan. Verify an actual
-   hosted request exports before trusting the deployment.
+   startup/shutdown; [PR #75](https://github.com/Airbus-A330/OSPSD-Team-2/pull/75)
+   currently replaces the app lifespan. Leon owns the hosted integration, while
+   Nicolas owns status classification. Verify actual hosted request exports,
+   including early access-denied responses, before trusting the deployment.
 2. Replace `GRAFANA_HOST.invalid` in the rule and matching test expectation with
    the actual dashboard host. Confirm responder access to dashboard and runbook.
 3. Load the rules into the team's existing protected Prometheus, with an
@@ -200,8 +203,9 @@ the demonstration, with linked change/result. Pre-existing work is not that acti
 - Native tools also run in the **Format** workflow via `make reliability-check`.
 - [Local actual-producer integration](evidence/reliability-local/README.md): synthetic
   only; not deployed Google verification or a completed alert/game-day exercise.
-- #68 foundation inspected at `fcc8858`: Render plan exists, but account owner,
-  budget and deployment permission remain unconfirmed. Docker is not running here.
+- #68 foundation is now PR #75, still at inspected `fcc8858`: Render plan exists,
+  but account owner, budget and deployment permission remain unconfirmed. Docker
+  is not running here.
 - Protected deployed backend/dashboard, 7-day history and current live SLI/budget
   records: pending. Producer fidelity details above remain coordinated with #70.
 - Real Slack configuration, deliberate alert delivery/resolution, exact #69
