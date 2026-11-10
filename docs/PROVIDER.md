@@ -218,10 +218,14 @@ before they leave this module. A 404 becomes `NotFoundError`. A 403 becomes
 `PermissionDeniedError`, except when Google's machine-readable error reason
 (`error.errors[].reason`) reports a quota or rate limit — `quotaExceeded`,
 `rateLimitExceeded`, or `userRateLimitExceeded` — because Google also returns
-403 for those provider limits; they become `ProviderFailureError`, as do 429
-and any other status. Transport failures while executing the request
-(`httplib2.HttpLib2Error`, Google authentication `TransportError`, socket
-timeouts, and connection errors) also become `ProviderFailureError`. Only the
+403 for those provider limits. GET and common writes translate quota rejections
+(403 limit reasons or 429) to `ProviderUnavailableError`. GET also uses that
+error for 5xx and transport failures. Writes use `ProviderFailureError` for
+5xx or a lost transport response, since the mutation may already have occurred;
+its `retryable` is false. There are no automatic retries. Other unexpected
+statuses and malformed success payloads use `ProviderFailureError`. Optional
+listing/PATCH keep their existing translation; a failed GET preflight can still
+raise `ProviderUnavailableError` before a PATCH write is attempted. Only the
 status and machine-readable reasons are interpreted; Google error messages
 never cross the provider boundary, and the raw provider exception is not
 retained as the translated error's cause. The low-level field mapper rejects
@@ -405,8 +409,8 @@ empty SDK result and needs the existing `calendar.events` write scope.
 HTTP 404 maps to `NotFoundError`; for this operation only, Google's documented
 [`410 deleted`](https://developers.google.com/workspace/calendar/api/guides/errors#410_gone)
 also maps to `NotFoundError`. Unrelated 410 reasons remain provider failures.
-Other errors reuse the shared translation, including 403 quota errors as
-`ProviderFailureError`, not access denial.
+Other errors reuse the common-operation translation: confirmed quota refusal is
+`ProviderUnavailableError`; an uncertain deletion is non-retryable `ProviderFailureError`.
 
 **REAL PROVIDER VERIFICATION PERFORMED on 2026-10-20** for DELETE. The local
 read-only authorization was replaced through explicit Google consent for the
@@ -534,3 +538,38 @@ repeat DELETE 404; PUT the same ID and require 404; verify it remains cancelled 
 Google; PATCH it and require 404; verify cancellation again. Create a second
 event; PUT 200; GET the replacement; PATCH 200; GET the partial update with omitted
 fields preserved; DELETE 204 for cleanup. Use only test-owned events without guests.
+
+
+## HW2 shared workflow verification
+
+**Status: NOT RUN for this integration revision.** On 2026-11-09, no local OAuth
+token/client files or Google environment configuration were available. The owner
+confirmed a teammate will supply live verification. Earlier HW1 and GET-only
+records do not establish this new four-operation workflow.
+
+After following [local setup](#local-setup), choose a designated disposable test
+calendar and set `GOOGLE_CALENDAR_ID` plus the existing
+`GOOGLE_CALENDAR_TOKEN_FILE` / `GOOGLE_CALENDAR_CREDENTIALS_FILE` paths. Keep
+secrets out of Git and command output. Authorize once before running; the check
+requires an existing saved token and an explicit test calendar selection.
+
+```bash
+RUN_LIVE_CALENDAR=1 uv run --locked python -m pytest tests/live/test_shared_workflow.py -q
+```
+
+The check uses the real HTTP application and Google provider, disables cache TTL
+for fresh read-back, and creates one uniquely named disposable event. It checks
+POST 201, GET 200, PUT 200 with the same ID and stored instants, DELETE 204 with
+no body, and repeated DELETE / missing GET / missing PUT as 404 `not_found` with
+`retryable=false`. A `finally` block attempts cleanup of any returned event ID,
+even if later verification fails. Only sanitized failure descriptions are emitted.
+A lost POST response can leave an event without a returned ID: if that happens,
+the calendar owner must locate the `OSPSD disposable contract verification`
+event in the designated test calendar and delete it manually. Never retry a
+failed create automatically. Verify no disposable event remains afterward.
+
+Record the tested source commit, date, command outcome, expected/observed
+statuses, and cleanup confirmation here after the teammate runs it. Do not
+record OAuth material, calendar IDs, private event IDs, or full provider payloads.
+Permission/outage/uncertain-write scenarios remain controlled tests; do not
+induce failures in other teams' accounts.

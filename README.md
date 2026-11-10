@@ -185,7 +185,7 @@ The public Event representation is:
 }
 ```
 
-The service intentionally supports the documented titled, timed-event representation only.
+The service supports timed events; externally created untitled events return an empty title.
 
 For exact request rules, status codes, validation behavior, and error responses, use:
 
@@ -195,14 +195,19 @@ For exact request rules, status codes, validation behavior, and error responses,
 
 # Error Contract
 
-Provider-specific errors are translated into a provider-independent public contract.
+The four common operations use the tagged shared Calendar contract. Listing and
+PATCH retain their documented extension behavior; see [CONTRACT.md](docs/CONTRACT.md).
 
 | Condition | HTTP Status | Error Code |
 |---|---:|---|
-| Invalid input | `400` | `invalid_input` |
+| Malformed/non-JSON or empty body | `400` | `invalid_input` |
+| Invalid fields, values, or path input | `422` | `invalid_input` |
 | Missing resource | `404` | `not_found` |
-| Permission denied | `403` | `permission_denied` |
-| Provider failure | `502` | `provider_error` |
+| Access denied | `403` | `access_denied` |
+| Unexpected response or uncertain write | `502` | `provider_error` |
+| Temporarily unavailable / confirmed quota rejection | `503` | `provider_unavailable` |
+
+Uncertain writes have `retryable=false` and are never automatically retried.
 
 Example:
 
@@ -210,7 +215,8 @@ Example:
 {
   "error": {
     "code": "not_found",
-    "message": "Event not found"
+    "message": "Event not found",
+    "retryable": false
   }
 }
 ```
