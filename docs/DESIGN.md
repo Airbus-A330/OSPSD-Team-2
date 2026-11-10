@@ -6,8 +6,8 @@
 | Team / vertical | Team 2 / Calendar |
 | Team reviewer | Pending full-design review |
 | Cross-team reviewer | Karthik Ganeshan, Team 7 (contract-facing review comments addressed) |
-| Status | In review |
-| Last updated | 2026-11-04 |
+| Status | Common operations implemented; live workflow and review pending |
+| Last updated | 2026-11-09 |
 | Shared revision | [`v0.1.0-rc.1`](https://github.com/Airbus-A330/OSPSD-Calendar/tree/v0.1.0-rc.1), commit `1c1cad7a0732ddb242a05400d8833d94e4422424` |
 | Shared HTTP contract | [`docs/HTTP_CONTRACT.md`](https://github.com/Airbus-A330/OSPSD-Calendar/blob/v0.1.0-rc.1/docs/HTTP_CONTRACT.md) |
 | Joint decision memo | [Local preserved copy](JOINT_CALENDAR_CONTRACT.md) |
@@ -15,7 +15,8 @@
 
 ## Scope and status
 
-This design covers Team 2's first HW2 migration slice: `GET /events/{event_id}`.
+This design covers Team 2's four common HW2 operations: POST, GET-one, PUT,
+and DELETE. Issue #67 completes the application integration begun with GET-one.
 It was prepared from the final HW1 service, the HW1 architecture review, and the
 [joint Calendar contract](JOINT_CALENDAR_CONTRACT.md) agreed by Teams 2, 5, and
 7.
@@ -51,17 +52,17 @@ The HW1 review also identified structural debt:
 ## Goals
 
 1. Consume an immutable shared package release reproducibly.
-2. Migrate GET-one as the first complete shared-contract vertical slice.
+2. Route all four common operations through the shared CalendarService interface.
 3. Preserve real Google Calendar retrieval and the existing cache behavior.
 4. Keep Google SDK objects and configuration behind the provider boundary.
 5. Make HTTP routing, request validation, application behavior, composition,
    and provider integration independently understandable.
 6. Log safe Google operation and status context where provider failures occur.
-7. Establish a small pattern that later shared-operation migrations can reuse.
+7. Pass the complete tagged conformance suite through Python and HTTP.
 
 ## Non-goals
 
-This slice does not standardize Team 2's optional listing or PATCH extensions,
+This integration does not standardize Team 2's optional listing or PATCH extensions,
 add another real provider, add a dependency-injection framework, redesign the
 cache, add retries, or perform a speculative rewrite of every operation.
 
@@ -89,7 +90,7 @@ translated without a provider-layer log describing the failed operation.
 app/main.py                 application creation and handler registration
     -> app/api/routes.py    thin HTTP routes
     -> app/api/validation.py HTTP-only early validation
-    -> CalendarService.get  shared Python operation boundary
+    -> CalendarService      shared create/get/replace/delete boundary
     -> app/calendar_service.py adapter to existing application operations
     -> app/events.py        provider-independent application behavior
     -> app/providers.py     Team 2 provider extension boundary
@@ -133,24 +134,35 @@ the existing request-scoped client cleanup and cache.
 
 ## Shared API and model mapping
 
-The shared release-candidate tag is pinned and locked with uv. The migrated GET
-slice uses the shared `Event`, `CalendarError`, and `ErrorCode` at runtime. The
-remaining shared models map to later operation migrations:
+The shared release-candidate tag is pinned and locked with uv. All common
+operations consume shared runtime models, errors, and the service interface:
 
 | Shared package | Team 2 use |
 |---|---|
-| `Event` | Runtime response and Google translation model, including GET |
-| `CreateEvent` | shared POST request fields |
-| `ReplaceEvent` | shared PUT request fields |
-| `CalendarError` / `ErrorCode` | provider-independent failure boundary |
-| `CalendarService` | GET route consumes `get`; adapter bridges the existing four application operations |
+| `Event` | All response and provider translation models |
+| `CreateEvent` | POST input, passed unchanged through adapter/application/provider |
+| `ReplaceEvent` | PUT input, passed unchanged through adapter/application/provider |
+| `CalendarError` / `ErrorCode` | Expected failures and common HTTP error rendering |
+| `CalendarService` | All four common routes depend on this interface |
 
-Team 2's list limit, `EventPatch`, listing, and PATCH methods remain local
-extensions. They must not be added to or presented as requirements of the
-shared core. Only GET has migrated its HTTP contract; the adapter's other methods
-reuse existing operations and do not claim full write/delete conformance.
-Compatibility aliases may be retained briefly if needed to keep a
-small migration diff, but validation and models must have one implementation.
+`CreateEventRequest` and `EventReplacement` are import aliases for shared models,
+not local schemas. The adapter no longer converts between competing models.
+Shared validators enforce strict strings, nonblank write titles, RFC 3339 with
+explicit offsets, increasing ranges, and rejected unknown fields. The application
+adds no title-length limit or fractional-second truncation. HTTP validates before
+client setup; non-HTTP callers construct the same validated shared models.
+Existing service exception names subclass `CalendarError` for compatibility and
+add only local context; they do not define different core codes or retry semantics.
+
+Team 2's list limit and `EventPatch` remain local extensions. Their legacy error
+envelopes and validation behavior are retained; they are not requirements of the
+shared core. No provider SDK types cross the domain boundary.
+
+POST and PUT parse the shared model before resolving `get_calendar_service`,
+then call `create` or `replace`. DELETE validates the ID before calling `delete`.
+The adapter delegates to the existing application operations and cached provider.
+Google PUT performs its existing uncached preflight so a cancelled/missing event
+cannot be revived. The cache invalidates across mutations and uncertain failures.
 
 ## Failure behavior
 
@@ -195,11 +207,17 @@ provider error messages.
 | Quota/rate limit, 5xx, or transport failure on GET | 503 | `provider_unavailable` | `true` |
 | Invalid path input | 422 | `invalid_input` | `false` |
 
-Create and replace have a different safety constraint: when a write may have
-reached Google but its response is lost, the shared contract requires 502
-`provider_error` with `retryable=false`. The existing application does not retry
-uncertain writes; adding the shared error envelope to their legacy HTTP routes
-remains part of their migration. Resending could duplicate or repeat a change.
+All common routes render the shared envelope, including `retryable`. Malformed,
+non-JSON, or empty bodies return 400; valid JSON violating a schema/value rule,
+unknown fields, and blank path IDs return 422. Messages are fixed and sanitized.
+
+Confirmed Google quota refusals (429 or 403 with a limit reason) become 503
+`provider_unavailable`, including on writes. Setup/preflight failures before a
+mutation can also be safely classified as unavailable. Write transport failures,
+5xx, and invalid success payloads instead use 502 `provider_error` with
+`retryable=false`: the mutation may have taken effect. Reads map temporary 5xx
+and transport failures to unavailable. No operation automatically retries.
+DELETE retains 404 for absence and Google's explicit 410 `deleted` response.
 
 ## Operational considerations
 
@@ -246,34 +264,31 @@ verification remain November 11 Milestone 3 work; no resources have been created
 
 ## Testing
 
-Fast tests continue to replace the provider or SDK boundary and require no
-credentials or network. The migrated slice needs evidence at four levels:
+Fast tests control provider or SDK boundaries and require no credentials or
+network. `tests/integration/test_shared_conformance.py` inherits the entire tagged
+`CalendarServiceConformance`, running against the production adapter/cache/Google
+integration both directly and through HTTP. A stateful SDK fixture models remote
+records and deleted tombstones; upstream fixtures create and clean up isolated
+data. Failure injection occurs at SDK calls, including after a mutation, so tests
+exercise actual Team 2 translation rather than injecting pretranslated errors.
 
-1. shared-package model and error tests in the shared repository;
-2. Team 2 application tests using a controlled service/provider;
-3. HTTP tests for exact GET success and shared error responses;
-4. Google-adapter tests for SDK calls, translation, and sanitized provider logs.
+`tests/integration/test_shared_http.py` tests the 400/422 distinction, strict
+shared values, unknown fields, unchanged accepted strings, and safe error bodies.
+Shared-only substitutes prove that all four routes depend on `CalendarService`.
+Existing tests retain listing/PATCH and cache coverage. The existing `make test`
+and Tests CI collect the entire suite without workflow changes.
 
-The service proves the migrated GET behavior with focused model, application,
-HTTP, and Google-adapter tests. `tests/test_shared_calendar_service.py` also
-reuses the tagged suite's GET success and missing-event cases. It overrides
-their fixtures with an isolated controlled Google SDK, so no shared create or
-delete is needed to seed or clean up state. The tests exercise the real adapter
-through a `CalendarService`-typed consumer; a separate HTTP test substitutes a
-shared-only service, which exposes any accidental dependency on local methods.
-The complete shared conformance
-suite requires create, replace, and delete and is therefore a Milestone 3 task;
-it will use the same tagged package, isolated event data, and fixture cleanup.
-
-Live verification follows [PROVIDER.md](PROVIDER.md): configure OAuth and the
-calendar ID, start the service, retrieve a known disposable event through the
-HTTP API, compare the four public fields with Google Calendar, test a missing
-ID, and remove any disposable data. The recorded response must be sanitized;
-tokens, credentials, calendar IDs, and private event IDs are never committed.
+The opt-in `tests/live/test_shared_workflow.py` exercises real POST → GET → PUT →
+GET → DELETE, then repeated DELETE, missing GET and missing PUT. Reads bypass
+cache expiration, and cleanup runs in `finally`. No live verification was possible
+in this environment on 2026-11-09; the user confirmed a teammate will run it with
+credentials. [PROVIDER.md](PROVIDER.md#hw2-shared-workflow-verification) documents
+setup, the exact command, cleanup limits for uncertain creation, and evidence
+still required. Earlier GET-only evidence is not proof of this workflow.
 
 ## Migration strategy
 
-### Included in this slice
+### Milestone 2 foundation (completed)
 
 - preserve the joint memo separately from this Team 2 design;
 - split routing, HTTP validation, and provider composition out of `main.py`;
@@ -286,13 +301,19 @@ tokens, credentials, calendar IDs, and private event IDs are never committed.
 - migrate GET success and failures to shared models/errors;
 - verify GET with controlled tests and the documented live-provider procedure.
 
+### Milestone 3 integration completion
+
+Issue #67 completes shared create/replace/delete model and HTTP adoption and
+full controlled conformance. Compatibility import aliases keep the diff focused;
+shared models and validators remain the sole implementation for core writes.
+Listing/PATCH remain supported local extensions.
+
 ### Follow-up work
 
-Separate owned issues are still required for shared create, replace, and delete;
-remaining local-model/error removal; broader behavior-based test grouping; and
-any remaining module reorganization. Listing and PATCH stay documented Team 2
-extensions. Each issue must identify an owner, a reviewer, its shared-package
-dependency, focused checks, and real-provider verification where applicable.
+A credential-owning teammate must run and record the live workflow and cleanup.
+Review and CI on the submitted revision are still required. Infrastructure,
+deployment, telemetry, reliability, and broader module reorganization belong to
+separate issues; their proposed deployment section above is intentionally unchanged.
 
 ## Alternatives considered
 
@@ -309,9 +330,9 @@ eliminate and would allow the three services to drift.
 
 ### Migrate every operation in one change
 
-Rejected for this checkpoint. It would mix contract adoption with a large
-rewrite and make it harder to review whether the first vertical slice has clean
-boundaries.
+Deferred at the Milestone 2 checkpoint to establish one clean vertical slice.
+Issue #67 now completes the common operations using that existing architecture,
+without rewriting the service or changing extension behavior.
 
 ### Add a dependency-injection container or provider registry
 
@@ -322,12 +343,18 @@ the required composition and test replacement points.
 
 1. Which Team 2 teammate and which external Calendar-team member will record
    design approval?
-2. Which issue numbers and owners will track each remaining shared operation and
-   broader test/module organization?
+2. Which credential-owning teammate will record the full shared live workflow
+   and cleanup for issue #67? Broader test/module reorganization stays separate.
 3. The [sanitized live-provider response](HW2_MS2_GET_VERIFICATION.md) is recorded.
    Attach the reviewed commit and matching CI links when these changes are pushed.
 
 ## Change history
+
+- 2026-11-09: issue #67 routes all common operations through `CalendarService`,
+  aliases shared write models, adopts shared HTTP errors and validation, and
+  runs complete controlled conformance through Python and HTTP. Live workflow
+  verification remains pending credentials and a teammate; no deployment work
+  is included.
 
 - 2026-11-04: added a proposed deployment approach, tools, and operational
   assumptions in response to Team 5's review; platform selection remains

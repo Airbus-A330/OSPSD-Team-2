@@ -185,6 +185,7 @@ def test_create_malformed_google_response_uses_shared_provider_failure(
         "error": {
             "code": "provider_error",
             "message": "Calendar provider request failed",
+            "retryable": False,
         }
     }
     google_client.close.assert_called_once_with()

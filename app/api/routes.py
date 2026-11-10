@@ -12,13 +12,7 @@ from app.api.validation import (
     validate_replacement_request,
 )
 from app.composition import get_calendar_service, get_event_provider
-from app.events import (
-    create_event,
-    delete_event,
-    list_events,
-    patch_event,
-    replace_event,
-)
+from app.events import list_events, patch_event
 from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
 
@@ -34,10 +28,10 @@ router = APIRouter()
 )
 def delete_calendar_event(
     event_id: str,
-    provider: EventProvider = Depends(get_event_provider),
+    service: CalendarService = Depends(get_calendar_service),
 ) -> Response:
     """Delete one event and return an empty response only after success."""
-    delete_event(event_id, provider)
+    service.delete(event_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -78,10 +72,10 @@ def read_event(
 )
 def create_event_route(
     event: CreateEventRequest = Depends(validate_create_request),
-    provider: EventProvider = Depends(get_event_provider),
+    service: CalendarService = Depends(get_calendar_service),
 ) -> Event:
     """Create a timed event in the configured calendar."""
-    return create_event(event, provider=provider)
+    return service.create(event)
 
 
 @router.put(
@@ -93,10 +87,10 @@ def create_event_route(
 def replace_calendar_event(
     event_id: str,
     replacement: EventReplacement = Depends(validate_replacement_request),
-    provider: EventProvider = Depends(get_event_provider),
+    service: CalendarService = Depends(get_calendar_service),
 ) -> Event:
     """Replace title, start, and end of an existing event."""
-    return replace_event(event_id, replacement, provider)
+    return service.replace(event_id, replacement)
 
 
 @router.patch(

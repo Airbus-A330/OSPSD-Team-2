@@ -104,9 +104,10 @@ Use simpler Python types or dataclasses internally when they communicate the mod
 
 The tagged `calendar-contract` package is the authoritative implementation of
 the shared `Event` returned by common operations. `app.models` re-exports that
-type for compatibility while retaining only Team 2 request/extension models
-that have not yet migrated. Shared error codes and the `CalendarError` base are
-used by the migrated GET slice; Google SDK values never cross that boundary.
+type plus aliases of shared `CreateEvent` and `ReplaceEvent` for compatibility.
+Only `EventPatch` remains a local request model. All four common routes consume
+`CalendarService` through `CalendarServiceAdapter` and use shared error codes
+and the `CalendarError` base; Google SDK values never cross that boundary.
 
 ---
 
@@ -317,7 +318,7 @@ cannot reappear as successful public reads. Active-event retrieval is unchanged.
 The replacement operation extends `EventProvider` with the method required by PUT:
 `replace_event(event_id: str, replacement: EventReplacement) -> Event`.
 `EventReplacement` contains validated `title`, `start`, and `end` strings; it is
-immutable and does not change the existing `Event` response model. The provider
+an alias of shared `ReplaceEvent`, with no separate validation implementation. The provider
 replaces external state and returns the resulting domain Event. Shared service
 errors describe missing resources, permission denial, and provider failures;
 failed writes may have taken effect.
@@ -456,8 +457,9 @@ G <= limit and may return fewer. Its internal query cost is unknown.
 
 ## Event Creation Flow
 
-`POST /events` parses a `CreateEventRequest` and validates its title and
-timestamp ordering before provider resolution. Application logic calls only
+`POST /events` parses shared `CreateEvent` (aliased as `CreateEventRequest`)
+before provider resolution. The route calls `CalendarService.create`; its
+adapter passes the same model to application logic, which calls only
 `EventProvider.create_event`. `GoogleCalendarProvider` constructs the Google
 `events.insert` body, executes the provider write, translates the returned
 Google event into `Event`, and maps Google failures to the shared service

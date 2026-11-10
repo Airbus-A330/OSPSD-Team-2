@@ -32,10 +32,10 @@ def get_event_provider() -> Iterator[EventProvider]:
 def get_calendar_service(
     provider: EventProvider = Depends(get_event_provider),
 ) -> CalendarService:
-    """Supply the shared interface after the GET route's early ID validation.
+    """Supply the shared interface after early HTTP input validation.
 
     Non-HTTP consumers construct CalendarServiceAdapter with validation enabled
-    by default. This dependency is only used by the already-validated GET route.
+    by default. All common routes consume this shared service boundary.
     The nested provider dependency retains ownership of client cleanup.
     """
     return CalendarServiceAdapter(provider, validate_get=False)

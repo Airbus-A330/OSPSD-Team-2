@@ -1,11 +1,11 @@
 """FastAPI dependencies that reject invalid input before provider setup."""
 
 from fastapi import Body, Request
+from fastapi.exceptions import RequestValidationError
 from pydantic import TypeAdapter, ValidationError
 
 from app.errors import InvalidInputError
 from app.events import (
-    validate_create_event,
     validate_event_id,
     validate_event_limit,
     validate_event_patch,
@@ -54,20 +54,17 @@ def validate_list_request(request: Request) -> None:
         ) from None
 
 
-def validate_create_request(
+async def validate_create_request(
+    request: Request,
     body: object = Body(
         default=None, json_schema_extra=CreateEventRequest.model_json_schema()
     ),
 ) -> CreateEventRequest:
     """Validate a create body before resolving the provider dependency."""
+    await _require_json_body(request, body)
     try:
         event = CreateEventRequest.model_validate(body)
-        validate_create_event(event)
-    except (InvalidInputError, ValidationError) as error:
-        if isinstance(error, InvalidInputError):
-            error.public_message = "Invalid event data"
-            error.provider_involved = False
-            raise
+    except ValidationError:
         raise InvalidInputError(
             "Invalid event data",
             public_message="Invalid event data",
@@ -76,7 +73,8 @@ def validate_create_request(
     return event
 
 
-def validate_replacement_request(
+async def validate_replacement_request(
+    request: Request,
     event_id: str,
     body: object = Body(
         default=None, json_schema_extra=EventReplacement.model_json_schema()
@@ -89,6 +87,7 @@ def validate_replacement_request(
         error.public_message = "Invalid event ID"
         error.provider_involved = False
         raise
+    await _require_json_body(request, body)
     try:
         return EventReplacement.model_validate(body)
     except ValidationError:
@@ -124,3 +123,11 @@ def validate_patch_request(
             provider_involved=False,
         ) from None
     return changes
+
+
+async def _require_json_body(request: Request, body: object) -> None:
+    """Classify absent or non-JSON bodies as parse failures, before OAuth."""
+    if isinstance(body, bytes) or not await request.body():
+        raise RequestValidationError(
+            [{"type": "json_invalid", "loc": ("body",), "msg": "Invalid JSON body"}]
+        )

@@ -218,7 +218,7 @@ def _google_error_reasons(error: HttpError) -> set[str]:
 
 
 def _translate_google_error(
-    error: HttpError, *, retryable_read: bool = False
+    error: HttpError, *, retryable_read: bool = False, shared_write: bool = False
 ) -> ServiceError:
     """Translate a Google HTTP failure into the matching service error.
 
@@ -237,17 +237,22 @@ def _translate_google_error(
         return NotFoundError("Google Calendar reported that the event does not exist")
     if error.status_code == 403 and not (_google_error_reasons(error) & _LIMIT_REASONS):
         return PermissionDeniedError("Google Calendar denied access to the event")
-    if retryable_read and (
-        error.status_code == 429
-        or error.status_code >= 500
-        or bool(_google_error_reasons(error) & _LIMIT_REASONS)
+    quota_rejected = error.status_code == 429 or (
+        error.status_code == 403 and bool(_google_error_reasons(error) & _LIMIT_REASONS)
+    )
+    if ((retryable_read or shared_write) and quota_rejected) or (
+        retryable_read and error.status_code >= 500
     ):
         return ProviderUnavailableError("Google Calendar is temporarily unavailable")
     return ProviderFailureError("Google Calendar request failed")
 
 
 def _raise_google_http_error(
-    operation: str, error: HttpError, *, retryable_read: bool = False
+    operation: str,
+    error: HttpError,
+    *,
+    retryable_read: bool = False,
+    shared_write: bool = False,
 ) -> Never:
     """Log safe Google HTTP context and raise its service-level translation."""
     logger.warning(
@@ -259,7 +264,9 @@ def _raise_google_http_error(
             "provider_status": error.status_code,
         },
     )
-    raise _translate_google_error(error, retryable_read=retryable_read) from None
+    raise _translate_google_error(
+        error, retryable_read=retryable_read, shared_write=shared_write
+    ) from None
 
 
 def _raise_transport_failure(
@@ -328,7 +335,7 @@ class GoogleCalendarProvider(EventProvider):
                 raise NotFoundError(
                     "Google Calendar event is already deleted"
                 ) from None
-            _raise_google_http_error("delete", error)
+            _raise_google_http_error("delete", error, shared_write=True)
         except _TRANSPORT_ERRORS:
             _raise_transport_failure("delete", "Google Calendar request failed")
 
@@ -448,7 +455,7 @@ class GoogleCalendarProvider(EventProvider):
                 event=event,
             )
         except HttpError as error:
-            _raise_google_http_error("insert", error)
+            _raise_google_http_error("insert", error, shared_write=True)
         except _TRANSPORT_ERRORS:
             _raise_transport_failure("insert", "Google Calendar request failed")
         return _validated_operation_result("insert", provider_event)
@@ -477,7 +484,7 @@ class GoogleCalendarProvider(EventProvider):
                 .execute()
             )
         except HttpError as error:
-            _raise_google_http_error("update", error)
+            _raise_google_http_error("update", error, shared_write=True)
         except _TRANSPORT_ERRORS:
             _raise_transport_failure("update", "Google Calendar request failed")
         return _validated_operation_result("update", provider_event, event_id=event_id)
