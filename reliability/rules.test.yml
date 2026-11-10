@@ -3,45 +3,64 @@ rule_files:
 evaluation_interval: 1m
 
 tests:
-  - name: Successful requests, latency, and excluded caller errors
+  - name: 200 and 404 are good; invalid input is excluded; slow GETs spend latency budget
     interval: 1m
     input_series:
       - series: 'calendar_requests_total{operation="Get",outcome="success",release="r1"}'
-        values: '0+10x12'
-      - series: 'calendar_requests_total{operation="Get",outcome="invalid_input",release="r1"}'
-        values: '0+100x12'
+        values: '0+8x12'
       - series: 'calendar_requests_total{operation="Get",outcome="not_found",release="r1"}'
+        values: '0+2x12'
+      - series: 'calendar_requests_total{operation="Get",outcome="invalid_input",release="r1"}'
         values: '0+100x12'
       - series: 'calendar_requests_total{operation="Create",outcome="provider_error",release="r1"}'
         values: '0+100x12'
       - series: 'calendar_request_duration_seconds_count{operation="Get",outcome="success",release="r1"}'
-        values: '0+10x12'
+        values: '0+8x12'
+      - series: 'calendar_request_duration_seconds_count{operation="Get",outcome="not_found",release="r1"}'
+        values: '0+2x12'
       - series: 'calendar_request_duration_seconds_count{operation="Get",outcome="invalid_input",release="r1"}'
         values: '0+100x12'
       - series: 'calendar_request_duration_seconds_bucket{operation="Get",outcome="success",le="1",release="r1"}'
-        values: '0+9x12'
+        values: '0+7x12'
+      - series: 'calendar_request_duration_seconds_bucket{operation="Get",outcome="not_found",le="1",release="r1"}'
+        values: '0+2x12'
     promql_expr_test:
-      - expr: team2_calendar:get_eligible:increase24h
+      - expr: team2_calendar:get_eligible:increase7d
         eval_time: 10m
         exp_samples:
-          - labels: team2_calendar:get_eligible:increase24h
+          - labels: team2_calendar:get_eligible:increase7d
             value: 100
-      - expr: team2_calendar:get_success:increase24h / team2_calendar:get_eligible:increase24h
+      - expr: team2_calendar:get_good:increase7d
         eval_time: 10m
         exp_samples:
-          - labels: '{}'
+          - labels: team2_calendar:get_good:increase7d
+            value: 100
+      - expr: team2_calendar:get_availability:ratio7d
+        eval_time: 10m
+        exp_samples:
+          - labels: team2_calendar:get_availability:ratio7d
             value: 1
-      - expr: team2_calendar:get_fast_success:increase24h / team2_calendar:get_latency_eligible:increase24h
+      - expr: team2_calendar:get_latency:ratio7d
         eval_time: 10m
         exp_samples:
-          - labels: '{}'
+          - labels: team2_calendar:get_latency:ratio7d
             value: 0.9
+      - expr: team2_calendar:get_availability_remaining:budget7d
+        eval_time: 10m
+        exp_samples:
+          - labels: team2_calendar:get_availability_remaining:budget7d
+            value: 1
+      - expr: team2_calendar:get_latency_remaining:budget7d
+        eval_time: 10m
+        exp_samples:
+          - labels: team2_calendar:get_latency_remaining:budget7d
+            value: -5
     alert_rule_test:
       - eval_time: 10m
         alertname: Team2CalendarGetHighFailureRate
         exp_alerts: []
 
-  - name: Provider outage is bad even when fast; alert fires then clears
+  - name: Fast provider failures spend availability budget; alert fires then clears
     interval: 1m
     input_series:
       - series: 'calendar_requests_total{operation="Get",outcome="provider_unavailable",release="r1"}'
@@ -58,11 +77,16 @@ tests:
         exp_samples:
           - labels: 'ALERTS{alertname="Team2CalendarGetHighFailureRate",alertstate="pending",operation="Get",service="team2-calendar",severity="warning"}'
             value: 1
-      - expr: team2_calendar:get_fast_success:increase24h / team2_calendar:get_latency_eligible:increase24h
+      - expr: team2_calendar:get_availability:ratio7d
         eval_time: 4m
         exp_samples:
-          - labels: '{}'
+          - labels: team2_calendar:get_availability:ratio7d
             value: 0
+      - expr: team2_calendar:get_latency:ratio7d
+        eval_time: 4m
+        exp_samples:
+          - labels: team2_calendar:get_latency:ratio7d
+            value: 1
     alert_rule_test:
       - eval_time: 2m
         alertname: Team2CalendarGetHighFailureRate
@@ -83,19 +107,26 @@ tests:
         alertname: Team2CalendarGetHighFailureRate
         exp_alerts: []
 
-  - name: Permission denial counts against availability
+  - name: 403 and other non-400/422 client errors remain eligible and bad
     interval: 1m
     input_series:
       - series: 'calendar_requests_total{operation="Get",outcome="success",release="r1"}'
         values: '0+8x12'
       - series: 'calendar_requests_total{operation="Get",outcome="access_denied",release="r1"}'
-        values: '0+2x12'
+        values: '0+1x12'
+      - series: 'calendar_requests_total{operation="Get",outcome="client_error",release="r1"}'
+        values: '0+1x12'
     promql_expr_test:
-      - expr: team2_calendar:get_success:increase24h / team2_calendar:get_eligible:increase24h
+      - expr: team2_calendar:get_availability:ratio7d
         eval_time: 10m
         exp_samples:
-          - labels: '{}'
+          - labels: team2_calendar:get_availability:ratio7d
             value: 0.8
+      - expr: team2_calendar:get_availability_remaining:budget7d
+        eval_time: 10m
+        exp_samples:
+          - labels: team2_calendar:get_availability_remaining:budget7d
+            value: -19
     alert_rule_test:
       - eval_time: 10m
         alertname: Team2CalendarGetHighFailureRate
@@ -114,13 +145,31 @@ tests:
   - name: No telemetry is not perfect availability
     input_series: []
     promql_expr_test:
-      - expr: team2_calendar:get_success:increase24h / team2_calendar:get_eligible:increase24h
+      - expr: team2_calendar:get_availability:ratio7d
+        eval_time: 5m
+        exp_samples: []
+      - expr: team2_calendar:get_latency:ratio7d
         eval_time: 5m
         exp_samples: []
     alert_rule_test:
       - eval_time: 5m
         alertname: Team2CalendarGetHighFailureRate
         exp_alerts: []
+
+  - name: Idle counters do not produce healthy ratios
+    interval: 1m
+    input_series:
+      - series: 'calendar_requests_total{operation="Get",outcome="success",release="r1"}'
+        values: '0+0x10'
+      - series: 'calendar_request_duration_seconds_count{operation="Get",outcome="success",release="r1"}'
+        values: '0+0x10'
+    promql_expr_test:
+      - expr: team2_calendar:get_availability:ratio7d
+        eval_time: 5m
+        exp_samples: []
+      - expr: team2_calendar:get_latency:ratio7d
+        eval_time: 5m
+        exp_samples: []
 
   - name: Count all releases without hiding a counter reset
     interval: 1m
@@ -130,13 +179,32 @@ tests:
       - series: 'calendar_requests_total{operation="Get",outcome="success",release="r2"}'
         values: '0+1x12'
     promql_expr_test:
-      - expr: team2_calendar:get_eligible:increase24h
+      - expr: team2_calendar:get_eligible:increase7d
         eval_time: 10m
         exp_samples:
-          - labels: team2_calendar:get_eligible:increase24h
+          - labels: team2_calendar:get_eligible:increase7d
             value: 100
-      - expr: team2_calendar:get_success:increase24h / team2_calendar:get_eligible:increase24h
+      - expr: team2_calendar:get_availability:ratio7d
         eval_time: 10m
         exp_samples:
-          - labels: '{}'
+          - labels: team2_calendar:get_availability:ratio7d
+            value: 1
+
+  - name: Seven-day window includes a week of traffic but ages out older failures
+    interval: 1h
+    input_series:
+      - series: 'calendar_requests_total{operation="Get",outcome="success",release="r1"}'
+        values: '0+1x192'
+      - series: 'calendar_requests_total{operation="Get",outcome="application_error",release="r1"}'
+        values: '0 10+0x191'
+    promql_expr_test:
+      - expr: team2_calendar:get_eligible:increase7d
+        eval_time: 8d
+        exp_samples:
+          - labels: team2_calendar:get_eligible:increase7d
+            value: 168
+      - expr: team2_calendar:get_availability:ratio7d
+        eval_time: 8d
+        exp_samples:
+          - labels: team2_calendar:get_availability:ratio7d
             value: 1

@@ -1,25 +1,37 @@
-# DRAFT: requires PR #73 metrics in a Team-2-only backend. Not provisioned.
-# Replace GRAFANA_HOST.invalid and get policy approval before loading in deployment.
+# Requires PR #73 metrics in a backend scoped to one Team 2 environment.
+# Replace GRAFANA_HOST.invalid before activation. See docs/RELIABILITY.md.
 groups:
   - name: team2-calendar-reliability
     interval: 1m
     rules:
-      - record: team2_calendar:get_eligible:increase24h
-        expr: sum(increase(calendar_requests_total{operation="Get",outcome!~"invalid_input|not_found|client_error"}[24h]))
-      - record: team2_calendar:get_success:increase24h
-        expr: sum(increase(calendar_requests_total{operation="Get",outcome="success"}[24h])) or vector(0)
-      - record: team2_calendar:get_fast_success:increase24h
-        expr: sum(increase(calendar_request_duration_seconds_bucket{operation="Get",outcome="success",le="1"}[24h])) or vector(0)
-      - record: team2_calendar:get_latency_eligible:increase24h
-        expr: sum(increase(calendar_request_duration_seconds_count{operation="Get",outcome!~"invalid_input|not_found|client_error"}[24h]))
+      - record: team2_calendar:get_eligible:increase7d
+        expr: sum(increase(calendar_requests_total{operation="Get",outcome!="invalid_input"}[7d]))
+      - record: team2_calendar:get_good:increase7d
+        expr: sum(increase(calendar_requests_total{operation="Get",outcome=~"success|not_found"}[7d])) or vector(0)
+      - record: team2_calendar:get_fast:increase7d
+        expr: sum(increase(calendar_request_duration_seconds_bucket{operation="Get",outcome!="invalid_input",le="1"}[7d])) or vector(0)
+      - record: team2_calendar:get_latency_eligible:increase7d
+        expr: sum(increase(calendar_request_duration_seconds_count{operation="Get",outcome!="invalid_input"}[7d]))
+      - record: team2_calendar:get_availability:ratio7d
+        expr: (team2_calendar:get_good:increase7d / team2_calendar:get_eligible:increase7d) and (team2_calendar:get_eligible:increase7d > 0)
+      - record: team2_calendar:get_latency:ratio7d
+        expr: (team2_calendar:get_fast:increase7d / team2_calendar:get_latency_eligible:increase7d) and (team2_calendar:get_latency_eligible:increase7d > 0)
+      - record: team2_calendar:get_availability_allowed:budget7d
+        expr: team2_calendar:get_eligible:increase7d * 0.01
+      - record: team2_calendar:get_availability_remaining:budget7d
+        expr: team2_calendar:get_availability_allowed:budget7d - (team2_calendar:get_eligible:increase7d - team2_calendar:get_good:increase7d)
+      - record: team2_calendar:get_latency_allowed:budget7d
+        expr: team2_calendar:get_latency_eligible:increase7d * 0.05
+      - record: team2_calendar:get_latency_remaining:budget7d
+        expr: team2_calendar:get_latency_allowed:budget7d - (team2_calendar:get_latency_eligible:increase7d - team2_calendar:get_fast:increase7d)
       - record: team2_calendar:get_eligible:increase5m
-        expr: sum(increase(calendar_requests_total{operation="Get",outcome!~"invalid_input|not_found|client_error"}[5m]))
-      - record: team2_calendar:get_success:increase5m
-        expr: sum(increase(calendar_requests_total{operation="Get",outcome="success"}[5m])) or vector(0)
+        expr: sum(increase(calendar_requests_total{operation="Get",outcome!="invalid_input"}[5m]))
+      - record: team2_calendar:get_good:increase5m
+        expr: sum(increase(calendar_requests_total{operation="Get",outcome=~"success|not_found"}[5m])) or vector(0)
       - alert: Team2CalendarGetHighFailureRate
         expr: |
           (
-            (team2_calendar:get_eligible:increase5m - team2_calendar:get_success:increase5m)
+            (team2_calendar:get_eligible:increase5m - team2_calendar:get_good:increase5m)
             / team2_calendar:get_eligible:increase5m > 0.2
           )
           and team2_calendar:get_eligible:increase5m >= 5
