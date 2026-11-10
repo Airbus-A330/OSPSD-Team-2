@@ -64,6 +64,24 @@ uv --version
 
 The project supports **uv 0.12.17 or newer**.
 
+If `make check` reports that your running uv is too old, update the installation
+that appears in `command -v uv`. For a Homebrew installation:
+
+```bash
+brew upgrade uv
+uv --version
+make check
+```
+
+To run the checks with the exact CI version without changing your installed uv:
+
+```bash
+uv tool run --from uv==0.12.17 uv run --locked make check
+```
+
+The outer command supplies uv 0.12.17 to the nested Makefile commands as well.
+Keep the project's `required-version` and lockfile unchanged for this setup fix.
+
 ### macOS / Linux
 
 ```bash
@@ -97,6 +115,16 @@ The project uses:
 - `uv.lock` for the exact resolved dependency set.
 
 No virtual-environment activation is required. Use `uv run --locked` for project commands.
+
+---
+
+# Container and Infrastructure
+
+For the hosted entry point, locked Docker build, Render Blueprint, runtime
+configuration, account prerequisites, and teardown, see
+[Deployment](docs/DEPLOYMENT.md). Local development below continues to use
+`app.main:app`; containers use the validated and protected `app.hosting:app`.
+Cloud provisioning and independent teammate acceptance are still pending.
 
 ---
 
