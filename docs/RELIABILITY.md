@@ -48,6 +48,13 @@ standard known-fixture smoke check must verify status/body independently.
 Completed server-side requests also miss upstream failures, never-completing
 requests and lost exporter data. Check exporter health and actual history.
 
+#68 now selects Render Free with ephemeral storage; see its
+[deployment procedure](https://github.com/Airbus-A330/OSPSD-Team-2/blob/f7d60dc458d687870e3c80f2e3c4b5483d9076a2/docs/DEPLOYMENT.md).
+Sleeping instances can add cold-start delay before a request reaches middleware.
+Keep the agreed <=1s objective, but report that server-side measurements do not
+establish end-to-end cold-start availability or latency. Record cold-start smoke
+results separately; do not silently exclude observed slow eligible requests.
+
 Aggregate releases so deployment does not reset the budget. These rules require
 one Team 2 environment's backend/tenant. For a mixed backend, first apply and
 test its actual service/environment selector. Multiple workers/replicas need
@@ -118,7 +125,7 @@ Activation steps owned by #72, coordinated with #68/#69/#70:
 1. Confirm deployed source names, scope/stream identities, retention and immutable
    `CALENDAR_RELEASE`. Ensure the **hosted** entry point preserves telemetry
    startup/shutdown; [PR #75](https://github.com/Airbus-A330/OSPSD-Team-2/pull/75)
-   currently replaces the app lifespan (inspected head `f48a62b`). Leon owns
+   currently replaces the app lifespan (inspected head `f7d60dc`). Leon owns
    the hosted integration. Verify actual hosted request exports, including early
    access-denied responses, before trusting the deployment.
 2. Replace `GRAFANA_HOST.invalid` in the rule and matching test expectation with
@@ -151,16 +158,20 @@ permission, known-good immutable artifact, and the standard #69 smoke check.
 3. Follow a sanitized outcome log's trace to its HTTP/provider spans. Compare
    timings and release identity. Never enable SDK/body/raw-URL debug capture.
 4. Restore the last known-good artifact using **#69's approved rollback path**.
-   #68's current foundation is one image-backed Render service/Blueprint, with
-   persistent OAuth disk and protected bearer access. Preserve resource/disk
-   identity and keep the Blueprint's image reference consistent with the restored
-   image. Code rollback does not undo Google writes or token/config changes.
+   #68's current foundation is one Render Free image-backed service/Blueprint,
+   with protected bearer access and no persistent disk. Preserve service identity
+   and keep the Blueprint's image reference consistent with the restored image.
+   Startup reconstructs the disposable OAuth cache from protected runtime secrets;
+   do not depend on a token file surviving rollback or restore stale credentials.
+   Code rollback does not undo Google writes or token/config changes.
    **Pending input:** #69's exact command, target and known-good digest. Do not
    guess a cloud command or bypass deployment protections.
 5. Run **the identical #69 deployment consumer/smoke check**, not a weaker new
    script. Confirm expected Event 200 and contract-correct missing-event 404.
    `/readyz` is provider-independent and cannot replace the real smoke check.
-   **Pending input:** its command, protected auth and cleanup contract.
+   Use #69's bounded cold-start readiness wait; retry only approved safe probes,
+   never blindly resend an uncertain write to wake the service.
+   **Pending input:** its command, timeouts, protected auth and cleanup contract.
 6. Confirm restored release, healthy new Get outcomes, improving short-window
    results and stopped error-budget burn. Verify the alert's resolved receipt.
    Continue only the approved safe workload; silence is not recovery evidence.
@@ -202,9 +213,9 @@ the demonstration, with linked change/result. Pre-existing work is not that acti
 - Native tools also run in the **Format** workflow via `make reliability-check`.
 - [Local actual-producer integration](evidence/reliability-local/README.md): synthetic
   only; not deployed Google verification or a completed alert/game-day exercise.
-- #68 foundation is now PR #75 at inspected `f48a62b`: Render plan exists, but
-  account owner, budget and deployment permission remain unconfirmed. Docker is
-  not running here.
+- #68 foundation is PR #75 at inspected `f7d60dc`: Render Free with ephemeral
+  credential storage and no persistent disk. Account ownership, deployment
+  permission and an acceptable shared-access arrangement remain unconfirmed.
 - Protected deployed backend/dashboard, 7-day history and current live SLI/budget
   records: pending. Revalidated recording rules against #73 `822457f`
   exact-200 classification; metric names unchanged.
