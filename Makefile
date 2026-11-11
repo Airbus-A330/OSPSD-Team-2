@@ -28,7 +28,7 @@ check: format-check lint typecheck test build
 CONTAINER_IMAGE ?= ospsd-team2-issue68:local
 .PHONY: container-build infra-check
 container-build:
-	docker build --platform linux/amd64 -t $(CONTAINER_IMAGE) .
+	docker build --platform linux/amd64 --provenance=false -t $(CONTAINER_IMAGE) .
 
 infra-check:
 	@blueprint=$$(mktemp /tmp/ospsd-render-XXXXXX.yaml); \
