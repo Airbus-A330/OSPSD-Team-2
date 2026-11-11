@@ -26,6 +26,13 @@ are documented in [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
 
 ---
 
+## Automated delivery
+
+[Delivery and rollback](docs/DELIVERY.md) uses the existing container and Render
+Blueprint on `assgn2-ms3-submission`. PR checks include Infrastructure validation
+and explicit controlled shared conformance. Protected cloud setup and actual
+deployment/rollback evidence remain required before submission.
+
 # Quick Start
 
 ## Requirements

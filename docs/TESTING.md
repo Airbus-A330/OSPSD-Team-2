@@ -1,5 +1,11 @@
 # Testing Strategy
 
+`tests/test_delivery.py` covers exact-digest deployment requests, platform failure
+gates, shared HTTP CRUD smoke, cleanup after partial failures, uncertain writes
+and sanitized evidence. `make conformance` explicitly runs the tagged shared
+suite. Real deployed smoke stays separate from normal pytest; see
+[DELIVERY.md](DELIVERY.md) for protected setup and recovery verification.
+
 This document records what the project tests and why.
 
 `tests/telemetry/` covers the real CRUD/application/Google boundaries, operation
