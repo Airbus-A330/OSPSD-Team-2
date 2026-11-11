@@ -1,4 +1,4 @@
-.PHONY: format format-check lint typecheck test build check
+.PHONY: format format-check lint typecheck test build check conformance
 
 format:
 	uv run --locked ruff format .
@@ -14,6 +14,9 @@ typecheck:
 
 test:
 	uv run --locked python -m pytest
+
+conformance:
+	uv run --locked python -m pytest tests/integration/test_shared_conformance.py
 
 build:
 	uv run --locked python -m compileall app
