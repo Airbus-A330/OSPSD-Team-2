@@ -59,10 +59,29 @@ reconcile that identity with the later successful Delivery before interpreting
 release-specific recovery. Do not infer either a current failure or current
 health solely from these old points.
 
+## Fresh API run and live SLI screenshot
+
+[`consumer-verification-refresh.json`](consumer-verification-refresh.json) records
+the user's fresh run at **2026-11-11T23:26:57Z**: all 11 API checks passed and
+test-event cleanup is confirmed. An earlier interrupted/empty local attempt is
+not treated as a passing verification.
+
+[`sli-dashboard-20261111-182750.jpg`](sli-dashboard-20261111-182750.jpg) shows the
+imported live measurement dashboard. Its capture-file timestamp is
+**2026-11-11T23:27:51Z**, not a precise query evaluation time. Displayed counts
+A=59.0, B=43.0, C=59.0, D=58.0 imply approximate availability **72.88%** and
+latency compliance **98.31%**, with remaining budgets **-15.41** and **1.95** bad
+events respectively. The displayed source age is **4.16 seconds**.
+
+[`sli-measurement.json`](sli-measurement.json) records the observation, estimated
+calculations and limitations. Values are rounded displays, history is shorter
+than a verified full window, and test traffic contributes. Do not misrepresent
+them as unrounded exports, full seven-day evidence or passing availability.
+
 ## Still missing
 
-Protected collector/Prometheus/dashboard handoff, actual deployed source metrics
-and history coverage, Slack firing/resolved receipt, independent responder and
-approved window, actual recovery/runbook execution, postmortem and a completed
-incident-driven follow-up. Neither the API check nor a green delivery supplies
-these automatically.
+Raw instant-query export/exact evaluation time and verified history coverage,
+real email/Slack firing/resolved receipt, approved exercise window, actual
+recovery/runbook execution, postmortem and a completed incident-driven follow-up.
+Airbus is responder and delegates recording. Neither API verification nor a green
+delivery supplies those incident results automatically.

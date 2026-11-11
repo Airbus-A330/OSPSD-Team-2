@@ -1,8 +1,8 @@
 # Calendar reliability (#72)
 
-Owner: Maksym Yemelianenko. **Implementation and API verification are complete;
-exact live SLI/budget capture, real alert delivery and game-day acceptance remain
-pending.** Preparing files is not evidence that the exercise happened.
+Owner: Maksym Yemelianenko. **Implementation, API verification and a rounded live
+SLI/budget observation are recorded. Real alert delivery and game-day acceptance
+remain pending.** Preparing files is not evidence that the exercise happened.
 
 ## Agreed policy and measurement
 
@@ -94,9 +94,11 @@ before claiming extra credit. Pre-existing work is not that action.
 - Public series still carry release `692597c`; successful later Delivery identifies
   source `7854d69`. Ask the owner to reconcile `CALENDAR_RELEASE` with the actual
   serving image; historical series alone do not prove a current misdeployment.
-- Protected Grafana invite was sent to Maksym per team chat. Import the measurement
-  view and capture its four unrounded source values/time; exact SLIs/budgets and
-  actual history coverage remain pending, not blocked on missing exporter code.
+- The imported measurement view now has a [live screenshot observation](reliability/sli-slo.md#capture-the-exact-live-values):
+  availability approximately 72.88% (budget exhausted), latency approximately
+  98.31%, source age 4.16s. These use rounded displayed counts; raw precision,
+  exact query timestamp and full history coverage are not verified. Do not call
+  green panels proof of meeting both SLOs.
 - The retained environment snapshot lists production with no protection rules
   and no disposable environment. It does not prove other manual controls are
   absent. Confirm actual target isolation and approval before any dispatch.

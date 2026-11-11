@@ -1,6 +1,7 @@
 # Get SLIs and SLOs
 
-Owner: Maksym. **Definitions implemented; exact live SLI/budget capture pending.**
+Owner: Maksym. **Live screenshot measurements recorded below; raw unrounded
+query export and exact evaluation timestamp are not yet retained.**
 
 ## Policy and measurement location
 
@@ -60,13 +61,23 @@ establish a healthy result. Validate raw source names/labels in Explore first.
 
 | Record at one evaluation instant | Current value |
 | --- | --- |
-| UTC evaluation time / backend scope / source releases | Pending exact live capture |
-| Configured window | `(t - 604800 seconds, t]` |
-| Actual observed history and gaps | Pending verification; do not claim full seven-day coverage |
-| Availability numerator B / denominator A / SLI B/A | Pending exact live capture |
-| Availability allowed / remaining bad-event budget | `A * 0.01` / `A * 0.01 - (A - B)`; pending values |
-| Latency numerator D / denominator C / SLI D/C | Pending exact live capture |
-| Latency allowed / remaining bad-event budget | `C * 0.05` / `C * 0.05 - (C - D)`; pending values |
+| Capture time / backend | Screenshot file timestamp **2026-11-11T23:27:51Z**; Team 2 Grafana Cloud `grafanacloud-prom`; exact query evaluation time not shown |
+| Configured window | Rolling **7 days** `(t - 604800 seconds, t]`; do not treat capture-file time as exact `t` |
+| Actual observed history and gaps | Full seven-day coverage not verified; source-age panel displays **4.16 seconds** at this observation |
+| Availability numerator B / denominator A / SLI B/A | Displayed **43.0 / 59.0**, approximately **72.88%**; below 99% target |
+| Availability allowed / remaining bad-event budget | Approximately **0.59 / -15.41 bad events**; exhausted |
+| Latency numerator D / denominator C / SLI D/C | Displayed **58.0 / 59.0**, approximately **98.31%**; above 95% target |
+| Latency allowed / remaining bad-event budget | Approximately **2.95 / 1.95 bad events** remaining |
+
+Source: [screenshot](../evidence/reliability-live/sli-dashboard-20261111-182750.jpg)
+and [machine-readable observation](../evidence/reliability-live/sli-measurement.json).
+Counts are rounded dashboard displays, so these ratios/budgets are estimates,
+not unrounded query results. A and C agree at displayed precision. The dataset
+includes deliberate API verification traffic, not only ordinary consumer use.
+The availability observation exhausts its budget; apply the [budget policy](error-budget-policy.md)
+rather than lower the target or hide the result. The green stat color is not a
+pass/fail indicator. An Inspect -> Data export at a fixed UTC instant would
+improve precision; it must not be fabricated from these rounded numbers.
 
 For 1,000 eligible requests, the availability allowance is 10 bad events and
 latency allowance is 50. Negative means overspent; zero means exhausted.
@@ -97,5 +108,6 @@ not require recording rules to have been loaded.
 
 [Live API/delivery evidence](../evidence/reliability-live/README.md) proves those
 boundaries, not SLI completion. The new public dashboard check verifies that live
-series exist; it does not replace the pending exact measurements above.
+series exist. The newer screenshot additionally records the source counts and
+freshness above, subject to its explicit rounding/time/history limitations.
 See [error-budget policy](error-budget-policy.md) for action on exhaustion.
