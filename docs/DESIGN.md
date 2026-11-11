@@ -1,5 +1,20 @@
 # Shared Calendar Contract Migration Design
 
+## Milestone 3 observability
+
+The four shared CRUD operations retain their existing routes, application/cache
+behavior, and Google provider semantics. `app/telemetry/` supplies bounded OTLP
+metrics/logs/traces through the application factory's lifespan and ASGI middleware.
+Google Create/Get/Replace/Delete operations have CLIENT spans including response
+translation; PUT's fresh GET preflight is a separate span. Cache hits have no
+outbound span. Success requires the operation's exact contract status, and
+unexpected 2xx/3xx responses use `unexpected_status` for reliability consumers.
+No body, raw identifier, provider payload, or exception text is exported.
+Saturation measures occupied AnyIO workers relative to the actual worker limit.
+Configuration, golden-signals dashboard, hosted-lifecycle integration, Level 4
+schema, and outstanding deployed evidence are canonical in
+[OBSERVABILITY.md](OBSERVABILITY.md). Listing and PATCH remain supported extensions.
+
 | Metadata | Value |
 |---|---|
 | Authors | Alexander Freedman and OSPSD Team 2 |
@@ -227,40 +242,34 @@ threads. The process-local cache continues to share domain `Event` values only;
 it does not retain SDK objects. The migration does not change cache TTL,
 capacity, invalidation, or concurrency behavior.
 
-### Proposed deployment (pending team review)
+### Container and deployment foundation (issue #68)
 
-This proposal addresses HW2 section 4.6; it is not an approved platform choice
-or evidence of deployment. We propose one paid Render web service running a
-Docker image with one Uvicorn worker. The assumption is low-volume classroom
-use, with brief deployment downtime acceptable. Google remains the event store;
-the existing cache stays disposable and process-local. Render's
-[persistent-disk limits](https://render.com/docs/disks) rule out multiple
-instances and zero-downtime deployment for this proposal.
+The local implementation uses one Render **Free** image-backed web service,
+one worker, and ephemeral storage, following Alexander's November 9 clarification.
+`Dockerfile` uses digest-pinned Python/uv bases and locked application dependencies.
+The Blueprint in `infra/render.template.yaml` takes an immutable published image
+reference and does not provision a disk or database. See
+[DEPLOYMENT.md](DEPLOYMENT.md) for bootstrap, preview/reapply, cost limits and teardown.
 
-Use a versioned `render.yaml` [Blueprint](https://render.com/docs/blueprint-spec)
-to declare the service, disk, and configuration placeholders. GitHub Actions
-would run the required checks, build the locked-dependency Docker image once,
-and publish it to GitHub Container Registry. The deployment workflow would
-deploy that [prebuilt image by digest](https://render.com/docs/deploying-an-image),
-run a shared-API smoke check with cleanup, and retain the previous digest for
-rollback. Validate infrastructure previews and repeatable application before
-accepting this approach for Milestone 3.
+The hosted entry point, `app.hosting:app`, validates runtime authorization and
+initializes a private disposable token cache on every start without contacting
+Google. Render's protected runtime JSON is the source for restart recovery;
+operator credential updates replace stale cached state on restart. The service
+requires bearer authorization for API traffic and exposes provider-independent
+`/healthz` and `/readyz`. Local development retains `app.main:app`. Refresh is
+serialized between threads and cached atomically, without interactive login.
 
-Supply OAuth client configuration and initial authorization through
-[runtime secret files](https://render.com/docs/configure-environment-variables),
-never through Git or the image. Seed the token onto a private writable disk
-only when absent, using `GOOGLE_CALENDAR_TOKEN_FILE` for its path. Before hosting,
-replace browser-based authorization fallback with a sanitized setup failure,
-serialize credential refresh and persist tokens atomically. One worker still
-serves concurrent requests, so it does not remove that synchronization need.
-Restrict access to the hosted write API to authorized reviewers.
+Free instances sleep on idle, lose local files across restarts, and have cold-start
+latency and usage limits. Credential expiry/revocation requires updating the
+runtime secret. The pipeline/smoke tests (#69) and SLO work must account for these
+constraints without blindly retrying writes. Calendar data remains in Google.
 
-Before provisioning, the team must confirm account access, an account/billing
-owner, current compute/disk/registry costs, a spending cap, and a teardown date.
-No free-tier or budget assumption is approved. Revisit the platform if cost,
-credential persistence, or required infrastructure checks cannot be supported.
-Provisioning, health checks, deployment/rollback, telemetry, and teardown
-verification remain November 11 Milestone 3 work; no resources have been created.
+This is local implementation, not cloud deployment evidence. Account ownership,
+platform-aware validation and independent teammate deployment/reapply/API/teardown
+verification remain pending. Hobby workspaces allow only one member: the protected,
+shared infrastructure-state requirement remains unresolved. Choosing ephemeral
+storage does not waive it or authorize a paid workspace. No cloud resources have
+been provisioned by #68.
 
 ## Testing
 
@@ -349,6 +358,12 @@ the required composition and test replacement points.
    Attach the reviewed commit and matching CI links when these changes are pushed.
 
 ## Change history
+
+- 2026-11-09: changed #68 to Render Free without a persistent disk; restored OAuth
+  cache from runtime configuration on each start and documented cold-start/access limits.
+
+- 2026-11-09: added the issue #68 container/Blueprint foundation, hosted startup
+  validation and health/access behavior; recorded pending cloud and teammate checks.
 
 - 2026-11-09: issue #67 routes all common operations through `CalendarService`,
   aliases shared write models, adopts shared HTTP errors and validation, and
