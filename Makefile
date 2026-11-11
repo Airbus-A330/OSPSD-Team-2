@@ -1,4 +1,4 @@
-.PHONY: format format-check lint typecheck test build check reliability-check reliability-report
+.PHONY: format format-check lint typecheck test build check conformance reliability-check reliability-report
 
 PROMTOOL ?= promtool
 AMTOOL ?= amtool
@@ -18,6 +18,9 @@ typecheck:
 
 test:
 	uv run --locked python -m pytest
+
+conformance:
+	uv run --locked python -m pytest tests/integration/test_shared_conformance.py
 
 build:
 	uv run --locked python -m compileall app
@@ -39,7 +42,7 @@ reliability-report:
 CONTAINER_IMAGE ?= ospsd-team2-issue68:local
 .PHONY: container-build infra-check
 container-build:
-	docker build --platform linux/amd64 -t $(CONTAINER_IMAGE) .
+	docker build --platform linux/amd64 --provenance=false -t $(CONTAINER_IMAGE) .
 
 infra-check:
 	@blueprint=$$(mktemp /tmp/ospsd-render-XXXXXX.yaml); \

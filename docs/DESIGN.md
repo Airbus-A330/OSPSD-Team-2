@@ -1,5 +1,16 @@
 # Shared Calendar Contract Migration Design
 
+## Milestone 3 delivery
+
+Issue #69 adds delivery to #68's Render image-backed infrastructure. Merges to
+`assgn2-ms3-submission` run canonical checks, controlled shared conformance and
+Blueprint schema validation, then build/test one linux/amd64 image and deploy
+its published digest. Protected delivery requires real shared-API CRUD smoke
+and confirmed cleanup before success. Manual dispatch restores a retained digest
+without rebuilding using the same code. Runtime config stays in Render; PRs
+receive no deployment credentials. [DELIVERY.md](DELIVERY.md) is canonical for
+setup, failure handling and rollback. Live delivery/recovery remain unverified.
+
 ## Milestone 3 observability
 
 The four shared CRUD operations retain their existing routes, application/cache
@@ -321,8 +332,8 @@ Listing/PATCH remain supported local extensions.
 
 A credential-owning teammate must run and record the live workflow and cleanup.
 Review and CI on the submitted revision are still required. Infrastructure,
-deployment, telemetry, reliability, and broader module reorganization belong to
-separate issues; their proposed deployment section above is intentionally unchanged.
+delivery and telemetry are described in their respective sections above;
+reliability and broader module reorganization remain separate work.
 
 ## Alternatives considered
 
