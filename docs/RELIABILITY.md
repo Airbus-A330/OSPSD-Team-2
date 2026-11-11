@@ -166,14 +166,21 @@ permission, known-good immutable artifact, and the standard #69 smoke check.
    Startup reconstructs the disposable OAuth cache from protected runtime secrets;
    do not depend on a token file surviving rollback or restore stale credentials.
    Code rollback does not undo Google writes or token/config changes.
-   **Pending input:** #69's exact command, target and known-good digest. Do not
-   guess a cloud command or bypass deployment protections.
+   Follow [DELIVERY.md#rollback](DELIVERY.md#rollback): pause merges and reconcile
+   running/pending deliveries; dispatch **Delivery** on `assgn2-ms3-submission`
+   with the retained `image` digest and explicitly approved `target`. Do not
+   rebuild it. A successful retained [delivery artifact](evidence/reliability-live/README.md)
+   now identifies a known-good candidate; confirm it is still appropriate for the
+   selected environment before dispatch. No rollback has been executed by #72.
 5. Run **the identical #69 deployment consumer/smoke check**, not a weaker new
    script. Confirm expected Event 200 and contract-correct missing-event 404.
    `/readyz` is provider-independent and cannot replace the real smoke check.
-   Use #69's bounded cold-start readiness wait; retry only approved safe probes,
-   never blindly resend an uncertain write to wake the service.
-   **Pending input:** its command, timeouts, protected auth and cleanup contract.
+   The same Delivery workflow calls `scripts.smoke_calendar.smoke_calendar`
+   automatically: bounded five-minute readiness wait, real CRUD and confirmed
+   cleanup, with no write retries. Require its retained artifact to say
+   `outcome: successful`, `smoke: passed`, `cleanup: confirmed`.
+   The separately run teammate verification script proves API behavior, not an
+   execution of this recovery procedure. Never expose protected runtime tokens.
 6. Confirm restored release, healthy new Get outcomes, improving short-window
    results and stopped error-budget burn. Verify the alert's resolved receipt.
    Continue only the approved safe workload; silence is not recovery evidence.
@@ -199,6 +206,10 @@ failure design/coordination; Airbus is the timeline recorder per his
 The independent responder and approved execution window remain unassigned.
 Coordinate with #69 so pipeline safeguards remain enabled; do not
 disable smoke protection to prolong an alert. Account for cached Get responses.
+The startup-crashing image in #69's delivery exercise is not automatically a
+valid #72 alert trigger: Render may retain the healthy old instance, yielding no
+Get failures. Verify that the separately approved fault actually produces the
+agreed user-visible symptom; do not equate a failed deployment with alert delivery.
 
 Stop the fault after **5 minutes maximum**, or immediately on unintended impact.
 If unrecovered at 15 minutes, abort/escalate and keep recovery/cleanup staffed.
@@ -229,14 +240,24 @@ the demonstration, with linked change/result. Pre-existing work is not that acti
 - Hosting/deployment setup: Leon with Airbus. Capture the final service URL,
   workspace/service owner, release/image digest and protected workflow access
   from their deployed handoff; chat setup progress is not live acceptance evidence.
-- #69 is assigned to Dorien (`zeedorien`): exact smoke/cleanup, cold-start timeouts,
-  known-good immutable artifact and rollback procedure are still needed.
+- #69/#78 and diagnostics #79 are merged in `assgn2-ms3-submission@7854d69`.
+  Dorien's [delivery/rollback procedure](DELIVERY.md) is available. Successful
+  Delivery run `43064300096` retains a published digest, live platform result,
+  passing real smoke and confirmed cleanup. It is not rollback/game-day evidence.
+- [Live API evidence](evidence/reliability-live/README.md): Maksym independently
+  ran Leon's 11-check script and confirmed cleanup. Its `expected_release` field
+  is not a measured deployed SHA; the later Delivery artifact has separate provenance.
+- Game-day environment safety remains pending: GitHub currently lists `production`
+  without required-reviewer rules and no `disposable` environment. Airbus and the
+  delivery/environment owner must confirm target isolation and approval controls
+  before any fault/rollback dispatch; this branch does not configure them.
 - Protected collector/backend/dashboard access and history: Nicolas with Airbus.
   Current live SLI/budget records and real export verification remain pending.
 - Alert destination: Team 2 Slack, protected provisioning coordinated by Airbus.
   Designer/coordinator: Maksym; recorder: Airbus; independent responder: TBD.
-- Real Slack configuration, deliberate alert delivery/resolution, exact #69
-  rollback/smoke procedure, independent runbook exercise and full game day: pending.
+- Real Slack configuration, deliberate alert delivery/resolution, actual rollback,
+  independent runbook exercise and full game day: pending. The smoke/rollback
+  implementation is present; execution approval/access is a separate requirement.
 - Postmortem, one completed verified follow-up and retained live submission
   evidence: pending. **Keep #72 open; continue integration as dependencies land.**
 
