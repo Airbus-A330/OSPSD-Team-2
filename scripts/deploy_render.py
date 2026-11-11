@@ -80,6 +80,12 @@ def deploy_image(
     path = f"/v1/services/{service_id}/deploys"
     deadline = time.monotonic() + 900
     response = client.post(path, json={"imageUrl": request_image})
+    if response.status_code in {400, 422}:
+        # Some Render environments reject tag+digest references. Retry once with
+        # the canonical digest reference before treating the request as failed.
+        request_image = image
+        report["request_image"] = request_image
+        response = client.post(path, json={"imageUrl": request_image})
     require(response.status_code in (201, 202), "Render did not acknowledge deployment")
     report["platform"] = "accepted"
     payload: object = {}

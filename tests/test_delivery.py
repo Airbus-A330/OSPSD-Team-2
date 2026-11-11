@@ -161,6 +161,32 @@ def test_render_does_not_resubmit_an_uncertain_deployment() -> None:
     assert len(calls) == 1
 
 
+def test_render_retries_with_digest_when_tagged_digest_is_rejected() -> None:
+    submitted: list[str] = []
+    calls: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if request.method == "POST":
+            submitted.append(json.loads(request.content)["imageUrl"])
+            if len(submitted) == 1:
+                return httpx.Response(400, json={"message": "invalid imageUrl"})
+            return httpx.Response(201, json={"id": "dep-controlled"})
+        return httpx.Response(200, json={"status": "live"})
+
+    report: dict[str, object] = {}
+    with httpx.Client(
+        base_url="https://api.render.com", transport=httpx.MockTransport(handle)
+    ) as client:
+        deploy_image(client, "srv-controlled", IMAGE, report)
+    assert len(submitted) == 2
+    assert submitted[0].startswith("ghcr.io/airbus-a330/ospsd-team-2:delivery-")
+    assert submitted[0].endswith("@" + IMAGE.split("@")[1])
+    assert submitted[1] == IMAGE
+    assert report["request_image"] == IMAGE
+    assert str(calls[-1].url).endswith("/srv-controlled/deploys/dep-controlled")
+
+
 @pytest.mark.parametrize("final_status", ["live", "update_failed"])
 def test_empty_queued_response_resolves_exact_request_and_monitors_it(
     monkeypatch: pytest.MonkeyPatch,

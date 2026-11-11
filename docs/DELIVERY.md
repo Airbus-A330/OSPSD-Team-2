@@ -72,13 +72,14 @@ pulls it without rebuilding. Runtime secrets/config stay outside the image.
 A rerun can yield a different digest for the same SHA; retained **digests** are
 authoritative for rollback. Never rebuild a known-good release to restore it.
 
-The script sends `imageUrl` once to Render's [create-deploy API](https://api-docs.render.com/reference/create-deploy).
-It accepts `201 Created` and `202 Queued`. Each request adds a unique
-`delivery-<UUID>` tag to the digest-qualified reference, for example
+The script sends `imageUrl` to Render's [create-deploy API](https://api-docs.render.com/reference/create-deploy).
+It accepts `201 Created` and `202 Queued`. Requests first use a unique
+`delivery-<UUID>` tag on the digest-qualified reference, for example
 `registry/repository:delivery-<UUID>@sha256:<digest>`. The digest still selects
 the same published bytes; this does not build/publish a second image or require
-creating that tag in the registry. The tag identifies this particular request,
-including repeated rollbacks to the same digest.
+creating that tag in the registry. If Render rejects that combined reference
+shape (for example with `400`/`422`), the script retries once with the canonical
+digest-only reference.
 
 When the response includes an ID, the script monitors it directly. An empty or
 ID-less `202` instead triggers bounded discovery through Render's paginated
