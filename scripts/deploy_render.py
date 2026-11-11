@@ -28,7 +28,10 @@ def _find_requested_deploy(
     seen_cursors: set[str] = set()
     while True:
         require(time.monotonic() < deadline, "Queued deployment discovery timed out")
-        response = client.get(path, params={"limit": "100", "cursor": cursor})
+        params = {"limit": "100"}
+        if cursor:
+            params["cursor"] = cursor
+        response = client.get(path, params=params)
         require(response.status_code == 200, "Render deployment discovery failed")
         rows = response.json()
         require(isinstance(rows, list), "Invalid Render deployment list")

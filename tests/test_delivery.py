@@ -238,7 +238,7 @@ def test_queued_discovery_checks_all_pages_before_selecting_a_match(
     ambiguous: bool,
 ) -> None:
     submitted: list[str] = []
-    cursors: list[str] = []
+    queries: list[dict[str, str]] = []
     polled: list[str] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -246,8 +246,8 @@ def test_queued_discovery_checks_all_pages_before_selecting_a_match(
             submitted.append(json.loads(request.content)["imageUrl"])
             return httpx.Response(202)
         if request.url.path.endswith("/deploys"):
-            cursor = request.url.params["cursor"]
-            cursors.append(cursor)
+            cursor = request.url.params.get("cursor")
+            queries.append(dict(request.url.params))
             if not cursor:
                 rows: list[dict[str, object]] = [
                     {"deploy": {"id": f"dep-old{i}"}, "cursor": f"cursor{i}"}
@@ -282,7 +282,10 @@ def test_queued_discovery_checks_all_pages_before_selecting_a_match(
             deploy_image(client, "srv-controlled", IMAGE, report)
             assert report["deploy_id"] == "dep-ours"
             assert polled == ["/v1/services/srv-controlled/deploys/dep-ours"]
-    assert cursors == ["", "cursor99"]
+    assert queries == [
+        {"limit": "100"},
+        {"limit": "100", "cursor": "cursor99"},
+    ]
     assert len(submitted) == 1
 
 
