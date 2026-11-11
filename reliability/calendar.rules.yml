@@ -1,5 +1,5 @@
 # Requires PR #73 metrics in a backend scoped to one Team 2 environment.
-# Replace GRAFANA_HOST.invalid before activation. See docs/RELIABILITY.md.
+# Live dashboard linked; receiver/rule activation still requires verification.
 groups:
   - name: team2-calendar-reliability
     interval: 1m
@@ -43,5 +43,5 @@ groups:
         annotations:
           summary: Team 2 Calendar Get requests are failing
           description: More than 20% of eligible Get requests failed over 5 minutes, with at least 5 eligible requests, for 2 minutes. Inspect the dashboard and runbook.
-          dashboard_url: https://GRAFANA_HOST.invalid/d/team2-calendar
+          dashboard_url: https://gianthamster2577.grafana.net/public-dashboards/94e9aa89613d4e1faea770e897d47f37
           runbook_url: https://github.com/Airbus-A330/OSPSD-Team-2/blob/assgn2-ms3-submission/docs/RELIABILITY.md#runbook

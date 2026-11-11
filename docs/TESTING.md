@@ -23,6 +23,10 @@ Its seven cases include early access rejection, invalid input and provider error
 [local OTLP/rule evidence](evidence/reliability-hosted-local/README.md) is retained
 separately from deployed acceptance.
 
+`tests/test_reliability_dashboard.py` keeps the importable Grafana measurement
+panels identical to the four canonical SLI numerator/denominator queries. It
+requires no Grafana credentials or network access.
+
 Repository-wide testing rules are defined in `../AGENTS.md`.
 
 ## Shared contract integration
