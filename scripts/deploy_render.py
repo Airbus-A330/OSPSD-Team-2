@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import time
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 import httpx
 
@@ -14,24 +15,97 @@ from scripts.render_blueprint import render_blueprint
 from scripts.smoke_calendar import require, smoke_calendar
 
 
+def _find_requested_deploy(
+    client: httpx.Client,
+    path: str,
+    request_image: str,
+    deadline: float,
+    report: dict[str, object],
+) -> str | None:
+    """Search every list page for the unique digest-qualified request reference."""
+    matches: set[str] = set()
+    cursor = ""
+    seen_cursors: set[str] = set()
+    while True:
+        require(time.monotonic() < deadline, "Queued deployment discovery timed out")
+        response = client.get(path, params={"limit": "100", "cursor": cursor})
+        require(response.status_code == 200, "Render deployment discovery failed")
+        rows = response.json()
+        require(isinstance(rows, list), "Invalid Render deployment list")
+        for row in rows:
+            require(
+                isinstance(row, dict) and isinstance(row.get("deploy"), dict),
+                "Invalid Render deployment list entry",
+            )
+            deploy = row["deploy"]
+            image = deploy.get("image")
+            if isinstance(image, dict) and image.get("ref") == request_image:
+                deploy_id = deploy["id"]
+                require(
+                    isinstance(deploy_id, str)
+                    and bool(re.fullmatch(r"dep-[a-zA-Z0-9]+", deploy_id)),
+                    "Invalid queued deployment ID",
+                )
+                matches.add(deploy_id)
+        if len(rows) < 100:
+            break
+        cursor = rows[-1]["cursor"]
+        require(
+            isinstance(cursor, str) and bool(cursor) and cursor not in seen_cursors,
+            "Invalid Render deployment pagination",
+        )
+        seen_cursors.add(cursor)
+    if len(matches) > 1:
+        report["candidate_deploy_ids"] = sorted(matches)
+        raise RuntimeError("Ambiguous queued deployment identity")
+    return next(iter(matches), None)
+
+
 def deploy_image(
     client: httpx.Client, service_id: str, image: str, report: dict[str, object]
 ) -> None:
-    """Request the exact image once and wait for this deployment, never a prior one."""
-    response = client.post(
-        f"/v1/services/{service_id}/deploys", json={"imageUrl": image}
-    )
-    require(response.status_code == 201, "Render did not acknowledge deployment")
-    deploy_id = response.json()["id"]
+    """Submit once and track this request, including an empty queued response.
+
+    The unique tag correlates list results; the digest still selects the exact
+    published artifact. Never infer identity from recency or a shared digest.
+    """
+    repository, digest = image.rsplit("@", 1)
+    request_image = f"{repository}:delivery-{uuid4().hex}@{digest}"
+    report["request_image"] = request_image
+    # Preserve the reference even if the POST acknowledgement is lost.
+    report["reconciliation_required"] = True
+    path = f"/v1/services/{service_id}/deploys"
+    deadline = time.monotonic() + 900
+    response = client.post(path, json={"imageUrl": request_image})
+    require(response.status_code in (201, 202), "Render did not acknowledge deployment")
+    report["platform"] = "accepted"
+    payload: object = {}
+    if response.content:
+        try:
+            payload = response.json()
+        except ValueError:
+            require(response.status_code == 202, "Invalid Render deployment response")
+    deploy_id = payload.get("id") if isinstance(payload, dict) else None
+    if deploy_id is None and response.status_code == 202:
+        report["deployment_tracking"] = "awaiting_id"
+        while deploy_id is None:
+            deploy_id = _find_requested_deploy(
+                client, path, request_image, deadline, report
+            )
+            if deploy_id is None:
+                require(
+                    time.monotonic() < deadline, "Queued deployment discovery timed out"
+                )
+                time.sleep(10)
     require(
         isinstance(deploy_id, str)
         and bool(re.fullmatch(r"dep-[a-zA-Z0-9]+", deploy_id)),
         "Invalid Render deployment ID",
     )
     report["deploy_id"] = deploy_id
-    deadline = time.monotonic() + 900
+    report["deployment_tracking"] = "identified"
     while True:
-        response = client.get(f"/v1/services/{service_id}/deploys/{deploy_id}")
+        response = client.get(f"{path}/{deploy_id}")
         require(response.status_code == 200, "Render deployment lookup failed")
         status = response.json()["status"]
         if status == "live":
@@ -121,6 +195,7 @@ def main() -> None:
         ) as calendar:
             smoke_calendar(calendar, report)
         report["outcome"] = "successful"
+        report["reconciliation_required"] = False
     except (httpx.HTTPError, ValueError, KeyError, TypeError, RuntimeError):
         # HTTP exceptions and validation errors may contain URLs or provider
         # bodies. Retain only fixed metadata, never exception text or payloads.

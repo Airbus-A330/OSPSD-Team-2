@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import re
 
 import httpx
 import pytest
@@ -110,13 +111,17 @@ def test_smoke_cleanup_failure_blocks_success() -> None:
 
 
 @pytest.mark.parametrize("status", ["live", "update_failed", "canceled", "deactivated"])
-def test_render_waits_for_the_requested_digest_deployment(status: str) -> None:
+@pytest.mark.parametrize("acknowledgment", [201, 202])
+def test_render_waits_for_the_requested_digest_deployment(
+    status: str,
+    acknowledgment: int,
+) -> None:
     calls: list[httpx.Request] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
         calls.append(request)
         if request.method == "POST":
-            return httpx.Response(201, json={"id": "dep-controlled"})
+            return httpx.Response(acknowledgment, json={"id": "dep-controlled"})
         return httpx.Response(200, json={"status": status})
 
     report: dict[str, object] = {}
@@ -130,8 +135,13 @@ def test_render_waits_for_the_requested_digest_deployment(status: str) -> None:
         else:
             with pytest.raises(RuntimeError, match="Render deployment failed"):
                 deploy_image(client, "srv-controlled", IMAGE, report)
-            assert "platform" not in report
-    assert json.loads(calls[0].content) == {"imageUrl": IMAGE}
+            assert report["platform"] == "accepted"
+    requested = json.loads(calls[0].content)["imageUrl"]
+    assert re.fullmatch(
+        "ghcr.io/airbus-a330/ospsd-team-2:delivery-[0-9a-f]{32}@sha256:" + "a" * 64,
+        requested,
+    )
+    assert report["request_image"] == requested
     assert str(calls[1].url).endswith("/srv-controlled/deploys/dep-controlled")
     assert len(calls) == 2
 
@@ -151,11 +161,177 @@ def test_render_does_not_resubmit_an_uncertain_deployment() -> None:
     assert len(calls) == 1
 
 
+@pytest.mark.parametrize("final_status", ["live", "update_failed"])
+def test_empty_queued_response_resolves_exact_request_and_monitors_it(
+    monkeypatch: pytest.MonkeyPatch,
+    final_status: str,
+) -> None:
+    from scripts import deploy_render
+
+    monkeypatch.setattr(deploy_render.time, "sleep", lambda _: None)
+    submitted: list[str] = []
+    polled: list[str] = []
+    listings = 0
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        nonlocal listings
+        if request.method == "POST":
+            submitted.append(json.loads(request.content)["imageUrl"])
+            return httpx.Response(202)  # Render may return no deployment object.
+        if request.url.path.endswith("/deploys"):
+            listings += 1
+            # Neither an old live release nor a concurrent deployment of the
+            # same digest is evidence that this request has become live.
+            rows = [
+                {
+                    "deploy": {
+                        "id": "dep-old",
+                        "image": {"ref": IMAGE},
+                        "status": "live",
+                    }
+                },
+                {
+                    "deploy": {
+                        "id": "dep-other",
+                        "image": {"ref": IMAGE.replace("@", ":other@")},
+                        "status": "live",
+                    }
+                },
+            ]
+            if listings > 1:
+                rows.append(
+                    {
+                        "deploy": {
+                            "id": "dep-ours",
+                            "image": {"ref": submitted[0]},
+                            "status": "queued",
+                        }
+                    }
+                )
+            return httpx.Response(200, json=rows)
+        polled.append(request.url.path)
+        return httpx.Response(
+            200, json={"status": "queued" if len(polled) == 1 else final_status}
+        )
+
+    report: dict[str, object] = {}
+    with httpx.Client(
+        base_url="https://api.render.com", transport=httpx.MockTransport(handle)
+    ) as client:
+        if final_status == "live":
+            deploy_image(client, "srv-controlled", IMAGE, report)
+        else:
+            with pytest.raises(RuntimeError, match="Render deployment failed"):
+                deploy_image(client, "srv-controlled", IMAGE, report)
+    assert len(submitted) == 1
+    assert submitted[0].startswith("ghcr.io/airbus-a330/ospsd-team-2:delivery-")
+    assert submitted[0].endswith("@" + IMAGE.split("@")[1])
+    assert listings == 2
+    assert polled == ["/v1/services/srv-controlled/deploys/dep-ours"] * 2
+    assert report["deploy_id"] == "dep-ours"
+    assert report["platform"] == ("live" if final_status == "live" else "accepted")
+    assert "outcome" not in report  # Full delivery must still smoke and clean up.
+
+
+@pytest.mark.parametrize("ambiguous", [False, True])
+def test_queued_discovery_checks_all_pages_before_selecting_a_match(
+    ambiguous: bool,
+) -> None:
+    submitted: list[str] = []
+    cursors: list[str] = []
+    polled: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            submitted.append(json.loads(request.content)["imageUrl"])
+            return httpx.Response(202)
+        if request.url.path.endswith("/deploys"):
+            cursor = request.url.params["cursor"]
+            cursors.append(cursor)
+            if not cursor:
+                rows: list[dict[str, object]] = [
+                    {"deploy": {"id": f"dep-old{i}"}, "cursor": f"cursor{i}"}
+                    for i in range(100)
+                ]
+                rows[0]["deploy"] = {"id": "dep-ours", "image": {"ref": submitted[0]}}
+                return httpx.Response(200, json=rows)
+            return httpx.Response(
+                200,
+                json=[
+                    {"deploy": {"id": "dep-duplicate", "image": {"ref": submitted[0]}}}
+                ]
+                if ambiguous
+                else [],
+            )
+        polled.append(request.url.path)
+        return httpx.Response(200, json={"status": "live"})
+
+    report: dict[str, object] = {}
+    with httpx.Client(
+        base_url="https://api.render.com", transport=httpx.MockTransport(handle)
+    ) as client:
+        if ambiguous:
+            with pytest.raises(
+                RuntimeError, match="Ambiguous queued deployment identity"
+            ):
+                deploy_image(client, "srv-controlled", IMAGE, report)
+            assert report["candidate_deploy_ids"] == ["dep-duplicate", "dep-ours"]
+            assert "deploy_id" not in report
+            assert not polled
+        else:
+            deploy_image(client, "srv-controlled", IMAGE, report)
+            assert report["deploy_id"] == "dep-ours"
+            assert polled == ["/v1/services/srv-controlled/deploys/dep-ours"]
+    assert cursors == ["", "cursor99"]
+    assert len(submitted) == 1
+
+
+@pytest.mark.parametrize("body", [b"", b"Queued", b"{}", b"null"])
+def test_unresolved_queued_request_times_out_without_resubmission_or_wrong_smoke(
+    body: bytes,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scripts import deploy_render
+
+    ticks = iter([0, 1, 2, 901])
+    monkeypatch.setattr(deploy_render.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(deploy_render.time, "sleep", lambda _: None)
+    methods: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        methods.append(request.method)
+        if request.method == "POST":
+            return httpx.Response(202, content=body)
+        # A normalized reference or an earlier live deployment of the digest
+        # cannot prove which request was queued; retain reconciliation evidence.
+        return httpx.Response(
+            200,
+            json=[
+                {"deploy": {"id": "dep-old", "image": {"ref": IMAGE}, "status": "live"}}
+            ],
+        )
+
+    report: dict[str, object] = {}
+    with httpx.Client(
+        base_url="https://api.render.com", transport=httpx.MockTransport(handle)
+    ) as client:
+        with pytest.raises(RuntimeError, match="Queued deployment discovery timed out"):
+            deploy_image(client, "srv-controlled", IMAGE, report)
+    assert methods == ["POST", "GET"]
+    assert report["reconciliation_required"] is True
+    assert report["deployment_tracking"] == "awaiting_id"
+    assert str(report["request_image"]).endswith("@" + IMAGE.split("@")[1])
+    assert "deploy_id" not in report
+    assert report["platform"] == "accepted"
+
+
 @pytest.mark.parametrize(
     "failure", ["", "replace", "cleanup", "wrong_service", "bad_token"]
 )
+@pytest.mark.parametrize("acknowledgment", [201, 202])
 def test_delivery_records_success_only_after_smoke_and_cleanup(
     failure: str,
+    acknowledgment: int,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -178,6 +354,7 @@ def test_delivery_records_success_only_after_smoke_and_cleanup(
     original_client = httpx.Client
     calls: list[str] = []
     render_calls: list[str] = []
+    submitted: list[str] = []
 
     def render_handler(request: httpx.Request) -> httpx.Response:
         render_calls.append(request.method)
@@ -193,7 +370,17 @@ def test_delivery_records_success_only_after_smoke_and_cleanup(
                 },
             )
         if request.method == "POST":
+            submitted.append(json.loads(request.content)["imageUrl"])
+            if acknowledgment == 202:
+                return httpx.Response(202)
             return httpx.Response(201, json={"id": "dep-controlled"})
+        if request.url.path.endswith("/deploys"):
+            return httpx.Response(
+                200,
+                json=[
+                    {"deploy": {"id": "dep-controlled", "image": {"ref": submitted[0]}}}
+                ],
+            )
         return httpx.Response(200, json={"status": "live"})
 
     def client_factory(**kwargs: object) -> httpx.Client:
@@ -216,6 +403,9 @@ def test_delivery_records_success_only_after_smoke_and_cleanup(
     result = json.loads(evidence.read_text())
     assert result["outcome"] == ("failed" if failure else "successful")
     assert result["image"] == IMAGE
+    assert result.get("reconciliation_required", False) is bool(
+        failure in ("replace", "cleanup")
+    )
     if failure in ("wrong_service", "bad_token"):
         assert "deploy_id" not in result
         assert "POST" not in render_calls

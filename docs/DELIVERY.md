@@ -38,7 +38,8 @@ Repository administrators must establish these protections before delivery:
    workspace/resources. Render keys inherit owner access; they are **not**
    service-scoped. Do not use a personal key with unrelated workspaces. Record
    actual owner/scope, resolve unavailable finer permissions with #68's owner,
-   and revoke/rotate after the exercise. Code only calls get service and create/get deployment;
+   and revoke/rotate after the exercise. Code only reads service/deployment data
+   and creates deployments;
    it needs no resource deletion or runtime configuration updates.
 6. GHCR publishing uses short-lived `GITHUB_TOKEN` with `packages: write` only
    in the artifact job. Other jobs receive only `contents: read`. Associate the
@@ -71,10 +72,35 @@ pulls it without rebuilding. Runtime secrets/config stay outside the image.
 A rerun can yield a different digest for the same SHA; retained **digests** are
 authoritative for rollback. Never rebuild a known-good release to restore it.
 
-The script sends `imageUrl` once to Render's [create-deploy API](https://api-docs.render.com/reference/create-deploy)
-and polls that returned deploy ID for up to 15 minutes. Ambiguous acknowledgment
-fails without resubmitting: inspect Render before retrying. Render `live` only
-proves platform health. The GitHub deployment job remains unsuccessful until
+The script sends `imageUrl` once to Render's [create-deploy API](https://api-docs.render.com/reference/create-deploy).
+It accepts `201 Created` and `202 Queued`. Each request adds a unique
+`delivery-<UUID>` tag to the digest-qualified reference, for example
+`registry/repository:delivery-<UUID>@sha256:<digest>`. The digest still selects
+the same published bytes; this does not build/publish a second image or require
+creating that tag in the registry. The tag identifies this particular request,
+including repeated rollbacks to the same digest.
+
+When the response includes an ID, the script monitors it directly. An empty or
+ID-less `202` instead triggers bounded discovery through Render's paginated
+[deployment list](https://api-docs.render.com/reference/list-deploys), matching
+only the exact request-specific `image.ref`. Discovery and ID polling share the
+same 15-minute deadline. The script never resubmits the POST, selects the latest
+deployment, or treats an older/concurrent deployment of the same digest as its
+own. It checks every page before selecting a unique match. Multiple matching
+IDs fail as ambiguous; a missing match waits until the deadline.
+
+Render must preserve the full submitted image reference in `image.ref` for
+ID-less discovery. Missing/normalized metadata is not sufficient proof of
+identity. If discovery fails or the acknowledgment is lost, inspect Render
+before retrying: the accepted request can still proceed independently. Evidence
+retains `request_image`, `deployment_tracking` when known, any ambiguous
+`candidate_deploy_ids`, and `reconciliation_required: true`. Use that exact
+reference to locate and reconcile the queued deployment; do not deploy another
+revision while its outcome is unresolved. This flag is cleared only after the
+identified deployment's smoke and cleanup pass. Live verification must confirm
+Render accepts and preserves the digest-qualified correlation reference.
+
+Render `live` only proves platform health. The GitHub deployment job remains unsuccessful until
 real smoke and cleanup pass. A Render `live` deployment can therefore have a
 **failed** Delivery result. There is no automatic rollback or traffic isolation.
 
@@ -158,7 +184,8 @@ disposable service/calendar. Do not weaken normal required checks.
 Use [the evidence checklist](evidence/delivery/README.md). Every attempted deploy
 uploads sanitized `delivery.json` and generated `delivery.yaml` on success or
 failure for 90 days. JSON identifies image digest, workflow SHA/run, returned
-Render deploy ID, platform status, smoke, cleanup and final outcome. On rollback
+Render deploy ID, request-specific image reference, tracking/reconciliation
+state, platform status, smoke, cleanup and final outcome. On rollback
 `workflow_sha` identifies the tooling revision; use the original successful run
 to identify the image's source SHA. Reports omit secrets, event IDs and payloads.
 Retain actual successful/failed/restored run URLs and downloaded artifacts for

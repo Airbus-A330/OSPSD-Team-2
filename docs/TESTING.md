@@ -2,8 +2,11 @@
 
 `tests/test_delivery.py` covers exact-digest deployment requests, platform failure
 gates, shared HTTP CRUD smoke, cleanup after partial failures, uncertain writes
-and sanitized evidence. `make conformance` explicitly runs the tagged shared
-suite. Real deployed smoke stays separate from normal pytest; see
+and sanitized evidence. Queued-deployment regressions cover both `201`/`202`,
+empty/non-object queued responses, delayed exact-reference discovery, older and
+concurrent same-digest deployments, pagination/ambiguity, bounded discovery and
+smoke/cleanup gating after resolution. `make conformance` explicitly runs the
+tagged shared suite. Real deployed smoke stays separate from normal pytest; see
 [DELIVERY.md](DELIVERY.md) for protected setup and recovery verification.
 
 This document records what the project tests and why.
