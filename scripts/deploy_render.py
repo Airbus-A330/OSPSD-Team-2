@@ -15,6 +15,17 @@ from scripts.render_blueprint import render_blueprint
 from scripts.smoke_calendar import require, smoke_calendar
 
 
+def _stage(report: dict[str, object], name: str) -> None:
+    """Start a fixed diagnostic stage without carrying over an earlier status."""
+    report["stage"] = name
+    report.pop("http_status", None)
+
+
+def _response_status(report: dict[str, object], response: httpx.Response) -> None:
+    """Record only the numeric HTTP status, never headers or response content."""
+    report["http_status"] = response.status_code
+
+
 def _find_requested_deploy(
     client: httpx.Client,
     path: str,
@@ -31,7 +42,9 @@ def _find_requested_deploy(
         params = {"limit": "100"}
         if cursor:
             params["cursor"] = cursor
+        _stage(report, "deploy_discovery")
         response = client.get(path, params=params)
+        _response_status(report, response)
         require(response.status_code == 200, "Render deployment discovery failed")
         rows = response.json()
         require(isinstance(rows, list), "Invalid Render deployment list")
@@ -79,13 +92,18 @@ def deploy_image(
     report["reconciliation_required"] = True
     path = f"/v1/services/{service_id}/deploys"
     deadline = time.monotonic() + 900
+    _stage(report, "deploy_request")
     response = client.post(path, json={"imageUrl": request_image})
+    _response_status(report, response)
     if response.status_code in {400, 422}:
         # Some Render environments reject tag+digest references. Retry once with
         # the canonical digest reference before treating the request as failed.
         request_image = image
         report["request_image"] = request_image
+        report["initial_deploy_http_status"] = response.status_code
+        _stage(report, "deploy_request_fallback")
         response = client.post(path, json={"imageUrl": request_image})
+        _response_status(report, response)
     require(response.status_code in (201, 202), "Render did not acknowledge deployment")
     report["platform"] = "accepted"
     payload: object = {}
@@ -114,7 +132,9 @@ def deploy_image(
     report["deploy_id"] = deploy_id
     report["deployment_tracking"] = "identified"
     while True:
+        _stage(report, "deploy_poll")
         response = client.get(f"{path}/{deploy_id}")
+        _response_status(report, response)
         require(response.status_code == 200, "Render deployment lookup failed")
         status = response.json()["status"]
         if status == "live":
@@ -151,6 +171,7 @@ def main() -> None:
         "cleanup": "not_started",
     }
     try:
+        _stage(report, "configuration")
         # Reuse the infrastructure owner's digest validation and template.
         blueprint = render_blueprint(args.image)
         args.evidence.with_suffix(".yaml").write_text(blueprint, encoding="utf-8")
@@ -187,7 +208,9 @@ def main() -> None:
         ) as render:
             # Do not smoke a different healthy service and accidentally certify
             # a bad candidate. Require Render's canonical URL for this resource.
+            _stage(report, "service_lookup")
             service = render.get(f"/v1/services/{service_id}")
+            _response_status(report, service)
             require(service.status_code == 200, "Render service lookup failed")
             canonical_url = service.json()["serviceDetails"]["url"]
             require(
@@ -196,6 +219,7 @@ def main() -> None:
                 "Smoke URL does not match the selected Render service",
             )
             deploy_image(render, service_id, args.image, report)
+        _stage(report, "calendar_smoke")
         with httpx.Client(
             base_url=url,
             timeout=30,
@@ -205,11 +229,26 @@ def main() -> None:
             smoke_calendar(calendar, report)
         report["outcome"] = "successful"
         report["reconciliation_required"] = False
-    except (httpx.HTTPError, ValueError, KeyError, TypeError, RuntimeError):
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, RuntimeError) as exc:
         # HTTP exceptions and validation errors may contain URLs or provider
         # bodies. Retain only fixed metadata, never exception text or payloads.
+        category = (
+            "timeout"
+            if isinstance(exc, httpx.TimeoutException)
+            else "http_transport"
+            if isinstance(exc, httpx.HTTPError)
+            else "missing_field"
+            if isinstance(exc, KeyError)
+            else "invalid_data"
+            if isinstance(exc, (ValueError, TypeError))
+            else "validation_failed"
+        )
+        report["failure_stage"] = report["stage"]
+        report["error_category"] = category
         raise SystemExit(
-            "Delivery failed; inspect sanitized evidence and operator runbook"
+            f"Delivery failed: stage={report['stage']} "
+            f"http_status={report.get('http_status', 'none')} category={category}; "
+            "inspect sanitized evidence and operator runbook"
         ) from None
     finally:
         args.evidence.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
