@@ -44,11 +44,12 @@ Merging code is not approval to inject a failure.
 
 Agree and record UTC window, service/workspace owner, workload/quota, source and
 known-good/faulty digests, rollback, scope and cleanup. Latest coordinator chat:
-Maksym designs/coordinates the failure; Airbus volunteered to respond and record.
-The responder must not design the fault. [#72](https://github.com/Airbus-A330/OSPSD-Team-2/issues/72)
-also says **another participant records the timeline**; confirm a separate
-recorder or explicitly resolve that criterion before claiming completion.
-The window and actual environment approval remain unrecorded here.
+Maksym designs/coordinates the failure; Airbus is the responder and has said he
+will delegate timeline recording to another teammate. Record that person's name
+in the actual timeline. The responder must not design the fault, and
+[#72](https://github.com/Airbus-A330/OSPSD-Team-2/issues/72) requires another
+participant to record. The window and actual environment approval remain
+unrecorded here.
 
 Coordinate with #69 so safeguards remain enabled. Do not disable smoke protection
 to prolong an alert; account for cached Get responses. #69's startup-crashing

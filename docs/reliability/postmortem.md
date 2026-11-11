@@ -9,9 +9,9 @@ follow-ups into game-day results.
 - UTC date/window: pending.
 - Approved isolated service/calendar and source/image identity: pending.
 - Failure designer: Maksym.
-- Responder: Airbus volunteered; confirm before execution.
-- Timeline recorder: Airbus volunteered for both roles; resolve #72's
-  **another participant records the timeline** criterion with the coordinator.
+- Responder: Airbus.
+- Timeline recorder: delegated by Airbus to another teammate; record the actual
+  name before execution. The responder must not also be the failure designer.
 - Canonical timeline/evidence: link Airbus's `game-day.md` and evidence folder
   once created. Keep one timeline, not conflicting copies here.
 

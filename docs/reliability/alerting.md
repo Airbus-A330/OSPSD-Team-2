@@ -47,6 +47,38 @@ resolution by the five-minute lookback and evaluation/notification intervals.
    Restore normal behavior with the runbook and verify both rule resolution and
    a real resolved notification. Do not claim completion from native unit tests.
 
+## Grafana email setup for Airbus
+
+In **Alerting -> Alert rules -> New alert rule**, use the existing Cloud
+Prometheus datasource (`grafanacloud-prom`) and name the rule
+`Team2CalendarGetHighFailureRate`. Use **instant** queries:
+
+```promql
+# A: eligible Get requests over 5m
+sum(increase(calendar_requests_total{operation="Get",outcome!="invalid_input"}[5m]))
+
+# B: good Get requests over 5m
+sum(increase(calendar_requests_total{operation="Get",outcome=~"success|not_found"}[5m])) or vector(0)
+```
+
+Add a **Math** expression C:
+
+```text
+($A >= 5) && (($A - $B) > (0.2 * $A))
+```
+
+Add **Threshold** D: C **is above 0.5**; make D the alert condition. This returns
+false for healthy/low-traffic data without dividing by zero. Evaluate every
+**1 minute**, pending **2 minutes**. Preserve explicit No Data/Error state;
+a separate datasource/no-data notification is not proof this failure rule fired.
+
+Set `service=team2-calendar`, `operation=Get`, `severity=warning`. Add a summary
+identifying Get failures and the dashboard/runbook links above. Route to Airbus's
+approved **email contact point**, enable resolved notifications, and save.
+Use **Test** on the contact point first; then capture actual threshold firing
+and resolution only during the separately approved symptom test. Do not claim
+that the rule is active merely because these instructions or unit tests exist.
+
 Native rule dashboard/runbook annotations now point to the real public dashboard
 and stable repository runbook index. Loading/activating the rule and transport
 still requires protected account access. No message or fault is sent by `make
