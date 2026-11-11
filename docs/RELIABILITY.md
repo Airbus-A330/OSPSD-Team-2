@@ -27,8 +27,9 @@ industry guarantee or a claim of observed production performance.
 
 ### Actual producer interface and fidelity limits
 
-The rules integrate against PR #73 at
-[`822457f`](https://github.com/Airbus-A330/OSPSD-Team-2/blob/822457fa1db755d16c706648f0e2247b6509518f/docs/OBSERVABILITY.md):
+The rules integrate against merged telemetry #73 and hosting #75, together on
+[`692597c`](https://github.com/Airbus-A330/OSPSD-Team-2/tree/692597cc799b2f5e640c142eee6986106c92a848).
+The [telemetry interface](OBSERVABILITY.md#signal-schema-and-level-4-handoff) remains:
 `calendar_requests_total`, `calendar_request_duration_seconds_bucket` / `_count`,
 with `operation`, `outcome`, and `release`. Invalid input combines 400/422;
 `not_found` represents 404. Other client errors remain eligible, not excluded.
@@ -123,11 +124,12 @@ instantaneous return to 100%.
 Activation steps owned by #72, coordinated with #68/#69/#70:
 
 1. Confirm deployed source names, scope/stream identities, retention and immutable
-   `CALENDAR_RELEASE`. Ensure the **hosted** entry point preserves telemetry
-   startup/shutdown; [PR #75](https://github.com/Airbus-A330/OSPSD-Team-2/pull/75)
-   currently replaces the app lifespan (inspected head `f7d60dc`). Leon owns
-   the hosted integration. Verify actual hosted request exports, including early
-   access-denied responses, before trusting the deployment.
+   `CALENDAR_RELEASE`. Configure protected `OTEL_EXPORTER_OTLP_ENDPOINT` and any
+   required authentication/certificates per [OBSERVABILITY.md](OBSERVABILITY.md).
+   Without that endpoint, the app emits console logs but exports no metrics/traces.
+   Merged #75 now composes the base lifespan and instruments early access-denied
+   responses. Local hosted integration checks this boundary; verify actual hosted
+   exports and collector connectivity before trusting a deployment.
 2. Replace `GRAFANA_HOST.invalid` in the rule and matching test expectation with
    the actual dashboard host. Confirm responder access to dashboard and runbook.
 3. Load the rules into the team's existing protected Prometheus, with an
@@ -191,8 +193,11 @@ injection; merging this work is not that approval.
 
 Agree and record UTC window, owner/environment, workload/quota, known-good and
 faulty digests, rollback, scope and cleanup. Assign **three separate teammates**:
-failure designer, independent responder, and incident recorder. No roles/window
-are agreed yet. Coordinate with #69 so pipeline safeguards remain enabled; do not
+failure designer, independent responder, and incident recorder. Maksym owns the
+failure design/coordination; Airbus is the timeline recorder per his
+[confirmation](https://github.com/Airbus-A330/OSPSD-Team-2/pull/74#issuecomment-6771935361).
+The independent responder and approved execution window remain unassigned.
+Coordinate with #69 so pipeline safeguards remain enabled; do not
 disable smoke protection to prolong an alert. Account for cached Get responses.
 
 Stop the fault after **5 minutes maximum**, or immediately on unintended impact.
@@ -211,14 +216,25 @@ the demonstration, with linked change/result. Pre-existing work is not that acti
 
 - Rules, calculations, receiver config and native test scenarios: implemented.
 - Native tools also run in the **Format** workflow via `make reliability-check`.
-- [Local actual-producer integration](evidence/reliability-local/README.md): synthetic
-  only; not deployed Google verification or a completed alert/game-day exercise.
-- #68 foundation is PR #75 at inspected `f7d60dc`: Render Free with ephemeral
-  credential storage and no persistent disk. Account ownership, deployment
-  permission and an acceptable shared-access arrangement remain unconfirmed.
-- Protected deployed backend/dashboard, 7-day history and current live SLI/budget
-  records: pending. Revalidated recording rules against #73 `822457f`
-  exact-200 classification; metric names unchanged.
+- [Original local producer capture](evidence/reliability-local/README.md): historical
+  synthetic-route check, retained with its original provenance.
+- [Merged hosted integration](evidence/reliability-hosted-local/README.md): actual
+  hosted factory/shared Get/provider translation, 24 HTTP requests and 18
+  SDK-controlled calls through OTLP to all ten SLI/budget metrics. Seven automated
+  hosted metric regressions are included in `make check`. This remains local,
+  not deployed Google verification or a completed alert/game-day exercise.
+- #73 telemetry and #75 hosting are merged in `assgn2-ms3-submission@692597c`;
+  hosted startup/shutdown and early access rejection are no longer code blockers.
+  Hosting uses Render Free with ephemeral credential storage and no disk.
+- Hosting/deployment setup: Leon with Airbus. Capture the final service URL,
+  workspace/service owner, release/image digest and protected workflow access
+  from their deployed handoff; chat setup progress is not live acceptance evidence.
+- #69 is assigned to Dorien (`zeedorien`): exact smoke/cleanup, cold-start timeouts,
+  known-good immutable artifact and rollback procedure are still needed.
+- Protected collector/backend/dashboard access and history: Nicolas with Airbus.
+  Current live SLI/budget records and real export verification remain pending.
+- Alert destination: Team 2 Slack, protected provisioning coordinated by Airbus.
+  Designer/coordinator: Maksym; recorder: Airbus; independent responder: TBD.
 - Real Slack configuration, deliberate alert delivery/resolution, exact #69
   rollback/smoke procedure, independent runbook exercise and full game day: pending.
 - Postmortem, one completed verified follow-up and retained live submission
