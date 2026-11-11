@@ -192,3 +192,11 @@ to identify the image's source SHA. Reports omit secrets, event IDs and payloads
 Retain actual successful/failed/restored run URLs and downloaded artifacts for
 submission, plus owner/reviewer coordination and cleanup confirmation. Controlled
 tests do not establish live deployment or rollback evidence.
+
+Failure diagnostics include a fixed stage, numeric HTTP status when a response
+was received, and a fixed error category in both the CLI error and JSON evidence.
+A fallback request also preserves `initial_deploy_http_status`. A transport
+failure reports no HTTP status for that stage, rather than reusing a prior
+successful response. Response bodies, headers and exception messages are never
+included. These fields diagnose future runs; they cannot recover details omitted
+from older evidence.

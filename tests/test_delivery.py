@@ -452,3 +452,65 @@ def test_delivery_records_success_only_after_smoke_and_cleanup(
         "OSPSD delivery smoke",
     ):
         assert private not in retained + captured.out + captured.err
+
+
+@pytest.mark.parametrize("failure", ["denied", "fallback", "timeout"])
+def test_delivery_failure_diagnostics_are_sanitized(
+    failure: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from scripts import deploy_render
+
+    evidence = tmp_path / "delivery.json"
+    monkeypatch.setattr(
+        "sys.argv", ["deploy", "--image", IMAGE, "--evidence", str(evidence)]
+    )
+    private = "sensitive-response-and-credential"
+    for name, value in {
+        "RENDER_SERVICE_ID": "srv-controlled",
+        "RENDER_API_KEY": private,
+        "CALENDAR_API_TOKEN": private * 2,
+        "CALENDAR_BASE_URL": "https://calendar.example",
+    }.items():
+        monkeypatch.setenv(name, value)
+    original_client = httpx.Client
+    posts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal posts
+        if request.method == "GET":
+            return httpx.Response(
+                200, json={"serviceDetails": {"url": "https://calendar.example"}}
+            )
+        posts += 1
+        if failure == "timeout":
+            raise httpx.ReadTimeout(private, request=request)
+        status = 422 if failure == "fallback" and posts == 1 else 403
+        return httpx.Response(status, text=private, headers={"X-Secret": private})
+
+    def factory(**kwargs: object) -> httpx.Client:
+        return original_client(
+            base_url="https://api.render.com", transport=httpx.MockTransport(handler)
+        )
+
+    monkeypatch.setattr(deploy_render.httpx, "Client", factory)
+    with pytest.raises(SystemExit) as caught:
+        main()
+    result = json.loads(evidence.read_text())
+    expected_stage = (
+        "deploy_request_fallback" if failure == "fallback" else "deploy_request"
+    )
+    assert result["failure_stage"] == expected_stage
+    assert f"stage={expected_stage}" in str(caught.value)
+    assert result["error_category"] == (
+        "timeout" if failure == "timeout" else "validation_failed"
+    )
+    if failure == "timeout":
+        assert "http_status" not in result  # Not the preceding GET's 200.
+        assert "http_status=none" in str(caught.value)
+    else:
+        assert result["http_status"] == 403
+        assert "http_status=403" in str(caught.value)
+    if failure == "fallback":
+        assert result["initial_deploy_http_status"] == 422
+    assert posts == (2 if failure == "fallback" else 1)
+    assert private not in evidence.read_text() + str(caught.value)
