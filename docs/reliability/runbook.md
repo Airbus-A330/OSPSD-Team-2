@@ -2,6 +2,27 @@
 
 **Symptom:** [Get failure alert](alerting.md) fires. Not yet independently exercised.
 
+## Fault-image publication preflight
+
+Before starting the bounded fault window, verify the exercise image can be
+published without modifying the submission branch:
+
+1. Keep the intentional fault on its temporary branch. Never merge or cherry-pick
+   it into `assgn2-ms3-submission` to obtain an image.
+2. Build with the repository's pinned Dockerfile/settings and run the canonical
+   offline container check before publication.
+3. Confirm the publishing identity has package-write permission for the existing
+   `ghcr.io/airbus-a330/ospsd-team-2` package. A successful `docker login` does
+   not prove the token has the required package scope. If push returns
+   `permission_denied`, stop before deployment and obtain reviewed authorization;
+   do not switch registries or invent a second deployment path.
+4. Resolve the pushed tag to an immutable digest, record its exact source SHA,
+   and verify the digest before dispatch. Start the five-minute fault window only
+   after the deployment target, known-good rollback digest and responder are ready.
+
+This preflight was added after the prepared game-day image passed the offline
+container check but could not be published with the available credential.
+
 ## Access and likely causes
 
 Required: private Grafana/Prometheus and sanitized log/trace access, permission for

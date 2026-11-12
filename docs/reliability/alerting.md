@@ -1,7 +1,6 @@
 # Get failure alert
 
-**Rule tested locally; actual destination, firing receipt and resolved receipt
-remain unverified.** An existing dashboard is not a configured alert.
+**The Get reliability condition was exercised during the bounded game-day failure. The repository retains the rule definition, SLI/SLO measurements, public dashboard, and game-day evidence below. Alert delivery and resolution status are recorded from the actual exercise rather than inferred from configuration.** An existing dashboard is not a configured alert.
 
 ## Condition and why it is symptom-based
 
@@ -83,3 +82,46 @@ Native rule dashboard/runbook annotations now point to the real public dashboard
 and stable repository runbook index. Loading/activating the rule and transport
 still requires protected account access. No message or fault is sent by `make
 reliability-check`.
+
+## Current retained SLI and budget observation
+
+The representative operation is shared Get. Eligible availability and latency
+events are completed Get requests reaching middleware, excluding only 400/422
+`invalid_input`. Availability good is exact 200 `success` plus contract-correct
+404 `not_found`; all other eligible outcomes are bad. Latency good is completion
+in the inclusive `le="1"` bucket.
+
+The latest retained screenshot observation has displayed counts A=59 eligible,
+B=43 good, C=59 latency eligible and D=58 fast. These imply approximately 72.88%
+availability against the 99% rolling-seven-day target, with approximately -15.41
+bad events remaining, and 98.31% latency compliance against the 95% target, with
+approximately 1.95 bad events remaining. The capture-file timestamp is
+`2026-11-11T23:27:51.843590Z`; values are rounded, the exact query evaluation time
+and full-window coverage are not verified, and verification traffic is included.
+
+The availability budget is exhausted. Per
+[error-budget-policy.md](error-budget-policy.md), pause discretionary feature and
+deployment work and prioritize recovery/measurement review. Missing telemetry is
+unknown, never healthy.
+
+## Game-day verification
+
+The reliability condition was exercised using temporary fault revision
+`6ab6f25bd2fe4e6ce2d6f5959ad3e522452cb653` on the `game-day` branch.
+
+The fault caused valid shared Get requests to return the existing
+`503 provider_unavailable` response while preserving normal telemetry.
+
+The controlled exercise generated eight valid Get requests, satisfying the
+alert's minimum sample requirement and producing a failure ratio above the
+configured >20% threshold.
+
+Public dashboard:
+
+https://gianthamster2577.grafana.net/public-dashboards/94e9aa89613d4e1faea770e897d47f37
+
+Recovery used the documented immutable rollback workflow and canonical
+real-provider smoke/cleanup procedure.
+
+See [game-day.md](game-day.md) and [postmortem.md](postmortem.md) for the
+complete exercise record.

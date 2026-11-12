@@ -1,8 +1,6 @@
 # Calendar reliability (#72)
 
-Owner: Maksym Yemelianenko. **Implementation, API verification and a rounded live
-SLI/budget observation are recorded. Real alert delivery and game-day acceptance
-remain pending.** Preparing files is not evidence that the exercise happened.
+Owner: Maksym Yemelianenko. **Implementation, live SLI/budget measurement, bounded game-day execution, recovery documentation, and postmortem evidence are recorded. Alert-delivery status is documented from the actual exercise and is not inferred from configuration alone.** Preparing files is not evidence that the exercise happened.
 
 ## Agreed policy and measurement
 
@@ -35,43 +33,37 @@ causes, diagnostic queries, safe recovery, standard smoke/cleanup and limitation
 This stable index preserves the existing alert's `docs/RELIABILITY.md#runbook`
 link. Do not create a separate deployment path or weaken #69's checks.
 
-## Game day — execution pending
+## Game day
 
-Run only after required Levels 1–4/conformance, normal deployment smoke and real
-alert transport work. Use one **bounded faulty deployment** affecting Get in
-Team 2's explicitly approved disposable service/calendar, synthetic data only.
-Merging code is not approval to inject a failure.
+Team 2 completed a bounded reliability game day using temporary fault branch
+`game-day`.
 
-Agree and record UTC window, service/workspace owner, workload/quota, source and
-known-good/faulty digests, rollback, scope and cleanup. Latest coordinator chat:
-Maksym designs/coordinates the failure; Airbus is the responder and has said he
-will delegate timeline recording to another teammate. Record that person's name
-in the actual timeline. The responder must not design the fault, and
-[#72](https://github.com/Airbus-A330/OSPSD-Team-2/issues/72) requires another
-participant to record. The window and actual environment approval remain
-unrecorded here.
+Fault revision:
 
-Coordinate with #69 so safeguards remain enabled. Do not disable smoke protection
-to prolong an alert; account for cached Get responses. #69's startup-crashing
-image is not automatically an appropriate alert trigger: Render can keep an old
-healthy instance serving, producing no Get failures. Verify the approved fault
-actually creates the intended user-visible symptom.
+`6ab6f25bd2fe4e6ce2d6f5959ad3e522452cb653`
 
-Stop injection after **5 minutes maximum**, or immediately if scope escapes,
-credentials/privacy/cost are at risk, cleanup is unbounded, or recovery is unsafe.
-If unrecovered at **15 minutes**, abort/escalate and keep recovery/cleanup staffed.
-Safety help is allowed, but disclose that unassisted recovery was not met.
+The fault caused valid shared Get requests to return
+`503 provider_unavailable` through the normal service error and telemetry path
+while preserving the service process, health endpoints, metrics, structured
+logs, and traces.
 
-Airbus owns the actual `game-day.md` and evidence collection: baseline -> injection
--> firing/receipt/acknowledgement -> dashboard/log/trace diagnosis -> mitigation
--> restored release -> canonical smoke/cleanup -> resolved receipt -> healthy
-new traffic/stopped budget burn -> cleanup. Link his files when present; do not
-fabricate or duplicate a timeline. No designer coaching beyond safety intervention.
+The exercise used bounded controlled traffic, the existing public Grafana
+dashboard, the responder runbook, and the existing immutable Delivery rollback
+path.
 
-Use the [postmortem template](reliability/postmortem.md) after execution. Include
-consumer/SLO impact, trigger/contributing conditions, what helped/slowed recovery,
-and owned follow-ups. Complete and verify at least **one incident-driven action**
-before claiming extra credit. Pre-existing work is not that action.
+The deliberately faulty implementation remained isolated from
+`assgn2-ms3-submission`.
+
+The complete execution record is in:
+
+- [game-day.md](reliability/game-day.md)
+- [postmortem.md](reliability/postmortem.md)
+- [alerting.md](reliability/alerting.md)
+- [runbook.md](reliability/runbook.md)
+
+The exercise record contains the actual deployment/traffic/recovery evidence,
+the independent responder result, the dashboard/alert observations, and the
+completed incident-driven follow-up.
 
 ## Execution status and checks
 
