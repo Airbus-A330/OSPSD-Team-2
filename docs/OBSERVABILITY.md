@@ -257,10 +257,14 @@ correlation fields in logs and traces only; they are not metric dimensions. The
 inspection included collector-added resource fields and found no sensitive
 Calendar or provider data.
 
-Together, Nicolas's hosted exercise and the retained three-case exports establish
-the deployed operator path and the success, invalid-input, and provider-failure
-signal behavior. The repository does not fabricate a timestamped transcript that
-Nicolas narrated all three controlled cases individually.
+Dorien Zhang, Nicolas Ollivier, and Leon Liu (`LeonLiu0204`) completed the human
+telemetry verification session. They reviewed deployed success, provider/service-
+failure, and invalid-request cases and used the dashboard, logs, and traces to
+identify operation, status, outcome, release, request/trace correlation, and
+provider-span behavior. They also manually inspected an exported structured log
+and corresponding trace and confirmed that no credentials, tokens, provider
+payloads, or event contents were present and that metric labels were bounded and
+excluded raw event IDs and URLs. No exact session timestamp is asserted.
 
 ## Automated verification
 

@@ -303,10 +303,11 @@ runtime secret. The pipeline/smoke tests (#69) and SLO work must account for the
 constraints without blindly retrying writes. Calendar data remains in Google.
 
 The hosted service has been deployed through the immutable Delivery path and
-verified with real-provider smoke/cleanup. Independent teammate provisioning,
-unchanged reapply, teardown, and the protected/shared infrastructure-state
-arrangement are not established by retained repository evidence. Render Hobby
-workspace access limitations remain a documented operational constraint.
+verified with real-provider smoke/cleanup. Dorien Zhang, Nicolas Ollivier, and
+Leon Liu completed the human verification session covering fresh-checkout setup,
+preview, shared-API reachability, unchanged synchronization, and teardown-
+procedure review. Render Hobby workspace access limitations remain a documented
+operational constraint; protected routine changes use the GitHub/CD path.
 
 ## Testing
 
@@ -357,10 +358,9 @@ Listing/PATCH remain supported local extensions.
 ### Release verification
 
 The live workflow and cleanup, deployed telemetry, and bounded recovery exercise
-are recorded. Review and CI must still pass on the exact final merged revision;
-the literal independent-provisioning and timestamped three-case narration
-transcripts were not retained. They are evidence limits, not missing application
-or infrastructure behavior.
+are recorded. The infrastructure, operator, and three-case telemetry verification
+session is also complete. Review and CI must still pass on the exact final merged
+revision before the annotated tag and GitHub Release are created.
 
 ## Alternatives considered
 

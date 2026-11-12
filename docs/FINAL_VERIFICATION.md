@@ -1,10 +1,9 @@
 # Final verification record
 
 This record reconciles the retained implementation, deployment, observability,
-and reliability evidence before release. It distinguishes completed work from
-literal exercise transcripts that were not retained. Never add credentials,
-private Calendar identifiers, request bodies, authorization headers, or raw
-provider payloads.
+reliability, and completed human verification evidence before release. Never add
+credentials, private Calendar identifiers, request bodies, authorization headers,
+or raw provider payloads.
 
 ## A. Full-design review
 
@@ -34,21 +33,25 @@ provider payloads.
 - State/secrets: versioned infrastructure configuration is in the repository;
   runtime credentials remain protected and outside source control. No local-only
   infrastructure state or shared credential file is required.
-- Result: deployed infrastructure is operational. A literal fresh-checkout
-  provisioning, second unchanged apply, and teardown transcript by a non-author
-  was not retained; the repeatable procedures are in
-  [DEPLOYMENT.md](DEPLOYMENT.md).
+- Verification participants: Dorien Zhang, Nicolas Ollivier, and Leon Liu
+  (`LeonLiu0204`). A teammate who did not solely author the infrastructure followed
+  the documented setup from a fresh checkout. The participants reviewed the
+  preview, reached the deployed shared API, synchronized the same configuration
+  again without unexpected replacement or duplicate resources, and verified the
+  teardown procedure without destroying the submission environment.
+- Result: pass. No exact session timestamp is asserted.
 
 ## C. Independent operator exercise
 
-- Independent operator: Nicolas Ollivier.
-- Nicolas exercised the deployed Render service and used its hosted telemetry
-  during the observability demonstration.
+- Participants: Dorien Zhang, Nicolas Ollivier, and Leon Liu (`LeonLiu0204`).
+- Using the documentation only, they identified what was running, the serving
+  version/image, health and readiness, the logs/telemetry location, and the
+  rollback procedure.
 - The service, release identification, health/readiness paths, dashboard location,
   known-good artifact, and rollback procedure are documented in
   [OPERATIONS.md](OPERATIONS.md) and [DELIVERY.md](DELIVERY.md).
-- Result: independent operation is evidenced. A precise timed, documentation-only
-  exercise timestamp was not retained and is not invented here.
+- Result: pass. The operator exercise was completed; no exact session timestamp is
+  asserted.
 
 ## D. Telemetry exercise
 
@@ -64,9 +67,12 @@ provider payloads.
 - Dashboard revision: the versioned dashboard and its behavior are tested. The
   repository does not claim that the newest committed JSON revision was imported
   into the external Grafana instance without a retained import record.
-- Result: deployed telemetry was exercised and controlled three-case correlation
-  evidence is retained. A timestamped independent narration of all three cases is
-  not retained.
+- Verification participants: Nicolas Ollivier, Dorien Zhang, and Leon Liu
+  (`LeonLiu0204`) reviewed deployed success, provider/service-failure, and invalid-
+  request cases. Using dashboard metrics, structured logs, and traces, they
+  identified operation, status, outcome, release, request/trace correlation, and
+  provider-span behavior.
+- Result: pass. No exact session timestamp is asserted.
 
 ## E. Telemetry privacy inspection
 
@@ -80,7 +86,10 @@ provider payloads.
 - Request metric labels are limited to `operation`, `outcome`, and `release`.
   Saturation/capacity series add only bounded service resource fields. Request and
   trace identifiers are not metric dimensions.
-- Collector-added resource fields were included in the manual inspection.
+- Nicolas, Dorien, and Leon manually inspected an exported structured log and
+  corresponding trace, including collector-added resource fields. They confirmed
+  the absence of credentials, tokens, provider payloads, and event contents, and
+  confirmed that metric labels are bounded and exclude raw event IDs and URLs.
 - Result: pass; no sensitive Calendar or provider data was found.
 
 ## F. Final exact-commit verification

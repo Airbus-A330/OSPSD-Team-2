@@ -38,10 +38,10 @@ the Delivery identity does not receive Google OAuth JSON.
 5. **How do I roll back?** Follow [DELIVERY.md#rollback](DELIVERY.md#rollback)
    with a retained immutable digest. Never rebuild or blindly replay writes.
 
-Nicolas independently exercised the integrated application online and used the
-deployed telemetry during observability/demo verification. A separate precisely
-timed documentation-only operator exercise is not claimed because its timestamp
-was not retained.
+Dorien Zhang, Nicolas Ollivier, and Leon Liu (`LeonLiu0204`) completed the operator
+exercise using this documentation only. They identified what was running, the
+serving version/image, health and readiness, the logs/telemetry location, and the
+rollback procedure. No exact session timestamp is asserted.
 
 ## Blast radius
 

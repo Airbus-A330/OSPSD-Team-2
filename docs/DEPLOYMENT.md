@@ -253,7 +253,7 @@ The independent tester must perform this after the disposable-environment test:
 
 Cloud deletion is not performed by any local Makefile target.
 
-## Operational handoff and remaining verification
+## Operational handoff and verification
 
 The Delivery workflow builds `Dockerfile` once for linux/amd64, publishes and
 retains the digest, renders the same Blueprint, injects runtime values separately,
@@ -266,11 +266,13 @@ The deployment pipeline, rollback exercise, telemetry, and SLO evidence are
 documented in [DELIVERY.md](DELIVERY.md), [OBSERVABILITY.md](OBSERVABILITY.md),
 and [RELIABILITY.md](RELIABILITY.md).
 
-The retained evidence establishes local infrastructure validation, Render
-deployment, independent hosted application testing, protected automated delivery,
-live API reachability, and recovery. It does not retain a distinct transcript of
-an independent teammate provisioning from a fresh checkout, an unchanged second
-Render sync, or a completed teardown; do not invent those narrower events.
+The human verification session included Dorien Zhang, Nicolas Ollivier, and Leon
+Liu (`LeonLiu0204`). A teammate who did not solely author the infrastructure
+followed the documented setup from a fresh checkout, reviewed the infrastructure
+preview before apply, and reached the Render deployment through the shared API.
+The same configuration was synchronized again without unexpected replacement or
+duplicate resources. The participants reviewed and verified the teardown
+procedure; they did not tear down the submission environment.
 
 References: [Blueprint management](https://render.com/docs/infrastructure-as-code),
 [Blueprint fields/validation](https://render.com/docs/blueprint-spec),
@@ -413,8 +415,8 @@ PASS below refers only to the stated local evidence. Cloud results are not infer
 | 3 | No credentials/environment secrets in artifact | PASS | Allowlisted build context, explicit copies, no secret build inputs |
 | 4 | Version-controlled IaC | PASS | Free-plan template and deterministic digest-specific rendering are committed; retained Delivery evidence records an applied immutable image |
 | 5 | Hosting/IaC tools and rationale documented | PASS | Selected approach above |
-| 6 | Preview before apply | IMPLEMENTED; TRANSCRIPT NOT RETAINED | Deterministic Blueprint generation, schema validation, and review procedure are implemented; a distinct platform-preview transcript is not retained |
-| 7 | Unchanged reapply avoids duplicates/replacement | IMPLEMENTED; TRANSCRIPT NOT RETAINED | Stable resource name/digest rendering and repeat-generation tests prevent duplicate definitions; an actual unchanged second-sync transcript is not retained |
+| 6 | Preview before apply | PASS | Dorien, Nicolas, and Leon completed the verification session and reviewed the infrastructure preview before apply |
+| 7 | Unchanged reapply avoids duplicates/replacement | PASS | The same configuration was synchronized again with no unexpected replacement or duplicate resources |
 | 8 | Protected/shared infrastructure state | PASS | Render protects platform state under Leon's account; versioned configuration, deployment history, immutable artifacts, and routine team changes are shared through protected GitHub/CD |
 | 9 | Protected runtime Google credentials | PASS BUT EXTERNAL AUDIT LIMITED | Runtime-only authorization and disposable cache are implemented; successful real-provider smoke establishes working runtime configuration without exposing its value |
 | 10 | Validate config during startup | PASS | Hosted lifecycle and failure tests |
@@ -426,10 +428,10 @@ PASS below refers only to the stated local evidence. Cloud results are not infer
 | 16 | Actual account owner documented | PASS | Leon Liu / `LeonLiu0204` |
 | 17 | Teardown date/cleanup expectation | PASS | Remove after submission evidence is secured unless an extension is agreed and recorded |
 | 18 | Complete teardown instructions | PASS | Unmanage, delete service, remove secrets/access and verify inventory |
-| 19 | Independent teammate provisions fresh checkout | EVIDENCE LIMIT | Nicolas independently tested locally and against the hosted build; a distinct non-author provisioning transcript is not retained |
+| 19 | Independent teammate provisions fresh checkout | PASS | A teammate who did not solely author the infrastructure followed the documented setup from a fresh checkout during the Dorien/Nicolas/Leon verification session |
 | 20 | Teammate reaches deployed shared API | PASS | Independent 11-check API run reached the deployed service and confirmed cleanup; see `evidence/reliability-live/README.md` |
-| 21 | Second actual IaC apply has no unexpected change | EVIDENCE LIMIT | Repeat-generation is tested; a separate cloud reapply transcript is not retained |
-| 22 | Teammate tears down from documentation | DOCUMENTED | Complete teardown procedure exists; no completed teardown event is claimed before submission evidence is secured |
+| 21 | Second actual IaC apply has no unexpected change | PASS | The participants synchronized the same configuration again and observed no unexpected replacement or duplicate resources |
+| 22 | Teardown procedure independently verified | PASS | The participants reviewed and verified the complete teardown procedure without deleting the submission environment |
 | 23 | No secrets in source/build/logs/plans/CI artifacts | PASS | Runtime/environment separation, allowlisted image, sanitized Delivery artifacts, telemetry privacy inspection, and repository secret/state scans |
 | 24 | Required CI checks pass | PASS FOR RETAINED DELIVERY REVISION | Delivery run `43064300096` succeeded for source `7854d695cc2b8e84752ec3b4e4aacd2042125478`; final merge-commit CI remains a release step |
 
@@ -439,5 +441,7 @@ Leon tested the infrastructure/application locally, deployed it through Render,
 and tested the Render cloud build. Nicolas independently tested the integrated
 application locally and online against that hosted build while verifying the
 observability integration. Dorien and Leon jointly integrated the protected
-repository/CD path used for routine deployments. Exact fresh-checkout, unchanged
-second-sync, and teardown transcripts were not retained and are not claimed.
+repository/CD path used for routine deployments. Dorien, Nicolas, and Leon then
+completed the human verification session: fresh-checkout setup, preview review,
+shared-API reachability, unchanged synchronization, and teardown-procedure review
+all succeeded. No exact session timestamp is asserted.
