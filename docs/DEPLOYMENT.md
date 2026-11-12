@@ -38,6 +38,26 @@ boundary until concurrency and credential handling are deliberately revisited.
 | Deployment branch / approved image digest | Team must select the integrated revision and published digest |
 | Teardown expectation | Account owner removes the disposable environment after submission evidence is secured, unless an extension is agreed and recorded |
 
+### State, secrets, and access boundary
+
+- Render's platform-managed Blueprint and resource configuration is the applied
+  infrastructure state. The generated digest-specific Blueprint is the reviewed
+  image-selection record. There is no Terraform/OpenTofu state file in this
+  repository.
+- The Render account owner and holders of its dedicated automation key can change
+  that state. The actual named account owner is not established in repository
+  evidence and must be recorded in [FINAL_VERIFICATION.md](FINAL_VERIFICATION.md).
+  Hobby's one-member limit means the shared-state/access criterion remains open.
+- Google OAuth JSON and the Calendar ID live only in Render protected runtime
+  configuration. They are read by the runtime identity and are not supplied to
+  the image build or GitHub Delivery job.
+- Render deployment credentials and the hosted HTTP bearer token live in protected
+  GitHub environments. Repository/Actions administrators and configured environment
+  reviewers control access; pull-request jobs receive no deployment environment.
+- GHCR publishing uses only the artifact job's short-lived `GITHUB_TOKEN`. Runtime,
+  publishing, and deployment identities are separate. Sanitized Delivery artifacts
+  contain identifiers/status only, never secret values or response bodies.
+
 The [Free plan](https://render.com/docs/free) has no compute charge within its
 quotas and no disk charge because none is provisioned. It has 750 instance hours
 per workspace/month and separate bandwidth/build quotas. With no payment method,
@@ -405,7 +425,7 @@ PASS below refers only to the stated local evidence. Cloud results are not infer
 | 14 | Manual prerequisites documented | PASS | Accounts, authorization, permissions, image publishing, runtime secrets and free-plan limits |
 | 15 | Expected cost/free-tier assumptions | PASS | Free compute quotas, no disk, separate registry costs and no paid upgrades documented |
 | 16 | Actual account owner documented | NOT COMPLETED | User confirmed owner is not yet assigned |
-| 17 | Teardown date/cleanup expectation | PASS | Remove after Nov 11 demo/verification unless extension agreed |
+| 17 | Teardown date/cleanup expectation | PASS | Remove after submission evidence is secured unless an extension is agreed and recorded |
 | 18 | Complete teardown instructions | PASS | Unmanage, delete service, remove secrets/access and verify inventory |
 | 19 | Independent teammate provisions fresh checkout | NOT COMPLETED | External acceptance exercise pending |
 | 20 | Teammate reaches deployed shared API | PASS | Independent 11-check API run reached the deployed service and confirmed cleanup; see `evidence/reliability-live/README.md` |
@@ -413,3 +433,14 @@ PASS below refers only to the stated local evidence. Cloud results are not infer
 | 22 | Teammate tears down from documentation | NOT COMPLETED | External acceptance exercise pending |
 | 23 | No secrets in source/build/logs/plans/CI artifacts | PARTIAL | Local checks used synthetic fixtures; real cloud/CI handling remains to verify |
 | 24 | Required CI checks pass | PASS FOR RETAINED DELIVERY REVISION | Delivery run `43064300096` succeeded for source `7854d695cc2b8e84752ec3b4e4aacd2042125478`; final merge-commit CI remains a release step |
+
+## Independent provisioning verification
+
+The executable procedure is in this document's local checks, preview, provision,
+repeat-application, API verification, and teardown sections. A teammate who did
+not author the infrastructure must perform it from a fresh checkout before this
+criterion can be marked complete. Record the exact SHA, preview, resource IDs,
+unchanged second sync, API result, teardown, questions, help received, and any
+documentation correction in [FINAL_VERIFICATION.md](FINAL_VERIFICATION.md#b-independent-infrastructure-verification).
+
+No blank field in that record is evidence that the exercise occurred.

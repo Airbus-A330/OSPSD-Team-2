@@ -23,6 +23,8 @@ Each operation is implemented through the shared provider-independent `EventProv
 
 Telemetry configuration, the golden-signals dashboard, and deployed verification
 are documented in [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
+The [operator quick reference](docs/OPERATIONS.md) identifies the running
+resources, health, release, telemetry, recovery path, costs, and blast radius.
 
 ---
 
@@ -34,6 +36,10 @@ and explicit controlled shared conformance. The retained Delivery evidence recor
 a successful immutable deployment, real-provider smoke/cleanup, and the bounded
 game-day recovery. Independent fresh-checkout provisioning remains a documented
 human-verification gap.
+
+The remaining human rubric exercises and evidence fields are collected in
+[docs/FINAL_VERIFICATION.md](docs/FINAL_VERIFICATION.md). Empty fields there are
+deliberately not evidence of completion.
 
 # Quick Start
 

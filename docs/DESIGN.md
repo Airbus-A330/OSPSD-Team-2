@@ -92,6 +92,23 @@ This integration does not standardize Team 2's optional listing or PATCH extensi
 add another real provider, add a dependency-injection framework, redesign the
 cache, add retries, or perform a speculative rewrite of every operation.
 
+## Main tradeoff: consume the tagged shared package
+
+Team 2 consumes the tagged `calendar-contract` package and adapts its existing
+application/provider code to the shared `CalendarService`, rather than copying
+the shared models into this repository. Copying would reduce the immediate Git
+dependency and let Team 2 change models independently, but it would recreate the
+cross-team drift that Assignment 2 is intended to remove.
+
+The chosen approach is supported by the same conformance implementation running
+against Teams 2, 5, and 7 and by Team 2's full controlled Python/HTTP conformance
+run. Its cost is release coordination: an upstream tag must remain available,
+`pyproject.toml` and `uv.lock` must agree, and a shared semantic change cannot be
+adopted unilaterally. Revisit this decision only if the three Calendar teams
+approve a new incompatible contract revision or the shared package can no longer
+be installed reproducibly; either case requires a new reviewed tag, lockfile
+update, and conformance run before deployment.
+
 ## Current architecture
 
 The HW1 request flow is:

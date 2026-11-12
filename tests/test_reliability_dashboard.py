@@ -51,3 +51,24 @@ def test_live_measurement_panels_use_exact_canonical_instant_queries(
             {"refId": ref_id, "instant": True, "range": False, "expr": records[record]},
         )
     ]
+
+
+def test_operations_dashboard_separates_latency_by_operation_and_outcome() -> None:
+    dashboard = json.loads((ROOT / "observability/calendar-dashboard.json").read_text())
+    latency = next(
+        panel
+        for panel in dashboard["panels"]
+        if panel["title"] == "Latency p95 by operation and outcome"
+    )
+    assert latency["targets"] == [
+        {
+            "refId": "A",
+            "expr": (
+                "histogram_quantile(0.95, sum by (le, operation, outcome, release) "
+                '(rate(calendar_request_duration_seconds_bucket{release=~"$release",'
+                'operation=~"$operation"}[$__rate_interval])))'
+            ),
+            "legendFormat": "{{operation}} {{outcome}} {{release}}",
+            "exemplar": True,
+        }
+    ]

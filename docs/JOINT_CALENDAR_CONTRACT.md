@@ -38,6 +38,26 @@ Listing (GET /events), partial update (PATCH), all-day events, extra fields such
 
 Why this scope. All three teams already had create, get and delete, and two had PUT. Listing and PATCH exist at only some teams, with different parameters and meanings. Making them shared would have forced new work on some teams before the deadline, and a small contract every team keeps is worth more than a large one some teams break.
 
+The executable relationship is:
+
+```text
+shared HTTP request
+    -> one team's Calendar service implementation
+    -> that team's provider adapter
+    -> Google Calendar
+    -> shared Event or shared error response
+```
+
+The shared conformance suite drives the first boundary. Provider-specific SDK
+objects and request formats remain behind each team's adapter.
+
+| Operation | Purpose and input | Success and identifier | Shared failures and retry safety |
+| --- | --- | --- | --- |
+| `POST /events` | Create a timed event from required `title`, `start`, and `end`; no caller-supplied ID | `201` and an Event containing the provider-assigned opaque `id` | Validation, access, provider response/unavailability, or uncertain write. POST is not idempotent; never retry when `retryable` is false. |
+| `GET /events/{event_id}` | Retrieve the event named by the opaque path ID | `200` and the Event | Invalid ID, `404 not_found`, access, provider response, or temporary unavailability. Retry only when the error says `retryable: true`. |
+| `PUT /events/{event_id}` | Replace the three shared writable fields for the opaque path ID | `200` and the stored Event with the same ID | Validation, `404 not_found`, access, provider response/unavailability, or uncertain write. Never retry an uncertain write when `retryable` is false. |
+| `DELETE /events/{event_id}` | Delete the event named by the opaque path ID | `204` with no body | Invalid ID, `404 not_found` including repeated delete, access, or provider failure. Retry only when explicitly allowed; after `204` or `404`, the shared resource is absent. |
+
 ## The event and its operations
 
 ### Rule 1: PUT replaces the shared fields.
@@ -175,7 +195,12 @@ Team 5 notes that its limits describe its current implementation, not everything
 2. A timed-out create cannot be checked with the shared core alone. Rule 6 tells the client not to resend blindly, but the failed create returned no id and listing is not shared. At Team 5, which has no listing, a client cannot find out whether the event exists. A shared listing or an idempotency key on create would close this. Owner: [proposed: Arda (Team 7) raises it at the next checkpoint].
 3. Listing and PATCH are not shared. Teams 2 and 7 list with different parameters, Team 5 does not list, and Teams 2 and 5 mean different things by PATCH. Whether to standardise either is open. Owner: [to assign].
 4. Fields outside the shared four behave differently on PUT. A client that sets description or location gets different results at each service. We accept this for now and revisit it if a client needs those fields. Owner: [to assign].
-5. [To fill if the handout requires it: the shared Python contract package and conformance checks, with an owner per team.]
+5. The shared Python package and conformance checks live in
+   [`Airbus-A330/OSPSD-Calendar`](https://github.com/Airbus-A330/OSPSD-Calendar).
+   Teams 2, 5, and 7 jointly maintain the shared suite; each team owns the adapter
+   and fixture that runs it against its service. Yasmin Hassoobh owns Team 2's
+   completed service integration and conformance fixture. Semantic changes require
+   cross-team review and a new tagged shared release.
 
 ## How we reached this
 

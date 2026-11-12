@@ -127,6 +127,13 @@ descriptions are disabled, because exception messages/stacks may contain provide
 data. No body, raw URL, event ID, query, authorization header, credential, title,
 description, or provider response is attached.
 
+Provider-span evidence is retained in
+[the hosted SDK-controlled OTLP capture](evidence/reliability-hosted-local/README.md)
+and is verified by `tests/telemetry/test_calendar_operations.py`. Unlike the
+bounded game-day fault, those ordinary SDK-backed requests cross the Google
+boundary and therefore contain the expected `google.calendar.<Operation>` child
+span.
+
 The Level 4 owner can use the counter outcomes to select eligible requests and
 server failures, and histogram buckets to calculate latency compliance. For
 example, these are building blocks, **not an adopted SLO policy**:
@@ -171,7 +178,7 @@ not buffer indefinitely to guarantee delivery.
 
 The provisioned dashboard in
 [`observability/calendar-dashboard.json`](../observability/calendar-dashboard.json)
-shows p95 latency, request rate, categorized error rate, shared worker saturation,
+shows p95 latency by operation/outcome, request rate, categorized error rate, shared worker saturation,
 worker capacity, and correlated request logs. Release and operation selectors
 filter the panels, and release appears in legends/capacity rows. Request/error
 panels link to the log panel; expand a record's `trace_id` and choose **View trace**
