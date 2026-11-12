@@ -42,13 +42,11 @@ wraps the hosted access middleware: denied core requests must still produce an
 outcome record and request count, while health probes remain excluded.
 
 Tests in `tests/telemetry/test_http_telemetry.py` verify lifespan composition and
-measurement of early access rejections using this ordering. They establish the
-integration boundary; they do not claim that unmerged infrastructure PR #75 or
-its deployed container entry point is already integrated. Verify the actual
-container entry point after the infrastructure owner's integration, including
-release configuration, protected collector connectivity, access rejection,
-successful request export and shutdown. No infrastructure implementation from
-that separate issue is copied or changed here.
+measurement of early access rejections using this ordering. The hosted container
+entry point is integrated with release configuration and protected collector
+connectivity; the retained public dashboard and game-day evidence demonstrate
+deployed export. Controlled tests continue to cover access rejection, successful
+request export, and shutdown without requiring cloud credentials.
 
 ## Signal schema and Level 4 handoff
 
@@ -211,14 +209,16 @@ OTLP collector and persistent backends, and imports the dashboard using matching
 data source UIDs (`prometheus`, `loki`, `tempo`). Pin artifact digests and configure
 backend retention within that owner's deployment workflow.
 
-## Required deployed verification and retained evidence
+## Deployed verification and retained evidence
 
-**Not yet performed.** This checkout has no deployed collector access. The tagged
-full core conformance cases are available and run locally. Local controlled tests cannot prove
-deployed dashboard rendering, real Google behavior, or that a
-different teammate can interpret the results.
+The service exported deployed telemetry to the retained public dashboard, and the
+bounded game day demonstrated traffic, categorized failures, release identity,
+alerting, and recovery. The canonical Delivery smoke established real Google
+behavior. Repository evidence does not establish that a teammate who did not
+implement the instrumentation completed the full success/provider-failure/invalid-
+request explanation using telemetry only.
 
-After the dependency issues and telemetry deployment are available:
+To reproduce and complete that independent three-case exercise:
 
 1. Record deployed release, dashboard URL, UTC window, backend retention expiry,
    and verifier. Use only a designated test calendar and synthetic event data.
@@ -274,5 +274,7 @@ from appearing as successful operations to the Level 4 consumer.
 Run the repository's existing `make check`; those tests are included in normal
 credential-free CI. The Compose fixture, collector validation, dashboard rendering,
 and local exported metrics/logs/traces were also checked; see the retained
-[local synthetic evidence](evidence/telemetry-local/README.md). Required deployed
-evidence and independent teammate review remain incomplete.
+[local synthetic evidence](evidence/telemetry-local/README.md). Deployed dashboard
+and game-day evidence is retained under `docs/evidence/reliability-live/` and
+`docs/reliability/`. The independent three-case telemetry explanation and its
+sensitive-data inspection record remain incomplete.

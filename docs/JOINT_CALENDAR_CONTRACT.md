@@ -76,7 +76,7 @@ Why: a time without an offset is ambiguous, and a number could be seconds or mil
 
 Times are whole seconds, and a server may drop sub-seconds from the times it receives; Team 7 does. A server that drops sub-seconds checks that end is after start after dropping them, so 10:00:00.1 to 10:00:00.9 is rejected there with 422 invalid_input. Clients that need the same result from every server send whole seconds.
 
-Why: Google Calendar keeps event times to the second, so no server can promise more. Checking after the drop means a server never stores an event that ends when it starts. Team 7 proposed the last two sentences of this rule on Oct 28, and Team 5 agreed the same day. [Pending Team 2's yes.]
+Why: Google Calendar keeps event times to the second, so no server can promise more. Checking after the drop means a server never stores an event that ends when it starts. Team 7 proposed the last two sentences of this rule on Oct 28, Team 5 agreed the same day, and Team 2 subsequently adopted the shared rule in its tagged-contract integration.
 
 ## Bad requests and missing events
 

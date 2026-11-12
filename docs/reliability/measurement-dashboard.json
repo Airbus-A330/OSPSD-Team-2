@@ -1,0 +1,63 @@
+{
+  "uid": "team2-calendar-sli-measurement",
+  "title": "Team 2 Get SLI measurement - exact counts",
+  "description": "Instant 7-day-lookback counts. Record one UTC evaluation time and actual history coverage; this is not seven days of observed data by itself.",
+  "schemaVersion": 42,
+  "version": 1,
+  "timezone": "utc",
+  "refresh": "",
+  "time": {"from": "now-7d", "to": "now"},
+  "tags": ["team2", "calendar", "reliability"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "A - eligible Get requests (availability denominator)",
+      "datasource": {"type": "prometheus", "uid": "grafanacloud-prom"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{"refId": "A", "instant": true, "range": false, "expr": "sum(increase(calendar_requests_total{operation=\"Get\",outcome!=\"invalid_input\"}[7d]))"}],
+      "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name"}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "B - good Get requests (availability numerator)",
+      "datasource": {"type": "prometheus", "uid": "grafanacloud-prom"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [{"refId": "B", "instant": true, "range": false, "expr": "sum(increase(calendar_requests_total{operation=\"Get\",outcome=~\"success|not_found\"}[7d])) or vector(0)"}],
+      "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name"}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "C - eligible latency observations (latency denominator)",
+      "datasource": {"type": "prometheus", "uid": "grafanacloud-prom"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [{"refId": "C", "instant": true, "range": false, "expr": "sum(increase(calendar_request_duration_seconds_count{operation=\"Get\",outcome!=\"invalid_input\"}[7d]))"}],
+      "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name"}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "D - Get requests <=1s (latency numerator)",
+      "datasource": {"type": "prometheus", "uid": "grafanacloud-prom"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [{"refId": "D", "instant": true, "range": false, "expr": "sum(increase(calendar_request_duration_seconds_bucket{operation=\"Get\",outcome!=\"invalid_input\",le=\"1\"}[7d])) or vector(0)"}],
+      "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name"}
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Source sample age (seconds; No Data means unknown)",
+      "datasource": {"type": "prometheus", "uid": "grafanacloud-prom"},
+      "gridPos": {"h": 5, "w": 24, "x": 0, "y": 16},
+      "targets": [{"refId": "E", "instant": true, "range": false, "expr": "time() - max(timestamp(calendar_requests_total{operation=\"Get\"}))"}],
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name"}
+    }
+  ]
+}

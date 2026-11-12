@@ -17,6 +17,16 @@ failure isolation. It also verifies exact success statuses and preservation of
 all six Calendar routes. See [OBSERVABILITY.md](OBSERVABILITY.md) for evidence and
 deployed verification.
 
+`tests/telemetry/test_hosted_reliability.py` checks the actual hosted factory,
+shared Get route and SDK-controlled Google translation with real metric readers.
+Its seven cases include early access rejection, invalid input and provider errors;
+[local OTLP/rule evidence](evidence/reliability-hosted-local/README.md) is retained
+separately from deployed acceptance.
+
+`tests/test_reliability_dashboard.py` keeps the importable Grafana measurement
+panels identical to the four canonical SLI numerator/denominator queries. It
+requires no Grafana credentials or network access.
+
 Repository-wide testing rules are defined in `../AGENTS.md`.
 
 ## Shared contract integration

@@ -30,8 +30,10 @@ are documented in [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
 
 [Delivery and rollback](docs/DELIVERY.md) uses the existing container and Render
 Blueprint on `assgn2-ms3-submission`. PR checks include Infrastructure validation
-and explicit controlled shared conformance. Protected cloud setup and actual
-deployment/rollback evidence remain required before submission.
+and explicit controlled shared conformance. The retained Delivery evidence records
+a successful immutable deployment, real-provider smoke/cleanup, and the bounded
+game-day recovery. Independent fresh-checkout provisioning remains a documented
+human-verification gap.
 
 # Quick Start
 
@@ -134,7 +136,8 @@ For the hosted entry point, locked Docker build, Render Blueprint, runtime
 configuration, account prerequisites, and teardown, see
 [Deployment](docs/DEPLOYMENT.md). Local development below continues to use
 `app.main:app`; containers use the validated and protected `app.hosting:app`.
-Cloud provisioning and independent teammate acceptance are still pending.
+The service has been deployed through the documented Delivery workflow;
+independent teammate provisioning from a fresh checkout is not yet documented.
 The Blueprint selects Render Free with no persistent disk. OAuth configuration
 is supplied at runtime and restores a disposable token cache on each start.
 See the deployment guide for cold-start limits and the unresolved team-access requirement.
