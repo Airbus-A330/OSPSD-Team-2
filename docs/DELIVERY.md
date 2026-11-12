@@ -1,9 +1,10 @@
 # Delivery and rollback — Issue #69
 
-Status: implementation and controlled tests only. No publication, deployment or
-faulty-release/rollback exercise has been performed by this change. Public
-contract unchanged; no dependency changes. Use #68's existing [Dockerfile](../Dockerfile),
-[Blueprint](../infra/render.template.yaml), and [deployment setup](DEPLOYMENT.md).
+Status: implemented and exercised. Retained evidence records an immutable
+deployment with real-provider smoke/cleanup and a bounded faulty-release recovery
+using the same Delivery path. Public contract unchanged; no dependency changes.
+Use the existing [Dockerfile](../Dockerfile), [Blueprint](../infra/render.template.yaml),
+and [deployment setup](DEPLOYMENT.md).
 
 ## One-time external setup
 

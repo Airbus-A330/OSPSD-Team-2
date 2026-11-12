@@ -1,8 +1,10 @@
 # Container and infrastructure — Issue #68
 
-Delivery, protected CI configuration, smoke checks and rollback are implemented
-by #69; see [DELIVERY.md](DELIVERY.md). External setup and verification below
-remain prerequisites; pipeline implementation does not establish live evidence.
+Delivery, protected CI configuration, smoke checks, and rollback are implemented;
+see [DELIVERY.md](DELIVERY.md). The retained Delivery and game-day records provide
+live deployment, real-provider smoke/cleanup, and recovery evidence. Independent
+fresh-checkout provisioning, unchanged reapply, and teardown exercises remain
+unrecorded and are identified explicitly below.
 
 Status: local implementation and cloud implementation on Render. Do not interpret a passing local
 check as completion of the required teammate deployment exercise.
@@ -34,7 +36,7 @@ boundary until concurrency and credential handling are deliberately revisited.
 | Workspace access | Hobby supports one member only; the protected/shared infrastructure-state requirement remains unresolved |
 | Delivery pipeline and registry publishing | Issue #69; use this Dockerfile and Blueprint |
 | Deployment branch / approved image digest | Team must select the integrated revision and published digest |
-| Teardown expectation | Account owner removes the disposable environment after the November 11 demo/verification, unless an extension is agreed and recorded |
+| Teardown expectation | Account owner removes the disposable environment after submission evidence is secured, unless an extension is agreed and recorded |
 
 The [Free plan](https://render.com/docs/free) has no compute charge within its
 quotas and no disk charge because none is provisioned. It has 750 instance hours
@@ -232,23 +234,24 @@ The independent tester must perform this after the disposable-environment test:
 
 Cloud deletion is not performed by any local Makefile target.
 
-## Handoff and remaining verification
+## Operational handoff and remaining verification
 
-For #69: build `Dockerfile` once for linux/amd64, publish and retain the digest,
-render the same Blueprint, inject the runtime values separately, then smoke-test
-with the deployment bearer token. Keep exactly one instance/worker. Image rollback
+The Delivery workflow builds `Dockerfile` once for linux/amd64, publishes and
+retains the digest, renders the same Blueprint, injects runtime values separately,
+then smoke-tests with the deployment bearer token. Keep exactly one instance/worker. Image rollback
 does not undo Google Calendar writes or rotate the protected runtime secret.
 Each new start restores the token cache from the current runtime configuration.
 Allow a bounded cold-start wait for readiness before testing the API. Do not
 allow a later Blueprint sync to accidentally reinstate an obsolete image digest.
-The deployment pipeline, rollback exercise, telemetry and SLOs belong to their
-respective issues; they are not implemented here.
+The deployment pipeline, rollback exercise, telemetry, and SLO evidence are
+documented in [DELIVERY.md](DELIVERY.md), [OBSERVABILITY.md](OBSERVABILITY.md),
+and [RELIABILITY.md](RELIABILITY.md).
 
-Before marking #68 complete, attach evidence from someone other than the
-infrastructure author: fresh checkout, platform-aware validation/change preview,
-provisioned resource identities, authenticated live API reachability, unchanged
-second apply, and complete teardown. Also record the account owner and resolve
-the shared-state/access criterion above. All of those external checks remain pending.
+Still required for full infrastructure-rubric evidence: an independent teammate's
+fresh-checkout provisioning and teardown record, an actual platform change preview,
+an unchanged second apply, the account owner, and the protected/shared state-access
+arrangement. The authenticated live API and recovery paths have been exercised,
+but they do not prove those separate infrastructure checks.
 
 References: [Blueprint management](https://render.com/docs/infrastructure-as-code),
 [Blueprint fields/validation](https://render.com/docs/blueprint-spec),
@@ -389,12 +392,12 @@ PASS below refers only to the stated local evidence. Cloud results are not infer
 | 1 | Reproducible deployable artifact | PASS | Pinned bases, locked install, successful linux/amd64 build and runtime check |
 | 2 | Locked application dependencies | PASS | `uv sync --locked --no-dev --no-editable`; lockfile unchanged |
 | 3 | No credentials/environment secrets in artifact | PASS | Allowlisted build context, explicit copies, no secret build inputs |
-| 4 | Version-controlled IaC | PARTIAL | Free-plan template committed in `f7d60dc`; digest-specific file still needs generation, review and application |
+| 4 | Version-controlled IaC | PASS | Free-plan template and deterministic digest-specific rendering are committed; retained Delivery evidence records an applied immutable image |
 | 5 | Hosting/IaC tools and rationale documented | PASS | Selected approach above |
 | 6 | Preview before apply | PARTIAL | Template/schema and review procedure ready; actual workspace preview pending |
 | 7 | Unchanged reapply avoids duplicates/replacement | PARTIAL | Stable resource names/digest; actual second sync pending |
 | 8 | Protected/shared infrastructure state | NOT COMPLETED | Hobby has one member; protected/shared access arrangement must still be agreed and verified |
-| 9 | Protected runtime Google credentials | PARTIAL | Runtime-only authorization and disposable cache implemented; actual platform secret configuration pending |
+| 9 | Protected runtime Google credentials | PASS BUT EXTERNAL AUDIT LIMITED | Runtime-only authorization and disposable cache are implemented; successful real-provider smoke establishes working runtime configuration without exposing its value |
 | 10 | Validate config during startup | PASS | Hosted lifecycle and failure tests |
 | 11 | Clear sanitized missing-config failure | PASS | Unit and actual-container checks |
 | 12 | Health/readiness endpoint | PASS | `/healthz`, `/readyz` in hosted entry point |
@@ -405,8 +408,8 @@ PASS below refers only to the stated local evidence. Cloud results are not infer
 | 17 | Teardown date/cleanup expectation | PASS | Remove after Nov 11 demo/verification unless extension agreed |
 | 18 | Complete teardown instructions | PASS | Unmanage, delete service, remove secrets/access and verify inventory |
 | 19 | Independent teammate provisions fresh checkout | NOT COMPLETED | External acceptance exercise pending |
-| 20 | Teammate reaches deployed shared API | NOT COMPLETED | No cloud deployment or live-provider run in this task |
+| 20 | Teammate reaches deployed shared API | PASS | Independent 11-check API run reached the deployed service and confirmed cleanup; see `evidence/reliability-live/README.md` |
 | 21 | Second actual IaC apply has no unexpected change | NOT COMPLETED | Repeat-generation test is not evidence of cloud reapply |
 | 22 | Teammate tears down from documentation | NOT COMPLETED | External acceptance exercise pending |
 | 23 | No secrets in source/build/logs/plans/CI artifacts | PARTIAL | Local checks used synthetic fixtures; real cloud/CI handling remains to verify |
-| 24 | Required CI checks pass | PARTIAL | Build/Format/Tests passed for `f7d60dc`; hosted integration fixes pass locally but their remote CI awaits push |
+| 24 | Required CI checks pass | PASS FOR RETAINED DELIVERY REVISION | Delivery run `43064300096` succeeded for source `7854d695cc2b8e84752ec3b4e4aacd2042125478`; final merge-commit CI remains a release step |

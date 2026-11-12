@@ -143,11 +143,11 @@ The retained known-good Delivery evidence included:
 
 Actual restored source SHA:
 
-`7854d695`
+`7854d695cc2b8e84752ec3b4e4aacd2042125478`
 
 Actual restored digest:
 
-`97e205`
+`sha256:97e205b2532e5420035c1e57aa489b09d9efe96be1dbefda2452290f7b4f020c`
 
 ## Recovery
 
@@ -222,4 +222,7 @@ Because the fault passed through the ordinary error and telemetry path, the team
 
 The recovery process also reinforced the value of immutable release identity. The responder did not need to diagnose the exact implementation defect before mitigation; restoring a previously verified immutable artifact and running the same consumer smoke workflow provided a bounded recovery path.
 
-The exercise additionally exposed observability permissions as an operational dependency. Public dashboard access is sufficient for some diagnosis, but alert-administration permissions must be established separately if the notification path is expected to be tested end to end.
+The exercise also confirmed that observability permissions are an operational
+dependency. Public dashboard access supports diagnosis, while protected alert
+administration and destination access must remain assigned so future responders
+can reproduce the end-to-end notification test.

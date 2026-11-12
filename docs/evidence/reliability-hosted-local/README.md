@@ -68,4 +68,5 @@ allow the rule group to evaluate and invoke `make reliability-report`. Stop the
 local process and remove its temporary storage/credentials even on failure.
 
 Live collector connectivity, real Google responses, protected Slack transport,
-backend history, independent runbook recovery and the game day remain unverified.
+backend history, independent runbook recovery, or the game day. Those later
+external results are documented separately under `docs/reliability/`.

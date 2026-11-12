@@ -1,8 +1,9 @@
 # Live API and delivery evidence — 2026-11-11
 
-**These are real API/delivery results, not deployed SLI calculations, Slack
-receipt, rollback execution, or game-day evidence.** No credentials, Calendar
-payloads or test event IDs are retained here.
+**These are the retained API, Delivery, and SLI artifacts captured before the
+separately documented game day.** The alert, recovery, and postmortem evidence is
+recorded in `docs/reliability/`. No credentials, Calendar payloads, or test event
+IDs are retained here.
 
 ## Independent API check
 
@@ -32,8 +33,9 @@ completed successfully at **2026-11-11T17:05:04Z**, source/workflow SHA
 
 This is a retained known-good candidate, not proof of the currently serving
 release forever. Verify registry retention, environment/configuration
-compatibility, and outstanding deployment reconciliation before using it for
-rollback. No recovery/failure injection was performed by #72.
+compatibility before using it for rollback. The later bounded game day used this
+artifact as its known-good recovery reference; this retained run is not itself
+misrepresented as the rollback workflow run.
 
 ## Environment/approval check
 
@@ -78,10 +80,10 @@ calculations and limitations. Values are rounded displays, history is shorter
 than a verified full window, and test traffic contributes. Do not misrepresent
 them as unrounded exports, full seven-day evidence or passing availability.
 
-## Still missing
+## Remaining measurement limitations
 
-Raw instant-query export/exact evaluation time and verified history coverage,
-real email/Slack firing/resolved receipt, approved exercise window, actual
-recovery/runbook execution, postmortem and a completed incident-driven follow-up.
-Airbus is responder and delegates recording. Neither API verification nor a green
-delivery supplies those incident results automatically.
+Raw instant-query export, exact evaluation time, and verified full-window history
+coverage were not retained. The later game-day record separately establishes the
+approved bounded exercise, independent runbook use, alert firing and resolution,
+notification delivery, recovery, postmortem, and completed follow-up; none of
+those facts are inferred from this earlier API or Delivery artifact alone.

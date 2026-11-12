@@ -23,17 +23,17 @@ unexpected 2xx/3xx responses use `unexpected_status` for reliability consumers.
 No body, raw identifier, provider payload, or exception text is exported.
 Saturation measures occupied AnyIO workers relative to the actual worker limit.
 Configuration, golden-signals dashboard, hosted-lifecycle integration, Level 4
-schema, and outstanding deployed evidence are canonical in
+schema, and deployed evidence are canonical in
 [OBSERVABILITY.md](OBSERVABILITY.md). Listing and PATCH remain supported extensions.
 
 | Metadata | Value |
 |---|---|
 | Authors | Alexander Freedman and OSPSD Team 2 |
 | Team / vertical | Team 2 / Calendar |
-| Team reviewer | Pending full-design review |
+| Team reviewer | Team review required before final merge; no repository evidence names the reviewer |
 | Cross-team reviewer | Karthik Ganeshan, Team 7 (contract-facing review comments addressed) |
-| Status | Common operations implemented; live workflow and review pending |
-| Last updated | 2026-11-09 |
+| Status | Implemented and deployed; final team review and release remain |
+| Last updated | 2026-11-12 |
 | Shared revision | [`v0.1.0-rc.1`](https://github.com/Airbus-A330/OSPSD-Calendar/tree/v0.1.0-rc.1), commit `1c1cad7a0732ddb242a05400d8833d94e4422424` |
 | Shared HTTP contract | [`docs/HTTP_CONTRACT.md`](https://github.com/Airbus-A330/OSPSD-Calendar/blob/v0.1.0-rc.1/docs/HTTP_CONTRACT.md) |
 | Joint decision memo | [Local preserved copy](JOINT_CALENDAR_CONTRACT.md) |
@@ -275,12 +275,11 @@ latency and usage limits. Credential expiry/revocation requires updating the
 runtime secret. The pipeline/smoke tests (#69) and SLO work must account for these
 constraints without blindly retrying writes. Calendar data remains in Google.
 
-This is local implementation, not cloud deployment evidence. Account ownership,
-platform-aware validation and independent teammate deployment/reapply/API/teardown
-verification remain pending. Hobby workspaces allow only one member: the protected,
-shared infrastructure-state requirement remains unresolved. Choosing ephemeral
-storage does not waive it or authorize a paid workspace. No cloud resources have
-been provisioned by #68.
+The hosted service has been deployed through the immutable Delivery path and
+verified with real-provider smoke/cleanup. Independent teammate provisioning,
+unchanged reapply, teardown, and the protected/shared infrastructure-state
+arrangement are not established by retained repository evidence. Render Hobby
+workspace access limitations remain a documented operational constraint.
 
 ## Testing
 
@@ -300,11 +299,11 @@ and Tests CI collect the entire suite without workflow changes.
 
 The opt-in `tests/live/test_shared_workflow.py` exercises real POST → GET → PUT →
 GET → DELETE, then repeated DELETE, missing GET and missing PUT. Reads bypass
-cache expiration, and cleanup runs in `finally`. No live verification was possible
-in this environment on 2026-11-09; the user confirmed a teammate will run it with
-credentials. [PROVIDER.md](PROVIDER.md#hw2-shared-workflow-verification) documents
-setup, the exact command, cleanup limits for uncertain creation, and evidence
-still required. Earlier GET-only evidence is not proof of this workflow.
+cache expiration, and cleanup runs in `finally`. The canonical Delivery smoke
+subsequently exercised this real provider-backed workflow and confirmed cleanup;
+retained evidence is in [evidence/reliability-live](evidence/reliability-live/README.md).
+The opt-in test remains separate from fast CI. [PROVIDER.md](PROVIDER.md#hw2-shared-workflow-verification)
+documents setup, the exact command, and cleanup limits for uncertain creation.
 
 ## Migration strategy
 
@@ -328,12 +327,12 @@ full controlled conformance. Compatibility import aliases keep the diff focused;
 shared models and validators remain the sole implementation for core writes.
 Listing/PATCH remain supported local extensions.
 
-### Follow-up work
+### Release verification
 
-A credential-owning teammate must run and record the live workflow and cleanup.
-Review and CI on the submitted revision are still required. Infrastructure,
-delivery and telemetry are described in their respective sections above;
-reliability and broader module reorganization remain separate work.
+The live workflow and cleanup, deployed telemetry, and bounded recovery exercise
+are recorded. Review and CI must still pass on the exact final merged revision;
+independent infrastructure provisioning and the three-case telemetry explanation
+remain human-verification gaps rather than implementation plans.
 
 ## Alternatives considered
 
@@ -359,14 +358,13 @@ without rewriting the service or changing extension behavior.
 Rejected. FastAPI dependencies and ordinary Python parameters already provide
 the required composition and test replacement points.
 
-## Open questions and release blockers
+## Final review and release evidence
 
-1. Which Team 2 teammate and which external Calendar-team member will record
-   design approval?
-2. Which credential-owning teammate will record the full shared live workflow
-   and cleanup for issue #67? Broader test/module reorganization stays separate.
-3. The [sanitized live-provider response](HW2_MS2_GET_VERIFICATION.md) is recorded.
-   Attach the reviewed commit and matching CI links when these changes are pushed.
+1. Record the Team 2 reviewer for the complete design; the cross-team
+   contract-facing review is already identified above.
+2. Retain the final merge commit and matching required CI links.
+3. Create the annotated tag and GitHub Release only after those checks pass on
+   the exact submitted revision.
 
 ## Change history
 
@@ -378,13 +376,11 @@ the required composition and test replacement points.
 
 - 2026-11-09: issue #67 routes all common operations through `CalendarService`,
   aliases shared write models, adopts shared HTTP errors and validation, and
-  runs complete controlled conformance through Python and HTTP. Live workflow
-  verification remains pending credentials and a teammate; no deployment work
-  is included.
+  runs complete controlled conformance through Python and HTTP. The later
+  Delivery workflow supplied the real-provider verification and cleanup evidence.
 
-- 2026-11-04: added a proposed deployment approach, tools, and operational
-  assumptions in response to Team 5's review; platform selection remains
-  pending team confirmation, with implementation planned for Milestone 3.
+- 2026-11-04: proposed the Render deployment approach, tools, and operational
+  assumptions later implemented for Milestone 3.
 
 - 2026-11-04: routed GET through `CalendarService.get`, reused shared GET
   conformance cases with seeded SDK fixtures, and recorded real-provider HTTP

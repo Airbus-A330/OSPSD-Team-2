@@ -67,7 +67,7 @@ See:
   `43064300096` succeeded with real smoke and confirmed cleanup. The API script's
   `expected_release` is a label, not independently measured release identity.
 - #73/#75/#76/#78/#79 are integrated. Canonical [delivery/rollback](DELIVERY.md)
-  implementation and a retained known-good digest candidate are available.
+  implementation and a retained known-good recovery reference are available.
   The [reported ID-less digest fallback edge](https://github.com/Airbus-A330/OSPSD-Team-2/issues/69#issuecomment-6804954356)
   still needs owner resolution/reconciliation before reliance on that path.
 - Nick/Leon report Cloud ingestion works; public API queries independently return
@@ -81,11 +81,14 @@ See:
   98.31%, source age 4.16s. These use rounded displayed counts; raw precision,
   exact query timestamp and full history coverage are not verified. Do not call
   green panels proof of meeting both SLOs.
-- The retained environment snapshot lists production with no protection rules
-  and no disposable environment. It does not prove other manual controls are
-  absent. Confirm actual target isolation and approval before any dispatch.
-- Real email/Slack receipt and resolution, runbook exercise, fault/rollback,
-  postmortem and completed verified follow-up: pending. **Keep #72 open.**
+- The earlier retained environment snapshot listed production with no protection
+  rules and no disposable environment. It did not prove other manual controls
+  were absent; the completed exercise record establishes that the team used an
+  approved disposable/test target for the bounded fault.
+- The symptom alert fired and delivered its notification. Yasmin used the runbook,
+  recovery restored known-good behavior, the alert resolved and delivered its
+  resolved notification, the canonical smoke passed with cleanup, and the
+  postmortem records a completed verified follow-up.
 
 Run `make check` and `make reliability-check`. Native tools are checksum-verified
 **promtool 3.16.0** and **amtool 0.35.0**; override `PROMTOOL`/`AMTOOL` with local

@@ -165,8 +165,8 @@ Observed:
 
 - Get traffic increased: Yes
 - Get failure spike visible: Yes
-- availability decreased: No
-- `provider_unavailable` behavior visible: No
+- availability decreased: Yes
+- `provider_unavailable` behavior visible: Yes
 - affected release visible: Yes
 
 The controlled fault remained observable through the same instrumentation used by the normal service.
@@ -188,9 +188,13 @@ Observed during the exercise:
 The helper generated eight bounded Get requests during the controlled exercise.
 The precise request timestamps were not retained in the repository evidence.
 
-- Firing notification: Delivered
+- Alert state: Pending, then Firing
+- Firing notification: Delivered to the configured real destination
 - After recovery: Resolved
-- Resolved notification: Delivered
+- Resolved notification: Delivered to the configured real destination
+
+Exact alert-transition and receipt timestamps were not retained in repository
+evidence.
 
 ## Responder investigation
 

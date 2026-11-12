@@ -123,5 +123,11 @@ https://gianthamster2577.grafana.net/public-dashboards/94e9aa89613d4e1faea770e89
 Recovery used the documented immutable rollback workflow and canonical
 real-provider smoke/cleanup procedure.
 
+The end-to-end exercise completed the full alert lifecycle: the rule entered
+Pending and then Firing, the configured real destination received the firing
+notification, recovery restored known-good behavior, the rule resolved, and the
+destination received the resolved notification. Exact transition timestamps were
+not retained in repository evidence.
+
 See [game-day.md](game-day.md) and [postmortem.md](postmortem.md) for the
 complete exercise record.

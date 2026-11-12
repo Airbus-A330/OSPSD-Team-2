@@ -20,8 +20,9 @@ published without modifying the submission branch:
    and verify the digest before dispatch. Start the five-minute fault window only
    after the deployment target, known-good rollback digest and responder are ready.
 
-This preflight was added after the prepared game-day image passed the offline
-container check but could not be published with the available credential.
+This preflight was added after an earlier publication attempt exposed insufficient
+package scope. The completed exercise subsequently used an authorized publication
+and deployment path.
 
 ## Access and likely causes
 
@@ -77,6 +78,7 @@ the disposable token cache from protected runtime configuration. Do not restore
 stale credentials or depend on the token file surviving. Handle ambiguous writes
 with the calendar owner; delete only test-owned data and never replay them blindly.
 
-The [exercise plan](../RELIABILITY.md#game-day) sets the bounded
-failure and abort conditions. An unrelated responder must use this runbook without
-coaching from its failure designer; record any safety intervention honestly.
+The [exercise record](game-day.md) documents the bounded failure and abort
+conditions. Independent responder Yasmin Hassoobh used this runbook during the
+completed exercise without help from the failure designer; the record reports no
+runbook issue or safety intervention.
