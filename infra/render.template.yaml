@@ -1,0 +1,27 @@
+# Materialize with scripts/render_blueprint.py --image REGISTRY/IMAGE@sha256:DIGEST.
+# Never put credentials here. A template is not a provisioned environment.
+previews:
+  generation: "off"
+services:
+  - type: web
+    name: ospsd-team-2-calendar
+    runtime: image
+    image:
+      url: __IMAGE_DIGEST_REF__
+    plan: free
+    region: ohio
+    numInstances: 1
+    healthCheckPath: /readyz
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: GOOGLE_CALENDAR_NONINTERACTIVE
+        value: "1"
+      - key: GOOGLE_CALENDAR_TOKEN_FILE
+        value: /var/data/token.json
+      - key: GOOGLE_CALENDAR_ID
+        sync: false
+      - key: GOOGLE_CALENDAR_TOKEN_JSON
+        sync: false
+      - key: CALENDAR_API_TOKEN
+        sync: false

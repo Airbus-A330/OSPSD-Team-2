@@ -114,6 +114,36 @@ tempCodeRunnerFile.py
 
 # Secrets
 .streamlit/secrets.toml
-credentials.json
-token.json
+credentials*.json
+credentials*.json.*
+token*.json
+token*.json.*
 client_secret*.json
+client_secret*.json.*
+secrets/
+.secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Deployment-local inputs and infrastructure state
+.env.*
+# Sanitized configuration templates belong in source control.
+!.env.example
+!.env.sample
+!.env.template
+.runtime/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+
+# Local infrastructure inputs may contain secrets; keep examples explicit.
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+!*.tfvars.json.example
+
+# macOS metadata
+.DS_Store

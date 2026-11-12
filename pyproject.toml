@@ -4,10 +4,13 @@ version = "0.1.0"
 description = "Backend calendar service for NYU's Open Source and Professional Software Development course."
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "calendar-contract",
     "fastapi==0.124.4",
     "google-api-python-client==2.201.0",
     "google-auth-httplib2==0.4.4",
     "google-auth-oauthlib==1.5.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.2",
+    "opentelemetry-sdk>=1.45.2",
     "pydantic==2.12.5",
     "uvicorn[standard]==0.42.0",
 ]
@@ -22,4 +25,7 @@ dev = [
 
 [tool.uv]
 package = false
-required-version = "==0.12.17"
+required-version = ">=0.12.17"
+
+[tool.uv.sources]
+calendar-contract = { git = "https://github.com/Airbus-A330/OSPSD-Calendar.git", rev = "v0.1.0-rc.1" }

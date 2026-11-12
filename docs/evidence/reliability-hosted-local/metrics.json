@@ -1,0 +1,243 @@
+{
+  "kind": "local_hosted_sdk_controlled_not_deployed",
+  "started_utc": "2026-11-11T01:47:59.297962+00:00",
+  "finished_utc": "2026-11-11T01:48:42.070635+00:00",
+  "source_revision": "0e2b19d3ce0075edea6296c67fa2c4241cb52343",
+  "source_sha256": {
+    "app/hosting.py": "17a68777b2946cd0fe20f81a856bf338e2081e45711beb4dd2e07ff73ba80600",
+    "app/main.py": "3ff84a46d0e49e342a49bd2e316b9eeb52c576f1d8f39f3b815b231939860d76",
+    "app/telemetry/http.py": "0e2c76a42aeba9e152a4be95721d037ca87d28118670e0db94095b879e42a871",
+    "app/telemetry/runtime.py": "c9e55b7fa846ee34f20be3c7d550c70e0d60db210bbb57f6350dab63724b6697",
+    "app/google_calendar.py": "4639f61534fa0ef4a197cc8e1da245dae5380b95d8fe0dd3aa787c0fcfa016d5",
+    "reliability/calendar.rules.yml": "f4c0f0e04599e0be55f280dc6b9c0f0dc4de18f55bde2f41a3ed061315d5fca0"
+  },
+  "configured_window_seconds": 604800,
+  "full_window_coverage_verified": false,
+  "actual_request_count": 24,
+  "controlled_sdk_calls": 18,
+  "external_google_calls": 0,
+  "warmup_batches": 1,
+  "measured_batches": 2,
+  "cases_per_batch": [
+    [
+      "success",
+      200
+    ],
+    [
+      "missing",
+      404
+    ],
+    [
+      "provider_access",
+      403
+    ],
+    [
+      "bad_response",
+      502
+    ],
+    [
+      "unavailable",
+      503
+    ],
+    [
+      "invalid",
+      422
+    ],
+    [
+      "host_access",
+      403
+    ],
+    [
+      "slow_success",
+      200
+    ]
+  ],
+  "report": {
+    "status": "success",
+    "data": {
+      "resultType": "vector",
+      "result": [
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_eligible:increase7d"
+          },
+          "value": [
+            1794361722,
+            "21"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_good:increase7d"
+          },
+          "value": [
+            1794361722,
+            "9"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_fast:increase7d"
+          },
+          "value": [
+            1794361722,
+            "18"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_latency_eligible:increase7d"
+          },
+          "value": [
+            1794361722,
+            "21"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_availability:ratio7d"
+          },
+          "value": [
+            1794361722,
+            "0.42857142857142855"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_latency:ratio7d"
+          },
+          "value": [
+            1794361722,
+            "0.8571428571428571"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_availability_allowed:budget7d"
+          },
+          "value": [
+            1794361722,
+            "0.21"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_availability_remaining:budget7d"
+          },
+          "value": [
+            1794361722,
+            "-11.79"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_latency_allowed:budget7d"
+          },
+          "value": [
+            1794361722,
+            "1.05"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_latency_remaining:budget7d"
+          },
+          "value": [
+            1794361722,
+            "-1.95"
+          ]
+        }
+      ]
+    }
+  },
+  "source_counters": {
+    "status": "success",
+    "data": {
+      "resultType": "vector",
+      "result": [
+        {
+          "metric": {
+            "__name__": "calendar_requests_total",
+            "job": "team2-calendar",
+            "operation": "Get",
+            "outcome": "success",
+            "release": "hosted-72-integration"
+          },
+          "value": [
+            1794361722.056,
+            "6"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "calendar_requests_total",
+            "job": "team2-calendar",
+            "operation": "Get",
+            "outcome": "not_found",
+            "release": "hosted-72-integration"
+          },
+          "value": [
+            1794361722.056,
+            "3"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "calendar_requests_total",
+            "job": "team2-calendar",
+            "operation": "Get",
+            "outcome": "access_denied",
+            "release": "hosted-72-integration"
+          },
+          "value": [
+            1794361722.056,
+            "6"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "calendar_requests_total",
+            "job": "team2-calendar",
+            "operation": "Get",
+            "outcome": "provider_error",
+            "release": "hosted-72-integration"
+          },
+          "value": [
+            1794361722.056,
+            "3"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "calendar_requests_total",
+            "job": "team2-calendar",
+            "operation": "Get",
+            "outcome": "provider_unavailable",
+            "release": "hosted-72-integration"
+          },
+          "value": [
+            1794361722.056,
+            "3"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "calendar_requests_total",
+            "job": "team2-calendar",
+            "operation": "Get",
+            "outcome": "invalid_input",
+            "release": "hosted-72-integration"
+          },
+          "value": [
+            1794361722.056,
+            "3"
+          ]
+        }
+      ]
+    }
+  },
+  "rules_healthy": true,
+  "hosted_startup_and_shutdown_verified": true,
+  "export_configuration": "actual Telemetry constructor/lifespan with injected OTLP metrics reader; no collector/log/trace transport verification",
+  "cleanup": "Prometheus terminated; temporary storage and synthetic credentials removed"
+}

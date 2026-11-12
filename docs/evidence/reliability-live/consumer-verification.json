@@ -1,0 +1,65 @@
+{
+  "checked_at": "2026-11-11T03:57:21.538780+00:00",
+  "url": "https://ospsd-team-2-5ogi.onrender.com",
+  "expected_release": "692597cc799b2f5e640c142eee6986106c92a848",
+  "scope": "Live deployed HTTP API; test-created event only",
+  "results": [
+    {
+      "check": "readiness",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "check": "unauthenticated access",
+      "status": 403,
+      "expected": 403
+    },
+    {
+      "check": "authenticated missing-event read",
+      "status": 404,
+      "expected": 404
+    },
+    {
+      "check": "create",
+      "status": 201,
+      "expected": 201
+    },
+    {
+      "check": "get",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "check": "replace",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "check": "get replacement",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "check": "delete",
+      "status": 204,
+      "expected": 204
+    },
+    {
+      "check": "get after delete",
+      "status": 404,
+      "expected": 404
+    },
+    {
+      "check": "repeated delete",
+      "status": 404,
+      "expected": 404
+    },
+    {
+      "check": "replace after delete",
+      "status": 404,
+      "expected": 404
+    }
+  ],
+  "passed": true,
+  "test_event_cleaned_up": true
+}

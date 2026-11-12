@@ -1,29 +1,49 @@
-"""Application entry point for the Calendar Service."""
+"""FastAPI application entry point for the Calendar service."""
 
+from calendar_contract import CalendarError
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException
 
-from app.events import get_event
-from app.models import Event
-
-app = FastAPI()
-
-
-@app.get("/events/{event_id}", response_model=Event)
-def read_event(event_id: str) -> Event:
-    """Return an event from the configured calendar.
-
-    Args:
-        event_id: Identifier supplied in the request path.
-
-    Returns:
-        The event in the service's public representation.
-    """
-    return get_event(event_id)
-
-
-def main() -> None:
-    """Run the application entry point."""
+from app.api.routes import router
+from app.telemetry.http import CalendarTelemetryMiddleware
+from app.telemetry.runtime import telemetry_lifespan
+from app.composition import get_event_provider
+from app.errors import (
+    InvalidInputError,
+    NotFoundError,
+    PermissionDeniedError,
+    ProviderFailureError,
+    ProviderUnavailableError,
+)
+from app.http_errors import (
+    http_error_response,
+    request_validation_error_response,
+    service_error_response,
+)
 
 
-if __name__ == "__main__":
-    main()
+def create_app() -> FastAPI:
+    """Create the HTTP application and register routes and error handlers."""
+    application = FastAPI(lifespan=telemetry_lifespan)
+    application.add_middleware(CalendarTelemetryMiddleware)
+    application.add_exception_handler(HTTPException, http_error_response)
+    application.add_exception_handler(
+        RequestValidationError, request_validation_error_response
+    )
+    application.add_exception_handler(CalendarError, service_error_response)
+    for error_type in (
+        InvalidInputError,
+        NotFoundError,
+        PermissionDeniedError,
+        ProviderFailureError,
+        ProviderUnavailableError,
+    ):
+        application.add_exception_handler(error_type, service_error_response)
+    application.include_router(router)
+    return application
+
+
+app = create_app()
+
+__all__ = ["app", "create_app", "get_event_provider"]

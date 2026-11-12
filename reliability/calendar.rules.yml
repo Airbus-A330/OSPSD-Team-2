@@ -1,0 +1,47 @@
+# Requires PR #73 metrics in a backend scoped to one Team 2 environment.
+# Live dashboard linked; receiver/rule activation still requires verification.
+groups:
+  - name: team2-calendar-reliability
+    interval: 1m
+    rules:
+      - record: team2_calendar:get_eligible:increase7d
+        expr: sum(increase(calendar_requests_total{operation="Get",outcome!="invalid_input"}[7d]))
+      - record: team2_calendar:get_good:increase7d
+        expr: sum(increase(calendar_requests_total{operation="Get",outcome=~"success|not_found"}[7d])) or vector(0)
+      - record: team2_calendar:get_fast:increase7d
+        expr: sum(increase(calendar_request_duration_seconds_bucket{operation="Get",outcome!="invalid_input",le="1"}[7d])) or vector(0)
+      - record: team2_calendar:get_latency_eligible:increase7d
+        expr: sum(increase(calendar_request_duration_seconds_count{operation="Get",outcome!="invalid_input"}[7d]))
+      - record: team2_calendar:get_availability:ratio7d
+        expr: (team2_calendar:get_good:increase7d / team2_calendar:get_eligible:increase7d) and (team2_calendar:get_eligible:increase7d > 0)
+      - record: team2_calendar:get_latency:ratio7d
+        expr: (team2_calendar:get_fast:increase7d / team2_calendar:get_latency_eligible:increase7d) and (team2_calendar:get_latency_eligible:increase7d > 0)
+      - record: team2_calendar:get_availability_allowed:budget7d
+        expr: team2_calendar:get_eligible:increase7d * 0.01
+      - record: team2_calendar:get_availability_remaining:budget7d
+        expr: team2_calendar:get_availability_allowed:budget7d - (team2_calendar:get_eligible:increase7d - team2_calendar:get_good:increase7d)
+      - record: team2_calendar:get_latency_allowed:budget7d
+        expr: team2_calendar:get_latency_eligible:increase7d * 0.05
+      - record: team2_calendar:get_latency_remaining:budget7d
+        expr: team2_calendar:get_latency_allowed:budget7d - (team2_calendar:get_latency_eligible:increase7d - team2_calendar:get_fast:increase7d)
+      - record: team2_calendar:get_eligible:increase5m
+        expr: sum(increase(calendar_requests_total{operation="Get",outcome!="invalid_input"}[5m]))
+      - record: team2_calendar:get_good:increase5m
+        expr: sum(increase(calendar_requests_total{operation="Get",outcome=~"success|not_found"}[5m])) or vector(0)
+      - alert: Team2CalendarGetHighFailureRate
+        expr: |
+          (
+            (team2_calendar:get_eligible:increase5m - team2_calendar:get_good:increase5m)
+            / team2_calendar:get_eligible:increase5m > 0.2
+          )
+          and team2_calendar:get_eligible:increase5m >= 5
+        for: 2m
+        labels:
+          service: team2-calendar
+          operation: Get
+          severity: warning
+        annotations:
+          summary: Team 2 Calendar Get requests are failing
+          description: More than 20% of eligible Get requests failed over 5 minutes, with at least 5 eligible requests, for 2 minutes. Inspect the dashboard and runbook.
+          dashboard_url: https://gianthamster2577.grafana.net/public-dashboards/94e9aa89613d4e1faea770e897d47f37
+          runbook_url: https://github.com/Airbus-A330/OSPSD-Team-2/blob/assgn2-ms3-submission/docs/RELIABILITY.md#runbook
