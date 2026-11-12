@@ -4,9 +4,12 @@ Oct 28, 2026 · Coordinated by @AD04 (Team 7)
 
 ## Status
 
-This is version 4: version 3 rewritten in prose, with the reason for each rule, the open questions and their owners. Rule numbers match version 3 and the email thread.
+This finalized version preserves the agreed rules and their rationale from the
+cross-team email and Slack coordination. Resolved scope decisions and conformance
+ownership are recorded directly rather than as drafting questions. Rule numbers
+match the coordinated version 3 and the email thread.
 
-Teams 2, 5, and 7 agreed to every rule on Oct 28.
+Teams 2, 5, and 7 agreed to every rule on Oct 28, 2026.
 
 ## The problem
 
@@ -212,12 +215,16 @@ Team 5 notes that its limits describe its current implementation, not everything
 
 - Oct 25: Alexander Freedman (Team 2) proposed the shared core, and Juno Lee (Team 5) replied the same day.
 - Oct 26: Arda Dinc (Team 7) replied and wrote version 1 of this memo.
-- Oct 27: Team 2 sent its answers (version 2) and a follow-up on the open questions. Jim Lo (Team 5) sent Team 5's answers and its status mapping on Slack. Version 3 merged them, and Team 7 accepted Team 5's mapping, including 403.
+- Oct 27: Team 2 sent its answers (version 2) and a follow-up on the remaining
+  coordination decisions. Jim Lo (Team 5) sent Team 5's answers and its status
+  mapping on Slack. Version 3 merged them, and Team 7 accepted Team 5's mapping,
+  including 403.
 - Oct 27, evening: Team 2 agreed to version 3. Jim filled in Team 5's four open cells and asked about rules 2, 13 and 14.
 - Oct 28: Juno proposed new wording for rules 2, 13 and 14. Team 2 agreed and clarified that trimming only decides whether a title is blank. Team 7 agreed and proposed the sub-second sentence in rule 14.
 - Oct 28: Juno confirmed by email and on Slack that Team 5 agrees to every rule.
-
 - Oct 28: Alexander confirmed by email that Team 2 agrees to every rule.
+- Nov 9, 2026: Team 2 completed its tagged shared-package integration and the full
+  controlled conformance suite for Create, Get, Replace, and Delete.
 
 The discussion is on the email thread "HW2 Calendar Shared API Coordination (OSPSD)" and in the #calendar channel on NYU Slack.
 

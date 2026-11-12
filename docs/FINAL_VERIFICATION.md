@@ -8,10 +8,13 @@ provider payloads.
 
 ## A. Full-design review
 
-- Reviewer: Alexander Freedman (`Airbus-A330`).
+- Reviewers: Alexander Freedman (`Airbus-A330`) and Leon Liu (`LeonLiu0204`).
 - Scope: the complete design, shared-contract mapping, provider boundary, failure
   behavior, deployment and rollback, observability, SLI/SLO and alerting, game-day
   recovery, and implementation evolution.
+- Leon reviewed the complete design across architecture, contract mapping,
+  provider boundaries, failures, delivery/recovery, telemetry, reliability, and
+  the final implementation evolution.
 - Disposition: substantive review feedback was addressed in the integrated
   documentation and implementation. The final architecture is recorded in
   [DESIGN.md](DESIGN.md).

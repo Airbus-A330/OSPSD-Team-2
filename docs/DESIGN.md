@@ -30,7 +30,7 @@ schema, and deployed evidence are canonical in
 |---|---|
 | Authors | Alexander Freedman and OSPSD Team 2 |
 | Team / vertical | Team 2 / Calendar |
-| Team reviewer | Alexander Freedman (`Airbus-A330`) — complete Team 2 design review |
+| Team reviewers | Alexander Freedman (`Airbus-A330`) and Leon Liu (`LeonLiu0204`) — complete Team 2 design review |
 | Cross-team reviewer | Karthik Ganeshan, Team 7 (contract-facing review comments addressed) |
 | Status | Implemented, deployed, and reviewed; exact-commit CI/tag/release remain |
 | Last updated | 2026-11-12 |
@@ -41,12 +41,13 @@ schema, and deployed evidence are canonical in
 
 ### Review record
 
-Alexander Freedman (`Airbus-A330`) reviewed the complete Team 2 design, including
-component responsibilities, shared-contract mapping, the Google provider boundary,
-failure translation, deployment and rollback, observability, SLI/SLO and alerting,
-game-day recovery, and implementation changes from the earlier design. Substantive
-feedback was dispositioned through the final implementation and documentation.
-Karthik Ganeshan's Team 7 review remains the separate contract-facing review.
+Alexander Freedman (`Airbus-A330`) and Leon Liu (`LeonLiu0204`) reviewed the
+complete Team 2 design. Leon's review covered architecture and component
+responsibilities, shared-contract mapping, the Google provider boundary, failure
+handling, deployment and rollback, observability, reliability, and implementation
+evolution. Substantive feedback from the full-design review was dispositioned
+through the final implementation and documentation. Karthik Ganeshan's Team 7
+review remains the separate contract-facing review.
 
 ## Scope and status
 

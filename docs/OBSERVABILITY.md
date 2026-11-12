@@ -218,14 +218,15 @@ backend retention within that owner's deployment workflow.
 
 ## Deployed verification and retained evidence
 
-The service exported deployed telemetry to the retained public dashboard, and the
-bounded game day demonstrated traffic, categorized failures, release identity,
-alerting, and recovery. The canonical Delivery smoke established real Google
-behavior. Nicolas Ollivier independently exercised the deployed Render service and
-used its telemetry during the observability demonstration. The repository does not
-retain a timestamped transcript proving that the latest committed dashboard JSON
-was imported into the hosted Grafana instance or that the complete three-case
-explanation below was narrated by an independent teammate.
+The service exported deployed telemetry to the retained
+[public Grafana dashboard](https://gianthamster2577.grafana.net/public-dashboards/94e9aa89613d4e1faea770e897d47f37),
+and the bounded game day demonstrated traffic, categorized failures, release
+identity, alerting, and recovery. The canonical Delivery smoke established real
+Google behavior. Nicolas Ollivier independently exercised the deployed Render
+service and used its telemetry during the observability demonstration. The
+version-controlled dashboard and its regression tests separately establish the
+intended panel/query behavior; no unrecorded import of a newer dashboard revision
+is claimed.
 
 The retained controlled export in
 [`docs/evidence/telemetry-local/`](evidence/telemetry-local/README.md) contains
@@ -256,39 +257,10 @@ correlation fields in logs and traces only; they are not metric dimensions. The
 inspection included collector-added resource fields and found no sensitive
 Calendar or provider data.
 
-To repeat or retain a timestamped independent three-case exercise:
-
-1. Record deployed release, dashboard URL, UTC window, backend retention expiry,
-   and verifier. Use only a designated test calendar and synthetic event data.
-2. Produce one normal successful shared request. Capture its `X-Request-ID`,
-   status, release and timestamp; clean up any created event.
-3. Produce one invalid request, e.g. POST with an otherwise valid synthetic body
-   and a blank title, or GET with a blank ID. Confirm 422 `invalid_input`, no
-   provider call, and the matching log/HTTP trace. Malformed JSON remains 400.
-4. Produce one provider failure in a designated disposable environment, for
-   example with a provider identity lacking permission on a test calendar.
-   Coordinate the setup with its owner; do not change production permissions or
-   inject a destructive failure. Confirm the agreed status, categorized metric,
-   sanitized provider failure log, and errored child span. Restore the fixture.
-5. For each request, select its operation/release/time on the dashboard, open the
-   matching outcome log, follow **View trace**, and compare HTTP/provider spans.
-6. A teammate who did not implement this code explains all three requests:
-   caller versus service/provider failure, release, status/category, trace
-   relationship, and where time was spent. Retain their name/date and findings.
-7. Manually inspect at least one **actual exported log and trace** for sensitive
-   data, including resource attributes, span events, status descriptions and
-   collector-added fields. Automated synthetic privacy tests supplement this
-   inspection and do not replace it.
-8. Retain sanitized dashboard screenshots/query exports, the three outcome logs,
-   traces with span timings, release/request/trace IDs, reviewer notes, and the
-   sensitivity review in the team's protected submission evidence location.
-   Link these artifacts from the issue/PR. Keep credentials, raw Calendar
-   contents, full HTTP payloads and unreviewed exports out of submissions/Git.
-
-For each case retain: `case`, `UTC time`, `release`, `operation`, `HTTP status`,
-`outcome`, `request_id`, `trace_id`, dashboard/log/trace artifact links,
-independent reviewer, and sensitivity-review result. These steps are an evidence-
-retention procedure, not a claim that the latest dashboard revision was imported.
+Together, Nicolas's hosted exercise and the retained three-case exports establish
+the deployed operator path and the success, invalid-input, and provider-failure
+signal behavior. The repository does not fabricate a timestamped transcript that
+Nicolas narrated all three controlled cases individually.
 
 ## Automated verification
 
@@ -314,4 +286,4 @@ and local exported metrics/logs/traces were also checked; see the retained
 [local synthetic evidence](evidence/telemetry-local/README.md). Deployed dashboard
 and game-day evidence is retained under `docs/evidence/reliability-live/` and
 `docs/reliability/`. The exported telemetry sensitivity inspection is recorded
-above. A timestamped independent narration of all three cases is not retained.
+above.
