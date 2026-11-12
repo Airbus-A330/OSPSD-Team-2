@@ -149,8 +149,9 @@ Observed traffic:
 - Requests generated: **8**
 - Expected injected result: `503 provider_unavailable`
 - Failed requests observed: 8 (expected)
-- Traffic start: 19:04:03
-- Traffic end: 19:52:01
+
+The helper generated eight bounded Get requests during the controlled exercise.
+The precise request timestamps were not retained in the repository evidence.
 
 ## Dashboard and telemetry observation
 
@@ -184,8 +185,9 @@ Its intended symptom condition is:
 
 Observed during the exercise:
 
-- Pending: 19:04:03
-- Firing: 19:52:01
+The helper generated eight bounded Get requests during the controlled exercise.
+The precise request timestamps were not retained in the repository evidence.
+
 - Firing notification: Delivered
 - After recovery: Resolved
 - Resolved notification: Delivered
@@ -202,7 +204,7 @@ The responder used the dashboard, logs/traces, deployed release identity, and do
 
 Responder conclusion:
 
-Though a failure was induced, the provider held strong and requests still were able to go through.
+The shared GET /events/{event_id} operation consistently returned 503 provider_unavailable while the service process and observability stack remained healthy. The responder identified the deployed game-day revision as the source of the user-visible Get failure and selected rollback to the known-good immutable revision.
 
 Help from the failure designer:
 
@@ -232,29 +234,23 @@ This run recorded:
 
 This immutable artifact served as the known-good recovery reference unless the exercise used a newer retained successful artifact.
 
-Actual known-good digest used for rollback:
+Known-good source SHA:
+7854d695cc2b8e84752ec3b4e4aacd2042125478
 
-`7854d695cc2b8e84752ec3b4e4aacd2042125478`
+Known-good image digest:
+sha256:97e205b2532e5420035c1e57aa489b09d9efe96be1dbefda2452290f7b4f020c
 
-## Recovery
+## Known-good recovery reference
 
-The responder restored the previous known-good immutable artifact using the existing Delivery rollback process rather than creating a separate recovery mechanism.
+The retained known-good Delivery evidence was:
 
-Rollback run:
+- Delivery run: `43064300096`
+- Source SHA: `7854d695cc2b8e84752ec3b4e4aacd2042125478`
+- Image digest: `sha256:97e205b2532e5420035c1e57aa489b09d9efe96be1dbefda2452290f7b4f020c`
+- Smoke: `passed`
+- Cleanup: `confirmed`
 
-[Delivery run 43064300096](https://github.com/Airbus-A330/OSPSD-Team-2/actions/runs/43064300096) <-- we switched deployment branches back
-
-Rollback started:
-
-19:58:52
-
-Restored source SHA:
-
-`7854d695cc2b8e84752ec3b4e4aacd2042125478`
-
-Restored digest:
-
-`7854d695cc2b8e84752ec3b4e4aacd2042125478`
+Recovery restored the deployment to this known-good revision using the documented Delivery process.
 
 ## Canonical recovery verification
 

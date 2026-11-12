@@ -20,22 +20,11 @@ The fault remained bounded to Team 2's disposable/test environment.
 
 ## Consumer impact
 
-During the controlled failure window, consumers of the disposable Calendar deployment could not successfully retrieve events through the shared Get operation.
+During the controlled exercise, valid shared Get requests in the disposable environment returned `503 provider_unavailable`.
 
-The controlled exercise generated eight valid Get requests.
+The exercise generated eight bounded Get requests against the deliberately faulty revision. Create, Replace, and Delete were not deliberately modified.
 
-Observed impact:
-
-- Get requests generated: **8**
-- Failed Get requests: `8`
-- Failure response: `503 provider_unavailable`
-- Affected operation: `Get`
-
-Create, Replace, and Delete were not deliberately modified.
-
-The injected fault occurred before the provider call and therefore did not create, update, or delete Calendar data.
-
-No other team's service was intentionally affected.
+The injected fault occurred before the Google provider call, so the fault itself did not create, modify, or delete Calendar data.
 
 ## SLO impact
 

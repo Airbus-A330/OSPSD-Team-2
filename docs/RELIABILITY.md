@@ -35,35 +35,25 @@ link. Do not create a separate deployment path or weaken #69's checks.
 
 ## Game day
 
-Team 2 completed a bounded reliability game day using temporary fault branch
-`game-day`.
+Team 2 completed a bounded reliability game day using temporary branch `game-day`.
 
 Fault revision:
 
 `6ab6f25bd2fe4e6ce2d6f5959ad3e522452cb653`
 
-The fault caused valid shared Get requests to return
-`503 provider_unavailable` through the normal service error and telemetry path
-while preserving the service process, health endpoints, metrics, structured
-logs, and traces.
+The revision caused valid shared Get requests to return
+`503 provider_unavailable` through the normal service error and telemetry path while preserving health endpoints, metrics, logs, and traces.
 
-The exercise used bounded controlled traffic, the existing public Grafana
-dashboard, the responder runbook, and the existing immutable Delivery rollback
-path.
+The exercise used bounded controlled traffic, the public Grafana dashboard, the responder runbook, and the existing immutable recovery procedure.
 
-The deliberately faulty implementation remained isolated from
-`assgn2-ms3-submission`.
+The deliberately faulty implementation remained isolated from `assgn2-ms3-submission`.
 
-The complete execution record is in:
+See:
 
-- [game-day.md](reliability/game-day.md)
-- [postmortem.md](reliability/postmortem.md)
-- [alerting.md](reliability/alerting.md)
-- [runbook.md](reliability/runbook.md)
-
-The exercise record contains the actual deployment/traffic/recovery evidence,
-the independent responder result, the dashboard/alert observations, and the
-completed incident-driven follow-up.
+- [Game-day record](reliability/game-day.md)
+- [Postmortem](reliability/postmortem.md)
+- [Alerting](reliability/alerting.md)
+- [Runbook](reliability/runbook.md)
 
 ## Execution status and checks
 

@@ -77,6 +77,6 @@ the disposable token cache from protected runtime configuration. Do not restore
 stale credentials or depend on the token file surviving. Handle ambiguous writes
 with the calendar owner; delete only test-owned data and never replay them blindly.
 
-The [exercise plan](../RELIABILITY.md#game-day--execution-pending) sets the bounded
+The [exercise plan](../RELIABILITY.md#game-day) sets the bounded
 failure and abort conditions. An unrelated responder must use this runbook without
 coaching from its failure designer; record any safety intervention honestly.
