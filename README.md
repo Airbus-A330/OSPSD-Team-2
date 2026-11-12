@@ -34,12 +34,11 @@ resources, health, release, telemetry, recovery path, costs, and blast radius.
 Blueprint on `assgn2-ms3-submission`. PR checks include Infrastructure validation
 and explicit controlled shared conformance. The retained Delivery evidence records
 a successful immutable deployment, real-provider smoke/cleanup, and the bounded
-game-day recovery. Independent fresh-checkout provisioning remains a documented
-human-verification gap.
+game-day recovery. Leon Liu deployed and tested the Render service, and Nicolas
+Ollivier independently exercised the integrated hosted application and telemetry.
 
-The remaining human rubric exercises and evidence fields are collected in
-[docs/FINAL_VERIFICATION.md](docs/FINAL_VERIFICATION.md). Empty fields there are
-deliberately not evidence of completion.
+The final exact-commit CI, tag, release, and submission evidence fields are
+collected in [docs/FINAL_VERIFICATION.md](docs/FINAL_VERIFICATION.md).
 
 # Quick Start
 
@@ -142,11 +141,14 @@ For the hosted entry point, locked Docker build, Render Blueprint, runtime
 configuration, account prerequisites, and teardown, see
 [Deployment](docs/DEPLOYMENT.md). Local development below continues to use
 `app.main:app`; containers use the validated and protected `app.hosting:app`.
-The service has been deployed through the documented Delivery workflow;
-independent teammate provisioning from a fresh checkout is not yet documented.
+The service has been deployed through the documented Delivery workflow. Leon Liu
+owns the direct Render account; routine team deployments use the protected GitHub
+workflow without sharing his provider credentials. Nicolas Ollivier independently
+tested the application against the Render-hosted build.
 The Blueprint selects Render Free with no persistent disk. OAuth configuration
 is supplied at runtime and restores a disposable token cache on each start.
-See the deployment guide for cold-start limits and the unresolved team-access requirement.
+See the deployment guide for cold-start limits and the protected ownership and
+GitHub/CD access model.
 
 ---
 

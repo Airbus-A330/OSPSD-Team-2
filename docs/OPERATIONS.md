@@ -8,14 +8,15 @@ procedures.
 
 | Resource | Purpose | What breaks without it | Cost/tier | Owner and cleanup |
 | --- | --- | --- | --- | --- |
-| Render Free web service `ospsd-team-2-calendar` | Runs `app.hosting:app`, validates runtime configuration, and serves the protected Calendar API and health probes | The shared API is unreachable; Google data remains in Google Calendar | Render Free: no compute charge within documented quotas, no disk; cold starts and quota suspension apply | Render account owner is not yet recorded. Remove the disposable service after submission evidence is secured unless an extension is recorded. |
+| Render Free web service `ospsd-team-2-calendar` | Runs `app.hosting:app`, validates runtime configuration, and serves the protected Calendar API and health probes | The shared API is unreachable; Google data remains in Google Calendar | Render Free: no compute charge within documented quotas, no disk; cold starts and quota suspension apply | Leon Liu / `LeonLiu0204`; remove the disposable service after submission evidence is secured unless an extension is recorded |
 | GHCR immutable image `ghcr.io/airbus-a330/ospsd-team-2@sha256:…` | Preserves the exact tested artifact used for deployment and rollback | A release cannot be reproduced or safely restored by digest | Registry billing was not independently verified; retain only submission/current/known-good evidence digests | Team 2 GitHub organization administrators; retain through submission review, then apply the documented retention decision |
-| GitHub Actions Delivery workflow and protected environments | Gates the exact artifact on checks, supplies scoped deployment credentials, deploys, smokes, and records evidence | Releases become manual and undocumented; unreviewed code could receive deployment access if protections are removed | Uses the repository's GitHub Actions allowance; no separate paid runner is configured | Team 2 repository administrators; revoke temporary deployment credentials after the exercise/release |
-| Grafana Cloud/OTLP telemetry path | Stores and displays bounded metrics, logs, traces, release identity, SLI data, and alerts | Operators lose request correlation, provider timing, golden signals, and alert delivery; API behavior continues because telemetry is fail-open | Existing Grafana Cloud tier; exact ingestion billing is not established in repository evidence | Team 2 telemetry administrators; retain submission evidence, then follow the account retention policy |
+| GitHub Actions Delivery workflow and protected environments | Gates the exact artifact on checks, supplies scoped deployment credentials, deploys, smokes, and records evidence | Releases become manual and undocumented; unreviewed code could receive deployment access if protections are removed | Uses the repository's GitHub Actions allowance; no separate paid runner is configured | Dorien Zhang and Leon Liu, with Team 2 repository administrators; revoke temporary deployment credentials after the exercise/release |
+| Grafana Cloud/OTLP telemetry path | Stores and displays bounded metrics, logs, traces, release identity, SLI data, and alerts | Operators lose request correlation, provider timing, golden signals, and alert delivery; API behavior continues because telemetry is fail-open | Existing Grafana Cloud tier; exact ingestion billing is not established in repository evidence | Nicolas Ollivier; retain submission evidence, then follow the account retention policy |
 
 Render's platform-managed Blueprint/resource configuration is the infrastructure
-state. The current Hobby workspace permits one member, so protected shared access
-is an unresolved rubric gap rather than a capability claimed here. Runtime Google
+state. The Hobby workspace's direct provider access belongs to Leon; versioned
+configuration and routine team deployment are shared through protected GitHub/CD.
+Runtime Google
 authorization lives only in Render protected configuration. Delivery secrets live
 in protected GitHub environments. GHCR publishing uses the job-scoped
 `GITHUB_TOKEN`; the Render runtime identity cannot publish images or edit CI, and
@@ -37,9 +38,10 @@ the Delivery identity does not receive Google OAuth JSON.
 5. **How do I roll back?** Follow [DELIVERY.md#rollback](DELIVERY.md#rollback)
    with a retained immutable digest. Never rebuild or blindly replay writes.
 
-An independent teammate must answer these five questions from documentation in
-about ten minutes and record the result in
-[FINAL_VERIFICATION.md](FINAL_VERIFICATION.md#c-independent-operator-exercise).
+Nicolas independently exercised the integrated application online and used the
+deployed telemetry during observability/demo verification. A separate precisely
+timed documentation-only operator exercise is not claimed because its timestamp
+was not retained.
 
 ## Blast radius
 

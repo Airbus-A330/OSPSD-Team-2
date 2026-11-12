@@ -1,4 +1,4 @@
-# Delivery and rollback — Issue #69
+# Delivery and rollback
 
 Status: implemented and exercised. Retained evidence records an immutable
 deployment with real-provider smoke/cleanup and a bounded faulty-release recovery
@@ -6,11 +6,17 @@ using the same Delivery path. Public contract unchanged; no dependency changes.
 Use the existing [Dockerfile](../Dockerfile), [Blueprint](../infra/render.template.yaml),
 and [deployment setup](DEPLOYMENT.md).
 
+Leon Liu owns the direct Render account. Leon and Dorien Zhang integrated the
+protected GitHub Actions/CD path so routine team deployments do not require
+sharing Leon's provider credentials.
+
 ## One-time external setup
 
-The infrastructure owner must resolve the Render account owner and shared
-state/access questions in [DEPLOYMENT.md](DEPLOYMENT.md). Provision the existing
-image-backed service from that Blueprint. Its image repository must be
+Leon Liu is the Render account owner. Platform state is protected by Render;
+versioned configuration, artifact identity, and routine deployment changes are
+shared through the protected GitHub/CD path described in
+[DEPLOYMENT.md](DEPLOYMENT.md). The existing image-backed service is provisioned
+from that Blueprint. Its image repository must be
 `ghcr.io/airbus-a330/ospsd-team-2`: Render requires deploy requests to match the
 configured repository. Keep Blueprint Auto Sync **off**. Delivery deploys a
 digest to that same service through the Render API; it does not create resources
@@ -32,13 +38,14 @@ Repository administrators must establish these protections before delivery:
    authorized disposable instance of the **same Blueprint**, with its own test
    calendar. Never point disposable settings at production.
 4. Store Google OAuth JSON and calendar ID only in Render runtime configuration
-   as documented by #68. GitHub receives the hosted HTTP bearer token, not the
+   as documented in [DEPLOYMENT.md](DEPLOYMENT.md). GitHub receives the hosted
+   HTTP bearer token, not the
    OAuth JSON. Use Calendar events scope and a Google identity limited to the
    designated test calendars.
 5. Use a dedicated Render automation identity limited to Team 2's deployment
    workspace/resources. Render keys inherit owner access; they are **not**
    service-scoped. Do not use a personal key with unrelated workspaces. Record
-   actual owner/scope, resolve unavailable finer permissions with #68's owner,
+   actual owner/scope, resolve unavailable finer permissions with Leon,
    and revoke/rotate after the exercise. Code only reads service/deployment data
    and creates deployments;
    it needs no resource deletion or runtime configuration updates.

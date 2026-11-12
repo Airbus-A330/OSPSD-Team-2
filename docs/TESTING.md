@@ -53,7 +53,7 @@ runs the complete conformance suite without network access or credentials.
 
 `tests/live/test_shared_workflow.py` is explicitly skipped unless
 `RUN_LIVE_CALENDAR=1`. See [live verification](PROVIDER.md#hw2-shared-workflow-verification)
-for prerequisites, cleanup, and the outstanding verification record.
+for prerequisites, cleanup, and the retained verification record.
 
 ## Test Layers
 

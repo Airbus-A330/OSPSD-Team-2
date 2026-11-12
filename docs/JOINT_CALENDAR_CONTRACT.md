@@ -166,15 +166,16 @@ The contract leaves these choices to each team, and each team documents its own:
 - Location header on create (rule 8): Team 7 sends one.
 - Extensions: Team 2 offers listing and PATCH. Team 5 offers PATCH, which updates every field, and metadata for the primary calendar. Team 7 offers listing with a time window and cursor paging, plus description, location, a read-only all_day and web_link.
 
-## What each team changes, and who owns it
+## Team implementations and ownership
 
-Each team owns the changes to its own service. [To fill: when they are due, once the handout or the next checkpoint sets a date.]
+Each team owns its service implementation and maintains its adapter to the shared
+contract and conformance suite.
 
 Team 2 returns 422 instead of 400 for valid JSON that breaks a rule, including unknown fields (rules 3 and 7). It adds retryable to every error body (rule 4) and returns 503 provider_unavailable, not 502, when the provider is temporarily unavailable (rule 9). It renames permission_denied to access_denied (rule 12).
 
-Team 5 renames start_time and end_time to start and end, and builds PUT (rule 1). It returns 400 instead of 422 for a body that is not valid JSON (rule 3), and rejects unknown fields with 422 instead of ignoring them (rule 7). Team 5 currently returns 201 for POST, 200 for GET and PATCH, and 204 with an empty body for DELETE. POST does not set a Location header, which is optional under rule 8. These existing success statuses need no change. PUT is not implemented yet and will return 200 when added.
+Team 5 uses start and end, implements the required full-field PUT, returns 400 for a body that is not valid JSON (rule 3), and rejects unknown shared fields with 422 instead of ignoring them (rule 7). It returns 201 for POST, 200 for GET and PUT, and 204 with an empty body for DELETE. POST does not set a Location header, which is optional under rule 8.
 
-Team 7 returns 400 instead of 422 for a body that is not valid JSON (rule 3), and adds retryable to every error body (rule 4). It returns 502 with retryable: false, not 503, when a create or replace times out (rule 6), and 403 instead of 502 when the provider denies access (rule 9). It renames validation_error and invalid_request to invalid_input, event_not_found to not_found, and provider_auth_error to access_denied (rule 12). Team 7 tracks each change as an issue, #31 to #35; the renaming is in review.
+Team 7 returns 400 instead of 422 for a body that is not valid JSON (rule 3), and includes retryable in every error body (rule 4). It returns 502 with retryable: false, not 503, when a create or replace times out (rule 6), and 403 instead of 502 when the provider denies access (rule 9). Its shared codes are invalid_input, not_found, and access_denied as required by rule 12.
 
 ## Provider constraints
 
@@ -189,13 +190,18 @@ All three services use Google Calendar, but each reaches it differently, and tha
 
 Team 5 notes that its limits describe its current implementation, not everything Google Calendar can do.
 
-## Unresolved questions and owners
+## Final scope decisions and conformance ownership
 
-1. Team 5's PUT is not built yet. Rule 1 is a commitment for Team 5, not what it does today. Owner: Team 5.
-2. A timed-out create cannot be checked with the shared core alone. Rule 6 tells the client not to resend blindly, but the failed create returned no id and listing is not shared. At Team 5, which has no listing, a client cannot find out whether the event exists. A shared listing or an idempotency key on create would close this. Owner: [proposed: Arda (Team 7) raises it at the next checkpoint].
-3. Listing and PATCH are not shared. Teams 2 and 7 list with different parameters, Team 5 does not list, and Teams 2 and 5 mean different things by PATCH. Whether to standardise either is open. Owner: [to assign].
-4. Fields outside the shared four behave differently on PUT. A client that sets description or location gets different results at each service. We accept this for now and revisit it if a client needs those fields. Owner: [to assign].
-5. The shared Python package and conformance checks live in
+- Create and Replace remain unsafe to repeat when their outcome is uncertain.
+  The shared core deliberately provides neither listing nor an idempotency key to
+  resolve an ID-less uncertain creation. Rule 6 therefore requires 502
+  provider_error with retryable false and leaves reconciliation to the caller.
+- Listing and PATCH remain team-specific extensions because their inputs and
+  meanings differ. They are not part of the four-operation shared contract.
+- Fields outside id, title, start, and end remain implementation-specific on PUT.
+  Shared consumers rely only on the shared fields and ignore permitted response
+  extensions.
+- The shared Python package and conformance checks live in
    [`Airbus-A330/OSPSD-Calendar`](https://github.com/Airbus-A330/OSPSD-Calendar).
    Teams 2, 5, and 7 jointly maintain the shared suite; each team owns the adapter
    and fixture that runs it against its service. Yasmin Hassoobh owns Team 2's

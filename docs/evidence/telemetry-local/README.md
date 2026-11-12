@@ -15,7 +15,8 @@ This retained capture predates the shared-contract completion merged in PR #76.
 It identifies its exact source rather than claiming to verify the newer base.
 Current automated checks cover the full merged shared conformance suite; current
 write validation uses 422 and shared error envelopes, unlike this historical
-capture's HW1 write-validation responses. Deployed evidence remains outstanding.
+capture's HW1 write-validation responses. Deployed dashboard and game-day evidence
+is retained separately under `../reliability-live/` and `../../reliability/`.
 
 Retained artifacts:
 

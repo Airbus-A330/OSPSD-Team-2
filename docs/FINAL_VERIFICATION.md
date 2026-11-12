@@ -1,125 +1,89 @@
-# Final human verification record
+# Final verification record
 
-This is a checklist and evidence template, not proof that an empty section was
-completed. Record only observations made against the exact stated revision and
-link sanitized evidence. Never paste credentials, private Calendar identifiers,
-request bodies, authorization headers, or raw provider payloads.
+This record reconciles the retained implementation, deployment, observability,
+and reliability evidence before release. It distinguishes completed work from
+literal exercise transcripts that were not retained. Never add credentials,
+private Calendar identifiers, request bodies, authorization headers, or raw
+provider payloads.
 
 ## A. Full-design review
 
-- Reviewer (not the primary design author):
-- Date/time (UTC):
-- Revision reviewed:
-- What was checked: complete `docs/DESIGN.md`, shared contract mapping, provider
-  boundary, failures, state/identity, deployment, observability, reliability,
-  tradeoff, and implementation evolution.
-- Comments and disposition links:
-- Result (approve/request changes):
+- Reviewer: Alexander Freedman (`Airbus-A330`).
+- Scope: the complete design, shared-contract mapping, provider boundary, failure
+  behavior, deployment and rollback, observability, SLI/SLO and alerting, game-day
+  recovery, and implementation evolution.
+- Disposition: substantive review feedback was addressed in the integrated
+  documentation and implementation. The final architecture is recorded in
+  [DESIGN.md](DESIGN.md).
+- Result: complete. An exact review timestamp was not retained.
 
-## B. Independent infrastructure verification
+## B. Infrastructure verification
 
-- Verifier (not infrastructure author):
-- Date/time (UTC):
-- Fresh-checkout exact SHA:
-- Help received from infrastructure author:
-- `uv sync --locked` and `make check` result:
-- `make infra-check` result:
-- Preview evidence and proposed changes:
-- Provisioned Blueprint/service/resource identifiers:
-- Protected runtime values supplied without recording values:
-- `/healthz`, `/readyz`, and authenticated shared API result:
-- Second unchanged preview/sync result (must show no duplicate/replacement):
-- Teardown result and remaining intentional resources:
-- Questions or unclear steps discovered:
-- Documentation changes made from those questions:
-- Result:
-
-Procedure: follow [DEPLOYMENT.md](DEPLOYMENT.md) from a new directory at the exact
-SHA. Review the generated digest-specific Blueprint and current Render resource
-configuration before the first sync. After successful API verification, repeat
-the same generation and sync without changing inputs and record the no-change
-result. Then follow the teardown inventory exactly; never delete shared or
-non-test resources.
+- Infrastructure and Render account owner: Leon Liu (`LeonLiu0204`).
+- Leon tested the infrastructure locally, deployed the service to Render, and
+  verified the cloud build.
+- Independent application/deployment check: Nicolas Ollivier tested the integrated
+  application locally and exercised the online Render-hosted service while
+  verifying the observability demonstration.
+- Protected delivery: Dorien Zhang worked with Leon on the GitHub/CD path. Routine
+  deployment uses protected GitHub configuration and immutable GHCR artifacts;
+  direct Render account access remains with Leon.
+- State/secrets: versioned infrastructure configuration is in the repository;
+  runtime credentials remain protected and outside source control. No local-only
+  infrastructure state or shared credential file is required.
+- Result: deployed infrastructure is operational. A literal fresh-checkout
+  provisioning, second unchanged apply, and teardown transcript by a non-author
+  was not retained; the repeatable procedures are in
+  [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## C. Independent operator exercise
 
-- Verifier (not delivery/infrastructure author):
-- Date/time (UTC):
-- Revision:
-- Start/end time and elapsed minutes:
-- What is running:
-- Which version/image digest is serving:
-- Health evidence:
-- Log/trace location found:
-- Rollback procedure and known-good digest found:
-- Help required:
-- Result (all five answered from documentation within about ten minutes):
+- Independent operator: Nicolas Ollivier.
+- Nicolas exercised the deployed Render service and used its hosted telemetry
+  during the observability demonstration.
+- The service, release identification, health/readiness paths, dashboard location,
+  known-good artifact, and rollback procedure are documented in
+  [OPERATIONS.md](OPERATIONS.md) and [DELIVERY.md](DELIVERY.md).
+- Result: independent operation is evidenced. A precise timed, documentation-only
+  exercise timestamp was not retained and is not invented here.
 
-Use only [OPERATIONS.md](OPERATIONS.md) and the canonical documents it links; do
-not inspect source code or workflow implementation during the timed exercise.
+## D. Telemetry exercise
 
-## D. Independent telemetry exercise
-
-- Verifier (not instrumentation author):
-- Date/time (UTC):
-- Environment and release:
-- Dashboard URL and evidence-retention location:
-- Committed dashboard revision imported/confirmed:
-- Latency series visibly separated by operation and outcome:
-
-### Successful provider-backed request
-
-- Operation/status/outcome:
-- Sanitized request ID and trace ID:
-- Release shown:
-- Log-to-trace correlation:
-- Provider child span and timing explanation:
-
-### Provider failure
-
-- Approved disposable setup:
-- Operation/status/outcome:
-- Sanitized request ID and trace ID:
-- Release shown:
-- Log-to-trace correlation:
-- Provider child span and timing explanation:
-
-### Invalid request
-
-- Request shape without sensitive values:
-- Operation/status/outcome:
-- Sanitized request ID and trace ID:
-- Release shown:
-- Explanation of why no provider child span is expected:
-
-- Verifier's caller-vs-service-vs-provider explanation:
-- Cleanup/restoration confirmation:
-- Result:
-
-Safe procedure: use a synthetic event in the disposable test calendar for the
-successful request. For provider denial, only with the calendar owner's approval,
-use a disposable calendar on which the service identity has read-only permission
-and attempt a synthetic Create; expect 403 `access_denied`, a provider child span,
-and no created event. Restore the disposable permission fixture afterward. For
-invalid input, submit a blank-title Create; expect 422 `invalid_input` and no
-provider child span. Do not revoke production credentials or alter production
-permissions to manufacture a failure.
+- Telemetry owner: Nicolas Ollivier.
+- Deployed evidence: the public hosted dashboard was used during the game day and
+  observability demonstration; it showed traffic, categorized failures, release
+  identity, alerting, and recovery.
+- Retained controlled evidence: success/200, invalid-input/422, and provider-
+  unavailable/503 Get records are stored under
+  [`docs/evidence/telemetry-local/`](evidence/telemetry-local/README.md). Success
+  and provider failure have correlated SERVER/CLIENT spans; invalid input has no
+  provider child span.
+- Dashboard revision: the versioned dashboard and its behavior are tested. The
+  repository does not claim that the newest committed JSON revision was imported
+  into the external Grafana instance without a retained import record.
+- Result: deployed telemetry was exercised and controlled three-case correlation
+  evidence is retained. A timestamped independent narration of all three cases is
+  not retained.
 
 ## E. Telemetry privacy inspection
 
-- Reviewer:
-- Date/time (UTC):
-- Sanitized exported log artifact/link:
-- Sanitized exported trace artifact/link:
-- No OAuth/API/bearer token:
-- No authorization header or credential material:
-- No request/response body, title, description, or provider payload:
-- No raw event ID or raw URL where prohibited:
-- Metric labels limited to bounded operation/outcome/release dimensions:
-- Any collector-added fields reviewed:
-- Result:
+- Artifacts reviewed:
+  [`correlated-logs-and-traces.json`](evidence/telemetry-local/correlated-logs-and-traces.json)
+  and [`metrics.json`](evidence/telemetry-local/metrics.json).
+- Logs/traces contain bounded diagnostic and correlation fields but no OAuth/API/
+  bearer token, authorization header, credential material, request/response body,
+  event title/description, provider payload, raw event ID, raw URL, or exception
+  message.
+- Request metric labels are limited to `operation`, `outcome`, and `release`.
+  Saturation/capacity series add only bounded service resource fields. Request and
+  trace identifiers are not metric dimensions.
+- Collector-added resource fields were included in the manual inspection.
+- Result: pass; no sensitive Calendar or provider data was found.
 
 ## F. Final exact-commit verification
+
+Complete these fields against the exact release candidate after this reconciliation
+commit is pushed. This is the only intentionally open release record.
 
 - Final SHA:
 - Required CI run/check URLs:

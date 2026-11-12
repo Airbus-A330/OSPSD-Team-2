@@ -30,14 +30,23 @@ schema, and deployed evidence are canonical in
 |---|---|
 | Authors | Alexander Freedman and OSPSD Team 2 |
 | Team / vertical | Team 2 / Calendar |
-| Team reviewer | Team review required before final merge; no repository evidence names the reviewer |
+| Team reviewer | Alexander Freedman (`Airbus-A330`) — complete Team 2 design review |
 | Cross-team reviewer | Karthik Ganeshan, Team 7 (contract-facing review comments addressed) |
-| Status | Implemented and deployed; final team review and release remain |
+| Status | Implemented, deployed, and reviewed; exact-commit CI/tag/release remain |
 | Last updated | 2026-11-12 |
 | Shared revision | [`v0.1.0-rc.1`](https://github.com/Airbus-A330/OSPSD-Calendar/tree/v0.1.0-rc.1), commit `1c1cad7a0732ddb242a05400d8833d94e4422424` |
 | Shared HTTP contract | [`docs/HTTP_CONTRACT.md`](https://github.com/Airbus-A330/OSPSD-Calendar/blob/v0.1.0-rc.1/docs/HTTP_CONTRACT.md) |
 | Joint decision memo | [Local preserved copy](JOINT_CALENDAR_CONTRACT.md) |
 | Implementation | [Migration pull request](https://github.com/Airbus-A330/OSPSD-Team-2/pull/60) |
+
+### Review record
+
+Alexander Freedman (`Airbus-A330`) reviewed the complete Team 2 design, including
+component responsibilities, shared-contract mapping, the Google provider boundary,
+failure translation, deployment and rollback, observability, SLI/SLO and alerting,
+game-day recovery, and implementation changes from the earlier design. Substantive
+feedback was dispositioned through the final implementation and documentation.
+Karthik Ganeshan's Team 7 review remains the separate contract-facing review.
 
 ## Scope and status
 
@@ -348,8 +357,9 @@ Listing/PATCH remain supported local extensions.
 
 The live workflow and cleanup, deployed telemetry, and bounded recovery exercise
 are recorded. Review and CI must still pass on the exact final merged revision;
-independent infrastructure provisioning and the three-case telemetry explanation
-remain human-verification gaps rather than implementation plans.
+the literal independent-provisioning and timestamped three-case narration
+transcripts were not retained. They are evidence limits, not missing application
+or infrastructure behavior.
 
 ## Alternatives considered
 
@@ -377,10 +387,8 @@ the required composition and test replacement points.
 
 ## Final review and release evidence
 
-1. Record the Team 2 reviewer for the complete design; the cross-team
-   contract-facing review is already identified above.
-2. Retain the final merge commit and matching required CI links.
-3. Create the annotated tag and GitHub Release only after those checks pass on
+1. Retain the final merge commit and matching required CI links.
+2. Create the annotated tag and GitHub Release only after those checks pass on
    the exact submitted revision.
 
 ## Change history
@@ -388,8 +396,9 @@ the required composition and test replacement points.
 - 2026-11-09: changed #68 to Render Free without a persistent disk; restored OAuth
   cache from runtime configuration on each start and documented cold-start/access limits.
 
-- 2026-11-09: added the issue #68 container/Blueprint foundation, hosted startup
-  validation and health/access behavior; recorded pending cloud and teammate checks.
+- 2026-11-09: added the container/Blueprint foundation, hosted startup validation,
+  and health/access behavior. Later delivery and teammate verification supplied
+  the cloud evidence recorded in the deployment documents.
 
 - 2026-11-09: issue #67 routes all common operations through `CalendarService`,
   aliases shared write models, adopts shared HTTP errors and validation, and

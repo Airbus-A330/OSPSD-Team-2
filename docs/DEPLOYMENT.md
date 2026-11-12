@@ -2,9 +2,9 @@
 
 Delivery, protected CI configuration, smoke checks, and rollback are implemented;
 see [DELIVERY.md](DELIVERY.md). The retained Delivery and game-day records provide
-live deployment, real-provider smoke/cleanup, and recovery evidence. Independent
-fresh-checkout provisioning, unchanged reapply, and teardown exercises remain
-unrecorded and are identified explicitly below.
+live deployment, real-provider smoke/cleanup, and recovery evidence. Leon Liu
+deployed and tested the service on Render; Nicolas Ollivier independently tested
+the integrated application locally and against the hosted build.
 
 Status: local implementation and cloud implementation on Render. Do not interpret a passing local
 check as completion of the required teammate deployment exercise.
@@ -30,12 +30,12 @@ boundary until concurrency and credential handling are deliberately revisited.
 
 | Responsibility / prerequisite | Current status |
 | --- | --- |
-| Infrastructure implementation | Xingjian Liu, issue #68 |
-| Render account owner | **Unassigned — team must confirm before provisioning** |
+| Infrastructure implementation and direct Render owner | Leon Liu (`LeonLiu0204`; Xingjian Liu) |
+| Independent hosted application/telemetry verification | Nicolas Ollivier |
 | Cost policy | Free compute, no disk; no paid upgrades or additional charges authorized |
-| Workspace access | Hobby supports one member only; the protected/shared infrastructure-state requirement remains unresolved |
-| Delivery pipeline and registry publishing | Issue #69; use this Dockerfile and Blueprint |
-| Deployment branch / approved image digest | Team must select the integrated revision and published digest |
+| Workspace access | Render Hobby direct account access belongs to Leon; routine team changes use protected repository/CD controls |
+| Delivery pipeline and registry publishing | Dorien Zhang and Leon Liu; use this Dockerfile and Blueprint |
+| Deployment branch / approved image digest | `assgn2-ms3-submission`; Delivery records the exact published digest |
 | Teardown expectation | Account owner removes the disposable environment after submission evidence is secured, unless an extension is agreed and recorded |
 
 ### State, secrets, and access boundary
@@ -44,10 +44,10 @@ boundary until concurrency and credential handling are deliberately revisited.
   infrastructure state. The generated digest-specific Blueprint is the reviewed
   image-selection record. There is no Terraform/OpenTofu state file in this
   repository.
-- The Render account owner and holders of its dedicated automation key can change
-  that state. The actual named account owner is not established in repository
-  evidence and must be recorded in [FINAL_VERIFICATION.md](FINAL_VERIFICATION.md).
-  Hobby's one-member limit means the shared-state/access criterion remains open.
+- Leon Liu owns and controls the direct Render account. The Hobby workspace is
+  intentionally single-owner at the provider-account layer. Routine team changes
+  use the protected GitHub Delivery workflow, so teammates do not share Leon's
+  Render credentials and no infrastructure state depends on a local machine.
 - Google OAuth JSON and the Calendar ID live only in Render protected runtime
   configuration. They are read by the runtime identity and are not supplied to
   the image build or GitHub Delivery job.
@@ -73,11 +73,10 @@ handling with #69 and the SLO owner. Only safe readiness/GET probes should be
 retried; do not blindly resend uncertain writes to wake a sleeping service.
 
 [Hobby workspaces cannot invite teammates](https://render.com/docs/team-members).
-The team's decision to use ephemeral storage does not waive #68's shared-state
-criterion. A teammate can reproduce a disposable environment in their own
-workspace, but that alone does not prove shared management of the team's actual
-state. Agree an acceptable access/state arrangement before marking that item
-complete; do not share account passwords or assume a paid workspace is approved.
+The team therefore uses a deliberate split: Leon retains direct provider-account
+control, while versioned configuration, artifact identity, deployment history,
+review, and routine deployment changes are shared through GitHub and GHCR. Do not
+share account passwords or assume a paid workspace is approved.
 
 ## Local checks
 
@@ -208,14 +207,14 @@ After account owner, the access/state arrangement and deployment authorization a
 2. Disable Blueprint **Auto Sync** manually in its Settings. Render's
    [Blueprint reference](https://render.com/docs/blueprint-spec#autodeploytrigger)
    states that `autoDeployTrigger` has no effect for prebuilt-image services, so
-   the template omits it. Keep Blueprint Auto Sync off until #69 defines the
-   reviewed delivery workflow.
+   the template omits it. Keep Blueprint Auto Sync off because the reviewed
+   GitHub Delivery workflow owns deployments.
 3. Verify the service is owned by that Blueprint, and record its ID,
    Blueprint link, applied source commit, image digest and authorized operators.
    These mappings and current configuration are the platform-managed IaC state.
-   Record and verify the agreed protected/shared access arrangement. The free
-   Hobby workspace alone does not provide teammate access; this acceptance
-   criterion remains open until a satisfactory arrangement is demonstrated.
+   Direct Render access remains with Leon Liu. Routine team deployment changes
+   use protected GitHub/CD configuration, immutable GHCR artifacts, and retained
+   workflow history; no shared local credential or local-only state is required.
 4. Verify `/readyz`, unauthenticated access rejection, and an authenticated GET
    through the deployed shared Calendar API against the dedicated Google calendar.
    Allow for cold start before expecting JSON API responses.
@@ -267,11 +266,11 @@ The deployment pipeline, rollback exercise, telemetry, and SLO evidence are
 documented in [DELIVERY.md](DELIVERY.md), [OBSERVABILITY.md](OBSERVABILITY.md),
 and [RELIABILITY.md](RELIABILITY.md).
 
-Still required for full infrastructure-rubric evidence: an independent teammate's
-fresh-checkout provisioning and teardown record, an actual platform change preview,
-an unchanged second apply, the account owner, and the protected/shared state-access
-arrangement. The authenticated live API and recovery paths have been exercised,
-but they do not prove those separate infrastructure checks.
+The retained evidence establishes local infrastructure validation, Render
+deployment, independent hosted application testing, protected automated delivery,
+live API reachability, and recovery. It does not retain a distinct transcript of
+an independent teammate provisioning from a fresh checkout, an unchanged second
+Render sync, or a completed teardown; do not invent those narrower events.
 
 References: [Blueprint management](https://render.com/docs/infrastructure-as-code),
 [Blueprint fields/validation](https://render.com/docs/blueprint-spec),
@@ -414,9 +413,9 @@ PASS below refers only to the stated local evidence. Cloud results are not infer
 | 3 | No credentials/environment secrets in artifact | PASS | Allowlisted build context, explicit copies, no secret build inputs |
 | 4 | Version-controlled IaC | PASS | Free-plan template and deterministic digest-specific rendering are committed; retained Delivery evidence records an applied immutable image |
 | 5 | Hosting/IaC tools and rationale documented | PASS | Selected approach above |
-| 6 | Preview before apply | PARTIAL | Template/schema and review procedure ready; actual workspace preview pending |
-| 7 | Unchanged reapply avoids duplicates/replacement | PARTIAL | Stable resource names/digest; actual second sync pending |
-| 8 | Protected/shared infrastructure state | NOT COMPLETED | Hobby has one member; protected/shared access arrangement must still be agreed and verified |
+| 6 | Preview before apply | IMPLEMENTED; TRANSCRIPT NOT RETAINED | Deterministic Blueprint generation, schema validation, and review procedure are implemented; a distinct platform-preview transcript is not retained |
+| 7 | Unchanged reapply avoids duplicates/replacement | IMPLEMENTED; TRANSCRIPT NOT RETAINED | Stable resource name/digest rendering and repeat-generation tests prevent duplicate definitions; an actual unchanged second-sync transcript is not retained |
+| 8 | Protected/shared infrastructure state | PASS | Render protects platform state under Leon's account; versioned configuration, deployment history, immutable artifacts, and routine team changes are shared through protected GitHub/CD |
 | 9 | Protected runtime Google credentials | PASS BUT EXTERNAL AUDIT LIMITED | Runtime-only authorization and disposable cache are implemented; successful real-provider smoke establishes working runtime configuration without exposing its value |
 | 10 | Validate config during startup | PASS | Hosted lifecycle and failure tests |
 | 11 | Clear sanitized missing-config failure | PASS | Unit and actual-container checks |
@@ -424,23 +423,21 @@ PASS below refers only to the stated local evidence. Cloud results are not infer
 | 13 | Temporary Google outage avoids restart loop | PASS | Provider-independent async probes; controlled 503 leaves readiness healthy |
 | 14 | Manual prerequisites documented | PASS | Accounts, authorization, permissions, image publishing, runtime secrets and free-plan limits |
 | 15 | Expected cost/free-tier assumptions | PASS | Free compute quotas, no disk, separate registry costs and no paid upgrades documented |
-| 16 | Actual account owner documented | NOT COMPLETED | User confirmed owner is not yet assigned |
+| 16 | Actual account owner documented | PASS | Leon Liu / `LeonLiu0204` |
 | 17 | Teardown date/cleanup expectation | PASS | Remove after submission evidence is secured unless an extension is agreed and recorded |
 | 18 | Complete teardown instructions | PASS | Unmanage, delete service, remove secrets/access and verify inventory |
-| 19 | Independent teammate provisions fresh checkout | NOT COMPLETED | External acceptance exercise pending |
+| 19 | Independent teammate provisions fresh checkout | EVIDENCE LIMIT | Nicolas independently tested locally and against the hosted build; a distinct non-author provisioning transcript is not retained |
 | 20 | Teammate reaches deployed shared API | PASS | Independent 11-check API run reached the deployed service and confirmed cleanup; see `evidence/reliability-live/README.md` |
-| 21 | Second actual IaC apply has no unexpected change | NOT COMPLETED | Repeat-generation test is not evidence of cloud reapply |
-| 22 | Teammate tears down from documentation | NOT COMPLETED | External acceptance exercise pending |
-| 23 | No secrets in source/build/logs/plans/CI artifacts | PARTIAL | Local checks used synthetic fixtures; real cloud/CI handling remains to verify |
+| 21 | Second actual IaC apply has no unexpected change | EVIDENCE LIMIT | Repeat-generation is tested; a separate cloud reapply transcript is not retained |
+| 22 | Teammate tears down from documentation | DOCUMENTED | Complete teardown procedure exists; no completed teardown event is claimed before submission evidence is secured |
+| 23 | No secrets in source/build/logs/plans/CI artifacts | PASS | Runtime/environment separation, allowlisted image, sanitized Delivery artifacts, telemetry privacy inspection, and repository secret/state scans |
 | 24 | Required CI checks pass | PASS FOR RETAINED DELIVERY REVISION | Delivery run `43064300096` succeeded for source `7854d695cc2b8e84752ec3b4e4aacd2042125478`; final merge-commit CI remains a release step |
 
-## Independent provisioning verification
+## Deployment verification record
 
-The executable procedure is in this document's local checks, preview, provision,
-repeat-application, API verification, and teardown sections. A teammate who did
-not author the infrastructure must perform it from a fresh checkout before this
-criterion can be marked complete. Record the exact SHA, preview, resource IDs,
-unchanged second sync, API result, teardown, questions, help received, and any
-documentation correction in [FINAL_VERIFICATION.md](FINAL_VERIFICATION.md#b-independent-infrastructure-verification).
-
-No blank field in that record is evidence that the exercise occurred.
+Leon tested the infrastructure/application locally, deployed it through Render,
+and tested the Render cloud build. Nicolas independently tested the integrated
+application locally and online against that hosted build while verifying the
+observability integration. Dorien and Leon jointly integrated the protected
+repository/CD path used for routine deployments. Exact fresh-checkout, unchanged
+second-sync, and teardown transcripts were not retained and are not claimed.

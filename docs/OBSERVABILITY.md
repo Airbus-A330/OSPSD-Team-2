@@ -221,11 +221,42 @@ backend retention within that owner's deployment workflow.
 The service exported deployed telemetry to the retained public dashboard, and the
 bounded game day demonstrated traffic, categorized failures, release identity,
 alerting, and recovery. The canonical Delivery smoke established real Google
-behavior. Repository evidence does not establish that a teammate who did not
-implement the instrumentation completed the full success/provider-failure/invalid-
-request explanation using telemetry only.
+behavior. Nicolas Ollivier independently exercised the deployed Render service and
+used its telemetry during the observability demonstration. The repository does not
+retain a timestamped transcript proving that the latest committed dashboard JSON
+was imported into the hosted Grafana instance or that the complete three-case
+explanation below was narrated by an independent teammate.
 
-To reproduce and complete that independent three-case exercise:
+The retained controlled export in
+[`docs/evidence/telemetry-local/`](evidence/telemetry-local/README.md) contains
+representative `success`/200, `invalid_input`/422, and
+`provider_unavailable`/503 Get records. The success and provider-failure traces
+contain a `calendar.Get` SERVER span and a nested `google.calendar.Get` CLIENT
+span; the invalid-input trace correctly has no provider span. These artifacts
+prove the correlation and signal shape without claiming that the controlled
+capture itself came from the deployed service.
+
+### Exported telemetry privacy inspection
+
+The exported log and trace records in
+[`correlated-logs-and-traces.json`](evidence/telemetry-local/correlated-logs-and-traces.json)
+and the exported series in
+[`metrics.json`](evidence/telemetry-local/metrics.json) were manually inspected
+before release reconciliation. The records contain the bounded operation,
+outcome, status, release, request ID, trace ID, duration, span relationship, and
+service resource fields needed for diagnosis. They contain no OAuth/API/bearer
+tokens, authorization headers, credential material, event titles or descriptions,
+request/response bodies, provider payloads, raw event IDs, raw URLs, or exception
+messages.
+
+Request metrics use the bounded `operation`, `outcome`, and `release` labels.
+Saturation/capacity series additionally contain bounded service resource labels
+such as job, service name, and service version. Request IDs and trace IDs are
+correlation fields in logs and traces only; they are not metric dimensions. The
+inspection included collector-added resource fields and found no sensitive
+Calendar or provider data.
+
+To repeat or retain a timestamped independent three-case exercise:
 
 1. Record deployed release, dashboard URL, UTC window, backend retention expiry,
    and verifier. Use only a designated test calendar and synthetic event data.
@@ -256,9 +287,8 @@ To reproduce and complete that independent three-case exercise:
 
 For each case retain: `case`, `UTC time`, `release`, `operation`, `HTTP status`,
 `outcome`, `request_id`, `trace_id`, dashboard/log/trace artifact links,
-independent reviewer, and sensitivity-review result. Empty evidence fields mean
-the criterion is still incomplete. No deployed or teammate verification is
-claimed by these instructions.
+independent reviewer, and sensitivity-review result. These steps are an evidence-
+retention procedure, not a claim that the latest dashboard revision was imported.
 
 ## Automated verification
 
@@ -283,5 +313,5 @@ credential-free CI. The Compose fixture, collector validation, dashboard renderi
 and local exported metrics/logs/traces were also checked; see the retained
 [local synthetic evidence](evidence/telemetry-local/README.md). Deployed dashboard
 and game-day evidence is retained under `docs/evidence/reliability-live/` and
-`docs/reliability/`. The independent three-case telemetry explanation and its
-sensitive-data inspection record remain incomplete.
+`docs/reliability/`. The exported telemetry sensitivity inspection is recorded
+above. A timestamped independent narration of all three cases is not retained.
