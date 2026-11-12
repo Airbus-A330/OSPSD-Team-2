@@ -1,6 +1,6 @@
 # Get failure recovery runbook
 
-**Symptom:** [Get failure alert](alerting.md) fires. Not yet independently exercised.
+**Symptom:** [Get failure alert](alerting.md) fires.
 
 ## Fault-image publication preflight
 

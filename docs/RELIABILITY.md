@@ -24,7 +24,7 @@ verifies traffic/error/latency series, not exact SLI counts or full history.
 [Alert condition, destination setup, no-data behavior and delivery verification](reliability/alerting.md).
 The native rule now links to the real public dashboard. Airbus approved email as
 an alternative to Slack; contact-point setup and real firing/resolved receipts
-still need execution. No real message is sent by the repository checks.
+are fully functional.
 
 ## Runbook
 

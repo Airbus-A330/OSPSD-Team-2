@@ -4,8 +4,7 @@ Delivery, protected CI configuration, smoke checks and rollback are implemented
 by #69; see [DELIVERY.md](DELIVERY.md). External setup and verification below
 remain prerequisites; pipeline implementation does not establish live evidence.
 
-Status: local implementation only. No Render workspace, cloud resources, or
-registry release has been created by this work. Do not interpret a passing local
+Status: local implementation and cloud implementation on Render. Do not interpret a passing local
 check as completion of the required teammate deployment exercise.
 
 ## Selected approach and ownership

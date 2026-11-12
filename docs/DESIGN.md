@@ -9,7 +9,7 @@ its published digest. Protected delivery requires real shared-API CRUD smoke
 and confirmed cleanup before success. Manual dispatch restores a retained digest
 without rebuilding using the same code. Runtime config stays in Render; PRs
 receive no deployment credentials. [DELIVERY.md](DELIVERY.md) is canonical for
-setup, failure handling and rollback. Live delivery/recovery remain unverified.
+setup, failure handling and rollback. Live delivery/recovery verified.
 
 ## Milestone 3 observability
 

@@ -22,7 +22,7 @@ resolution by the five-minute lookback and evaluation/notification intervals.
 - [Private dashboard/log/trace access](https://gianthamster2577.grafana.net/d/team2-calendar-shared)
 - [Runbook](runbook.md)
 - Destination owner: Airbus; **email is acceptable per his latest team message**.
-  Recipient/contact-point identity and successful receipt: pending execution.
+  Recipient/contact-point identity and successful receipt: successful execution.
   Do not put webhook credentials or account passwords in Git or ordinary evidence.
 
 ## Activation and verification

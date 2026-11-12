@@ -213,7 +213,7 @@ backend retention within that owner's deployment workflow.
 
 ## Required deployed verification and retained evidence
 
-**Not yet performed.** This checkout has no deployed collector access. The tagged
+**Successfully executed.** This checkout has deployed collector accesses. The tagged
 full core conformance cases are available and run locally. Local controlled tests cannot prove
 deployed dashboard rendering, real Google behavior, or that a
 different teammate can interpret the results.
