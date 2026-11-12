@@ -3,6 +3,7 @@
 from calendar_contract import CreateEvent, Event, ReplaceEvent
 
 from app import events
+from app.errors import ProviderUnavailableError
 from app.providers import EventProvider
 
 
@@ -15,7 +16,8 @@ class CalendarServiceAdapter:
 
     def get(self, event_id: str) -> Event:
         """Read an event, validating IDs unless HTTP already validated them."""
-        return events.get_event(event_id, self._provider, validate=self._validate_get)
+        # Temporary Assignment 2 game-day fault: force shared Get to fail safely.
+        raise ProviderUnavailableError(provider_involved=False)
 
     def create(self, request: CreateEvent) -> Event:
         """Bridge a shared request to the existing create operation, without retries."""
