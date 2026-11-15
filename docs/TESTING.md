@@ -404,6 +404,19 @@ translated domain responses, HTTP/transport failure mapping, unsupported respons
 and no retries. All these tests are credential-free and network-free. Live PATCH
 verification was completed on 2026-10-20 and is recorded in `PROVIDER.md`.
 
+## Project Kickoff Workflow Coverage
+
+`tests/test_project_kickoff_workflow.py` supplies controlled Calendar, Cloud
+Storage, and Issue Tracker implementations through the composition boundary. The
+focused tests verify the fixed Calendar → Storage → Issue Tracker call order,
+exactly one call per step, UTF-8 document bytes, unchanged provider-independent
+inputs, the complete combined result, and HTTP 201 behavior. They use neither
+network access nor credentials.
+
+Real-package selection, vertical error mapping, partial-success responses, and
+implementation-swap verification are covered by their respective Milestone 1
+integration workstreams rather than duplicated in this workflow-success issue.
+
 ## Final endpoint contract regressions
 
 `tests/test_google_provider_contracts.py` runs the real HTTP/application/cache/Google

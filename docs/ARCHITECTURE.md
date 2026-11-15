@@ -491,6 +491,35 @@ data uses the existing 502 mapping; cancelled GET/PUT/PATCH results use 404.
 HTTP list validation rejects decimal limit strings before provider construction.
 Public Event fields, service error categories, and cache architecture are unchanged.
 
+## Fixed Three-Vertical Workflow
+
+`app.workflows.ProjectKickoffWorkflow` is the provider-independent orchestration
+boundary for `POST /workflows/project-kickoff`:
+
+```text
+FastAPI route
+    ↓
+ProjectKickoffWorkflow
+    ├── CalendarCreator.create(CreateEvent)
+    ├── DocumentCreator.create(path, bytes)
+    └── IssueCreator.create_issue(title)
+```
+
+The three small structural protocols expose only the capabilities this workflow
+uses. Their signatures match the shared Calendar create operation, Cloud Storage
+`DocumentStorage.create`, and Issue Tracker `IssueProvider.create_issue`
+boundaries. The orchestrator imports no Google, Dropbox/S3, Trello/Linear, or
+other provider SDK types. Concrete package construction and implementation
+selection belong in `app.workflow_composition`, outside workflow behavior.
+
+The fixed sequence is Calendar, Storage, then Issue Tracker. Each write is called
+once. The successful result contains the public Calendar Event, stored-document
+ID/path, and issue ID/title with an explicit `succeeded` outcome for every step.
+Controlled tests replace the composition dependency, so they require no provider
+credentials or network. Real package adapters, configuration selection,
+cross-vertical error translation, and partial-failure reporting are separate
+Milestone 1 integration workstreams and do not require changes to this sequence.
+
 ## Operation Cost Summary
 
 Let `S` be the total size of one event's identifier, title, and timestamp strings,
