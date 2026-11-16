@@ -5,6 +5,8 @@ description = "Backend calendar service for NYU's Open Source and Professional S
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "calendar-contract",
+    "cloud-storage-api",
+    "dropbox-client-impl",
     "fastapi==0.124.4",
     "google-api-python-client==2.201.0",
     "google-auth-httplib2==0.4.4",
@@ -29,3 +31,6 @@ required-version = ">=0.12.17"
 
 [tool.uv.sources]
 calendar-contract = { git = "https://github.com/Airbus-A330/OSPSD-Calendar.git", rev = "v0.1.0-rc.1" }
+cloud-storage-api = { git = "https://github.com/Dayana20/ospsd26-cloud-storage", tag = "0.3.1", subdirectory = "src/cloud_storage_api" }
+dropbox-client-impl = { git = "https://github.com/Shreyas191/OSPSD-Team-3", tag = "v0.3.0", subdirectory = "src/dropbox_client_impl" }
+cloud-storage-client-api = { git = "https://github.com/Shreyas191/OSPSD-Team-3", tag = "v0.3.0", subdirectory = "src/cloud_storage_client_api" }

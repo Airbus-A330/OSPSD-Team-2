@@ -113,6 +113,7 @@ tempCodeRunnerFile.py
 .pypirc
 
 # Secrets
+.dropbox_token.json
 .streamlit/secrets.toml
 credentials*.json
 credentials*.json.*
