@@ -1,5 +1,81 @@
 # Shared Calendar Contract Migration Design
 
+## HW3 Milestone 1: Calendar composition entry point (issue #81)
+
+The agreed fixed workflow creates a Calendar kickoff event, saves a related
+document, creates a related issue, and returns the combined result. This issue
+supplies only the Calendar construction boundary; the composition owner will
+implement orchestration, step reporting, and the combined HTTP response.
+
+`app.composition.open_calendar_service()` is a synchronous context manager
+yielding the existing shared `CalendarService`. Set
+`CALENDAR_IMPLEMENTATION=team2` to select Team 2 explicitly; an unset variable
+also selects Team 2. Any other value, including an empty value, raises a sanitized
+`ValueError` before client construction. There is no fallback to another team's
+Calendar service. Existing Calendar HTTP dependencies and routes are unchanged.
+
+The composition owner can acquire this service at the configuration boundary and
+pass it to workflow code typed against `calendar_contract.CalendarService`:
+
+```python
+from calendar_contract import CalendarService, CreateEvent, Event
+from app.composition import open_calendar_service
+
+
+def create_kickoff(calendar: CalendarService, request: CreateEvent) -> Event:
+    return calendar.create(request)
+
+
+request = CreateEvent(
+    title="Project kickoff",
+    start="2030-01-15T10:00:00Z",
+    end="2030-01-15T10:30:00Z",
+)
+with open_calendar_service() as calendar:
+    event = create_kickoff(calendar, request)
+```
+
+This example performs a real write when run with configured credentials; it is
+not a new endpoint. Validate the shared request before acquiring the service.
+Only shared request, Event, and CalendarError values cross the consumer boundary:
+
+```text
+configuration: open_calendar_service()
+    -> existing CalendarServiceAdapter
+    -> application / cached EventProvider
+    -> existing GoogleCalendarProvider
+
+workflow: CalendarService.create(CreateEvent) -> Event or CalendarError
+```
+
+The existing tagged `calendar-contract` dependency remains unchanged. Reusing
+the adapter avoids duplicating models, provider translation, or authentication.
+The entry point owns one Google client per context and closes it on success or
+failure. Use it within one synchronous workflow execution; do not retain or share
+the service across worker threads. Configuration and Google construction stay in
+the existing composition/provider modules, outside orchestration code.
+
+Local credentials, token paths, calendar selection, and write permission use the
+existing [provider setup](PROVIDER.md#local-setup). Set `GOOGLE_CALENDAR_ID` to the
+designated test calendar. Hosted execution continues to use the externally
+supplied secrets and noninteractive setup in [DEPLOYMENT.md](DEPLOYMENT.md).
+No new credential format, dependency, or deployment resource is introduced.
+
+Shared Calendar errors propagate unchanged, including code and `retryable`.
+The entry point does not retry writes or perform rollback. If document or issue
+creation fails after Calendar succeeds, the event remains: the orchestration
+owner must retain its returned ID and report partial success. Do not replay the
+whole workflow merely because a later error is retryable. A lost Calendar write
+response can leave an event without a returned ID and raises `provider_error`
+with `retryable=false`; it requires reconciliation before another create.
+
+Controlled creation, failure, cleanup, and configuration checks are described in
+[TESTING.md](TESTING.md#hw3-calendar-composition). Live verification of this entry
+point and the eventual deployed three-vertical workflow remains separate. It must
+confirm the kickoff event in the test calendar and clean up test-owned records.
+The other vertical integrations, implementation-swap demonstration, public
+partial-failure rendering, and deployment verification remain their owners' work.
+
 ## HW3 Milestone 1: storage integration (#82)
 
 This section establishes the storage portion of service composition. The
