@@ -1,5 +1,12 @@
 # Testing Strategy
 
+For HW3 issue #82, `tests/test_storage.py` covers service-error mapping and
+`tests/integration/test_storage_package.py` exercises the installed Team 3
+package over a controlled SDK. Both run in default CI. The opt-in
+`tests/live/test_storage_workflow.py` remains skipped unless `RUN_LIVE_STORAGE=1`.
+See [storage verification](STORAGE.md#verification-and-remaining-acceptance)
+for external configuration, mutation/cleanup behavior, and remaining evidence.
+
 `tests/test_delivery.py` covers exact-digest deployment requests, platform failure
 gates, shared HTTP CRUD smoke, cleanup after partial failures, uncertain writes
 and sanitized evidence. Queued-deployment regressions cover both `201`/`202`,
