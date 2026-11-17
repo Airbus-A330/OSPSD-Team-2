@@ -18,6 +18,8 @@ from app.errors import (
     ServiceError,
 )
 
+from app.workflows import WorkflowFailure
+
 logger = logging.getLogger(__name__)
 
 _ERROR_RESPONSES: dict[type[ServiceError], tuple[int, str, str]] = {
@@ -41,10 +43,17 @@ _SHARED_ERROR_RESPONSES: dict[ErrorCode, tuple[int, str]] = {
 }
 
 _SHARED_OPERATIONS = frozenset(
-    {"create_event", "get_event", "replace_event", "delete_event"}
+    {
+        "create_event",
+        "get_event",
+        "replace_event",
+        "delete_event",
+        "create_project_kickoff",
+    }
 )
 
 _INVALID_MESSAGES = {
+    "create_project_kickoff": "Invalid project kickoff data",
     "create_event": "Invalid event data",
     "delete_event": "Invalid event ID",
     "get_event": "Invalid event ID",
@@ -111,6 +120,24 @@ def service_error_response(
     if shared_core:
         body["retryable"] = retryable
     return JSONResponse(status_code=status, content={"error": body})
+
+
+def workflow_failure_response(request: Request, error: Exception) -> JSONResponse:
+    """Render the composition-only error extension without leaking dependency data."""
+    if not isinstance(error, WorkflowFailure):
+        raise error
+    status, _ = _SHARED_ERROR_RESPONSES[error.code]
+    logger.warning(
+        "Workflow failed: step=%s stage=%s code=%s status=%s unexpected=%s",
+        error.failed_step,
+        error.failure_stage,
+        error.code.value,
+        status,
+        error.unexpected,
+    )
+    return JSONResponse(
+        status_code=status, content=error.result().model_dump(mode="json")
+    )
 
 
 def request_validation_error_response(

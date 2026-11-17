@@ -1,11 +1,85 @@
 # Shared Calendar Contract Migration Design
 
+## HW3 Milestone 1: workflow configuration and partial failure (#84)
+
+Current behavior extends #80's fixed `POST /workflows/project-kickoff`, reusing
+#81's Calendar entry point and #82's shared storage factory. The workflow remains
+Calendar -> Storage -> Issue Tracker; provider selection lives in
+`app/workflow_composition.py`, not orchestration. Public failure states and retry
+semantics are canonical in [CONTRACT.md](CONTRACT.md#failure-and-progress-response-84).
+No API consumer should infer exactly-once execution from these progress fields.
+
+| Configuration | Supported behavior |
+| --- | --- |
+| `WORKFLOW_IMPLEMENTATION` unset or `configured` | Real construction boundaries; no fake fallback |
+| `CALENDAR_IMPLEMENTATION` unset or `team2` | Existing #81 selection, unchanged |
+| `STORAGE_IMPLEMENTATION=team3` | Existing #82 package/credentials/retry policy, unchanged |
+| `WORKFLOW_IMPLEMENTATION=controlled` plus `WORKFLOW_FAIL_STEP=calendar`, `storage` or `issue_tracker` | Credential-free synthetic workflow; chosen step is rejected with 403, earlier synthetic results retained, later steps not attempted |
+
+Missing/invalid controlled-step selection fails closed; `WORKFLOW_FAIL_STEP`
+is rejected in configured mode rather than silently ignored. The controlled
+mode deliberately exercises failure reporting only. It does **not** stand in
+for two different teams' packages or actual provider-created records.
+
+### Resource ownership and #83 handoff
+
+`get_project_kickoff_workflow(request)` receives the same validated body as the
+route so invalid input cannot trigger construction/authentication. An `ExitStack`
+preflights all constructors before yielding the workflow and releases acquired
+resources in reverse order on success or failure. Construction order is Issue
+Tracker, Calendar, Storage; execution order is unchanged. A missing Issue Tracker
+integration therefore cannot start Google/Dropbox setup or create partial data.
+
+`StorageCreator` is a narrow boundary adapter: it calls #82's existing
+`create_document` helper to preserve typed error mapping and uncertain-write
+semantics, not to copy provider code. Calendar uses `open_calendar_service()`.
+`open_issue_creator()` is the explicit pending construction seam for #83: Dorien
+supplies a context manager yielding the existing `IssueCreator` capability
+(`create_issue(title)` returning public `id`/`title`), backed by Team 4's shared
+contract adapter. That context owns Issue Tracker client cleanup and maps its
+shared errors into existing service errors. No Team 4 provider configuration or
+SDK behavior is invented here. Until it is supplied, configured mode reports
+503, `failed_step=issue_tracker`, `failure_stage=setup`, all writes not attempted.
+The HTTP construction tests replace this seam; they do not claim real integration.
+
+### Decisions and safety boundaries
+
+| Constraint | Choice | Alternative / accepted tradeoff / revisit |
+| --- | --- | --- |
+| Preserve results when a later call fails | Typed per-execution progress and a composition-only error extension; catch/sanitize each vertical call and result validation | Plain error loses earlier IDs; automatic compensation can destroy data. No database/resume/exactly-once claim; revisit only with an explicit idempotency/persistence requirement. |
+| Unsafe replay after a committed or uncertain write | Stop immediately, never retry or roll back writes; operation errors always advertise `retryable=false` | A retryable single-operation error cannot authorize replay of the whole pipeline. A manually resubmitted request can still duplicate Calendar before storage conflict; callers must reconcile. |
+| Every stage must be testable without credentials | Explicit controlled configuration implementing the same narrow capabilities | Hidden fallback would masquerade as real success. Controlled results use `controlled-*` IDs and never prove a package swap; keep real-provider verification separate. |
+
+Known input/access/not-found failures are rejected; provider-error/unavailable
+write outcomes are conservatively uncertain absent proof of non-commit. An
+unexpected exception or malformed result is also sanitized as uncertain
+`provider_error`, retaining prior confirmed results. Broad catches are limited
+to these operation/setup boundaries, where losing progress would make retry
+risk invisible; they are not a generic exception-swallowing policy.
+
+### Genuine swap limitation and verification
+
+The shared contract remains tagged `0.3.1`; Team 3 remains `v0.3.0` with the
+existing lockfile. No new dependency, provider registry, Python/framework
+upgrade, HTTP call to another team's deployment or copied SDK implementation is
+introduced. [STORAGE.md](STORAGE.md#dependencies-and-selection) records the
+candidate compatibility findings. Rechecked Team 1 `v1.1.0` lacks installable
+project metadata, and Team 6 `v0.1.0` requires Python >=3.13 and incompatible
+FastAPI/Uvicorn ranges. Do not silently patch around them or count a controlled
+fake as another team's implementation. A compatible second package and its
+actual deployed config-only swap demonstration remain external acceptance work.
+
+[TESTING.md](TESTING.md#hw3-workflow-failure-and-configuration-84) maps the new
+credential-free checks. Team 4 installation/adapter belongs to #83; final deployed
+three-vertical/provider-record/swap evidence and external-team design review
+belong to #85 and the team. No new live verification or review is claimed here.
+
 ## HW3 Milestone 1: Calendar composition entry point (issue #81)
 
 The agreed fixed workflow creates a Calendar kickoff event, saves a related
 document, creates a related issue, and returns the combined result. This issue
-supplies only the Calendar construction boundary; the composition owner will
-implement orchestration, step reporting, and the combined HTTP response.
+supplies only the Calendar construction boundary; #80/#84 now provide the fixed
+orchestration, step reporting and combined HTTP response described above.
 
 `app.composition.open_calendar_service()` is a synchronous context manager
 yielding the existing shared `CalendarService`. Set
@@ -80,15 +154,16 @@ partial-failure rendering, and deployment verification remain their owners' work
 
 This section establishes the storage portion of service composition. The
 remaining sections retain the HW2 design and its historical verification/review
-records. HW3 workflow, Issue Tracker, deployment, implementation-swap evidence,
-and new human design reviews are pending in their respective workstreams.
+records. The HW3 workflow/failure behavior is now described in the #84 section
+above; real Issue Tracker wiring, final deployment/swap evidence and new human
+design reviews remain pending in their respective workstreams.
 The storage package's real Dropbox verification passed; no deployed HW3
 three-vertical run or new human review is claimed here.
 
 ```mermaid
 flowchart TD
-    Caller[Caller] -. one request; route pending .-> API[Team 2 Python API]
-    API -. fixed workflow pending .-> Workflow[Composition workflow]
+    Caller[Caller] --> API[Team 2 Python API]
+    API --> Workflow[Fixed workflow with step-aware failures]
     Workflow --> Calendar[CalendarService shared contract]
     Calendar --> Team2[Team 2 Calendar implementation]
     Team2 --> Google[Google Calendar]
@@ -118,7 +193,7 @@ failed-step information and preserve prior results; that route is outside #82.
 
 ### Storage request trace and validation
 
-For a future workflow request with stable ID `meeting-123`, calendar creation
+For an example workflow request with stable document path, Calendar creation
 may return `event-123`. The storage step receives a path such as
 `/hw3-meeting-123.md` and fixed UTF-8 summary bytes containing that calendar ID.
 `create_document` calls `DocumentStorage.create(path, content)`. Team 3 validates

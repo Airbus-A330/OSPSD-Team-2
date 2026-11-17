@@ -20,7 +20,9 @@ from app.http_errors import (
     http_error_response,
     request_validation_error_response,
     service_error_response,
+    workflow_failure_response,
 )
+from app.workflows import WorkflowFailure
 
 
 def create_app() -> FastAPI:
@@ -32,6 +34,7 @@ def create_app() -> FastAPI:
         RequestValidationError, request_validation_error_response
     )
     application.add_exception_handler(CalendarError, service_error_response)
+    application.add_exception_handler(WorkflowFailure, workflow_failure_response)
     for error_type in (
         InvalidInputError,
         NotFoundError,
