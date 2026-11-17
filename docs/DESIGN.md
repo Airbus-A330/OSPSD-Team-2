@@ -1,5 +1,89 @@
 # Shared Calendar Contract Migration Design
 
+## HW3 Milestone 1: storage integration (#82)
+
+This section establishes the storage portion of service composition. The
+remaining sections retain the HW2 design and its historical verification/review
+records. HW3 workflow, Issue Tracker, deployment, implementation-swap evidence,
+and new human design reviews are pending in their respective workstreams.
+The storage package's real Dropbox verification passed; no deployed HW3
+three-vertical run or new human review is claimed here.
+
+```mermaid
+flowchart TD
+    Caller[Caller] -. one request; route pending .-> API[Team 2 Python API]
+    API -. fixed workflow pending .-> Workflow[Composition workflow]
+    Workflow --> Calendar[CalendarService shared contract]
+    Calendar --> Team2[Team 2 Calendar implementation]
+    Team2 --> Google[Google Calendar]
+    Workflow --> Create[create_document: service error translation]
+    Create --> Storage[DocumentStorage shared contract]
+    Storage --> Team3[Team 3 DropboxDocumentStorage package]
+    Team3 --> Dropbox[Dropbox document/content]
+    Workflow -. integration pending .-> Issue[Issue shared contract]
+    Issue -. integration pending .-> Team4[Team 4 implementation]
+    Config[External test-account credentials/configuration] --> Factory[Construction boundaries]
+    Factory --> Team2
+    Factory --> Team3
+    Factory -. pending .-> Team4
+```
+
+Storage consumes the authoritative contract at tag `0.3.1` and Team 3's
+implementation at `v0.3.0`. Package metadata differs from tag names; exact
+commits, candidate evaluation, configuration, and verification procedures are
+canonical in [STORAGE.md](STORAGE.md).
+
+`app/storage_composition.py` selects `STORAGE_IMPLEMENTATION=team3`, builds the
+implementation, disables automatic SDK retries, and owns session cleanup.
+`app/storage.py` accepts only the shared interface, creates once, returns shared
+metadata, and translates typed storage errors into existing Team 2 errors.
+No Calendar interface or HTTP behavior changes. The composed route must attach
+failed-step information and preserve prior results; that route is outside #82.
+
+### Storage request trace and validation
+
+For a future workflow request with stable ID `meeting-123`, calendar creation
+may return `event-123`. The storage step receives a path such as
+`/hw3-meeting-123.md` and fixed UTF-8 summary bytes containing that calendar ID.
+`create_document` calls `DocumentStorage.create(path, content)`. Team 3 validates
+absolute paths without empty, `.` or `..` segments, then creates without
+overwrite/autorename and returns shared `FileInfo`. The workflow retains this
+metadata for its combined result and subsequent issue step. Controlled tests
+verify exact stored/downloaded bytes and returned shared metadata.
+
+HTTP request/schema validation belongs to the composed route workstream;
+storage path/provider validation remains behind the shared storage boundary.
+Configuration selection is validated before credential loading. Credentials
+remain external; workflow code does not import provider SDKs.
+
+### Integration decisions
+
+| Constraint | Chosen approach | Credible alternative | Accepted tradeoff / revisit condition |
+|---|---|---|---|
+| Use another team's installable implementation on Python 3.12 | Team 3 `v0.3.0` through authoritative `DocumentStorage` | Team 1 or Team 6 package | Three package Git sources; revisit when another team's compatible package is available. Hosted HTTP is excluded by the TA clarification. |
+| Implementation choice must stay out of orchestration | Small environment-selected construction function | Generic plugin registry | Only one supported storage selection today; add a factory branch and dependency for the eventual swap, without changing orchestration. Revisit a registry only if concrete selection complexity warrants it. |
+| A write error does not prove no record exists | Create-only stable path, no automatic SDK/application retries, explicit uncertain-write exception | Blind replay or compensating deletion | Caller/workflow retains progress and reconciles before retry. No exactly-once guarantee; revisit if the shared contract adds idempotency/reconciliation guarantees. |
+
+### Partial failure and evidence
+
+If calendar creation succeeds and storage fails, preserve the calendar ID;
+mark storage failed for a known rejection or uncertain for a provider/transport
+failure; leave issue creation not attempted. `StorageWriteUncertainError`
+carries existing `provider_error` with `retryable=false`. If storage succeeded
+and the issue step fails, preserve its `FileInfo` as succeeded and do not replay
+either completed write. Reconcile the stable storage path and exact bytes
+before retrying an uncertain write. A conflict alone is not proof of success.
+There is no workflow-state persistence or automatic rollback in this issue.
+
+Controlled verification exercises the actual installed package over a controlled
+SDK, including a write committed before its response is lost. The opt-in live
+storage test passed against Dropbox on 2026-11-16, confirming exact content,
+duplicate refusal, and cleanup. Deployed three-vertical API,
+direct provider confirmation, different-team configuration swap, and step-aware
+failure evidence remain pending. See [storage verification](STORAGE.md#verification-and-remaining-acceptance).
+Internal and external-team HW3 review comments/responses must be recorded when
+those reviews happen; the HW2 reviewers below have not reviewed this addition.
+
 ## Milestone 3 delivery
 
 Issue #69 adds delivery to #68's Render image-backed infrastructure. Merges to
