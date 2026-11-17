@@ -25,7 +25,8 @@ Telemetry configuration, the golden-signals dashboard, and deployed verification
 are documented in [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
 HW3 issue #82 adds a configuration-selected Team 3 Cloud Storage package.
 [Storage integration](docs/STORAGE.md) documents tagged dependencies, external
-credentials, workflow handoff, error/retry behavior, and pending live verification.
+credentials, workflow handoff, error/retry behavior, and completed live-provider
+verification.
 The [operator quick reference](docs/OPERATIONS.md) identifies the running
 resources, health, release, telemetry, recovery path, costs, and blast radius.
 
