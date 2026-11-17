@@ -55,6 +55,21 @@ runs the complete conformance suite without network access or credentials.
 `RUN_LIVE_CALENDAR=1`. See [live verification](PROVIDER.md#hw2-shared-workflow-verification)
 for prerequisites, cleanup, and the retained verification record.
 
+## HW3 Calendar composition
+
+`tests/test_calendar_composition.py` exercises `open_calendar_service()` with the
+production shared adapter, cache, and Google provider; only SDK construction and
+responses are controlled. Cases cover explicit/default Team 2 selection, invalid
+selection before setup, CreateEvent-to-Event success, shared failure propagation,
+uncertain writes without retries, and preserving a created event after a later
+workflow failure. They also verify context-owned client cleanup, setup errors,
+separate clients per execution, and non-HTTP ID validation.
+
+Run `uv run --locked python -m pytest tests/test_calendar_composition.py -q` or
+`make check`. These tests need no credentials or network and do not establish
+live/deployed three-vertical workflow verification. The Calendar handoff and
+configuration are documented in [DESIGN.md](DESIGN.md#hw3-milestone-1-calendar-composition-entry-point-issue-81).
+
 ## Test Layers
 
 ### Unit
