@@ -2,6 +2,7 @@
 
 import os
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 from calendar_contract import CalendarService
 from fastapi import Depends
@@ -12,6 +13,27 @@ from app.google_calendar import GoogleCalendarProvider, build_google_calendar_cl
 from app.providers import EventProvider
 
 event_cache = EventCache()
+
+
+@contextmanager
+def open_calendar_service() -> Iterator[CalendarService]:
+    """Supply the configured shared Calendar service to a composed workflow.
+
+    The caller owns this context for one synchronous workflow execution. The
+    existing provider dependency closes its client on success or failure.
+    Calendar errors propagate unchanged; no operation is retried or rolled back.
+
+    Yields:
+        Team 2's implementation of the tagged shared CalendarService contract.
+
+    Raises:
+        ValueError: If CALENDAR_IMPLEMENTATION is set to anything but team2.
+    """
+    if os.getenv("CALENDAR_IMPLEMENTATION", "team2") != "team2":
+        raise ValueError("CALENDAR_IMPLEMENTATION must be team2")
+
+    with contextmanager(get_event_provider)() as provider:
+        yield CalendarServiceAdapter(provider)
 
 
 def get_event_provider() -> Iterator[EventProvider]:
