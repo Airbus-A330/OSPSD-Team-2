@@ -398,6 +398,69 @@ return 404 with the fixed missing-event envelope.
 See [provider verification](PROVIDER.md#delete-verification)
 for the create/delete/cleanup procedure and live-verification status.
 
+## Project Kickoff Composition Workflow
+
+`POST /workflows/project-kickoff` executes one fixed workflow in this order:
+
+1. create a Calendar event;
+2. create a related Cloud Storage document;
+3. create a related Issue Tracker issue.
+
+The request body is:
+
+```json
+{
+  "event": {
+    "title": "Project kickoff",
+    "start": "2026-11-16T10:00:00-05:00",
+    "end": "2026-11-16T11:00:00-05:00"
+  },
+  "document_path": "/projects/alpha/kickoff.txt",
+  "document_content": "Agenda and decisions",
+  "issue_title": "Track kickoff follow-up"
+}
+```
+
+`event` uses the existing shared Calendar create model. `document_path` must be a
+nonempty absolute path, `document_content` must be a nonempty string, and
+`issue_title` must contain non-whitespace content. Unknown fields are rejected.
+
+After all three steps succeed, the operation returns HTTP 201 with one combined
+provider-independent result:
+
+```json
+{
+  "calendar": {
+    "outcome": "succeeded",
+    "event": {
+      "id": "event-123",
+      "title": "Project kickoff",
+      "start": "2026-11-16T10:00:00-05:00",
+      "end": "2026-11-16T11:00:00-05:00"
+    }
+  },
+  "storage": {
+    "outcome": "succeeded",
+    "document": {
+      "id": "file-456",
+      "path": "/projects/alpha/kickoff.txt"
+    }
+  },
+  "issue_tracker": {
+    "outcome": "succeeded",
+    "issue": {
+      "id": "issue-789",
+      "title": "Track kickoff follow-up"
+    }
+  }
+}
+```
+
+The workflow performs each write once and does not retry completed steps. Real
+vertical-package selection and cross-vertical failure responses are supplied at
+the composition boundary by their integration workstreams; this operation's
+orchestration contains no provider SDK behavior.
+
 ## Domain Models
 
 Public domain models belong here.

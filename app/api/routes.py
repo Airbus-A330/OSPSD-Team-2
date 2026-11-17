@@ -15,8 +15,28 @@ from app.composition import get_calendar_service, get_event_provider
 from app.events import list_events, patch_event
 from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
+from app.workflow_composition import get_project_kickoff_workflow
+from app.workflows import (
+    ProjectKickoffRequest,
+    ProjectKickoffResult,
+    ProjectKickoffWorkflow,
+)
 
 router = APIRouter()
+
+
+@router.post(
+    "/workflows/project-kickoff",
+    response_model=ProjectKickoffResult,
+    status_code=status.HTTP_201_CREATED,
+    name="create_project_kickoff",
+)
+def create_project_kickoff(
+    request: ProjectKickoffRequest,
+    workflow: ProjectKickoffWorkflow = Depends(get_project_kickoff_workflow),
+) -> ProjectKickoffResult:
+    """Create one event, document, and issue through configured boundaries."""
+    return workflow.run(request)
 
 
 @router.delete(
