@@ -464,6 +464,9 @@ verification was completed on 2026-10-20 and is recorded in `PROVIDER.md`.
 
 ## Project Kickoff Workflow Coverage
 
+The Team 4 package integration, controlled Trello HTTP cases, and opt-in direct
+Trello verification procedure are documented in [ISSUE_TRACKER_HANDOFF.md](ISSUE_TRACKER_HANDOFF.md).
+
 `tests/test_project_kickoff_workflow.py` supplies controlled Calendar, Cloud
 Storage, and Issue Tracker implementations through the composition boundary. The
 focused tests verify the fixed Calendar → Storage → Issue Tracker call order,

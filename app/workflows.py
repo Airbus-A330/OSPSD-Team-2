@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from calendar_contract import CalendarError, CreateEvent, ErrorCode, Event
+from issue_tracker_contract.models import MAX_TITLE_LENGTH
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 
 from app.errors import ProviderFailureError, ServiceError
@@ -56,7 +57,9 @@ class ProjectKickoffRequest(BaseModel):
     event: CreateEvent
     document_path: StrictStr = Field(min_length=1, pattern=r"^/")
     document_content: StrictStr = Field(min_length=1)
-    issue_title: StrictStr = Field(min_length=1, pattern=r"\S")
+    issue_title: StrictStr = Field(
+        min_length=1, max_length=MAX_TITLE_LENGTH, pattern=r"\S"
+    )
 
 
 class CalendarStepResult(BaseModel):

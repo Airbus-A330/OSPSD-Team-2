@@ -14,6 +14,7 @@ No API consumer should infer exactly-once execution from these progress fields.
 | `WORKFLOW_IMPLEMENTATION` unset or `configured` | Real construction boundaries; no fake fallback |
 | `CALENDAR_IMPLEMENTATION` unset or `team2` | Existing #81 selection, unchanged |
 | `STORAGE_IMPLEMENTATION=team3` | Existing #82 package/credentials/retry policy, unchanged |
+| `ISSUE_TRACKER_IMPLEMENTATION=team4-trello` | Tagged Team 4 provider with Trello configuration; see [handoff](ISSUE_TRACKER_HANDOFF.md) |
 | `WORKFLOW_IMPLEMENTATION=controlled` plus `WORKFLOW_FAIL_STEP=calendar`, `storage` or `issue_tracker` | Credential-free synthetic workflow; chosen step is rejected with 403, earlier synthetic results retained, later steps not attempted |
 
 Missing/invalid controlled-step selection fails closed; `WORKFLOW_FAIL_STEP`
@@ -33,14 +34,11 @@ integration therefore cannot start Google/Dropbox setup or create partial data.
 `StorageCreator` is a narrow boundary adapter: it calls #82's existing
 `create_document` helper to preserve typed error mapping and uncertain-write
 semantics, not to copy provider code. Calendar uses `open_calendar_service()`.
-`open_issue_creator()` is the explicit pending construction seam for #83: Dorien
-supplies a context manager yielding the existing `IssueCreator` capability
-(`create_issue(title)` returning public `id`/`title`), backed by Team 4's shared
-contract adapter. That context owns Issue Tracker client cleanup and maps its
-shared errors into existing service errors. No Team 4 provider configuration or
-SDK behavior is invented here. Until it is supplied, configured mode reports
-503, `failed_step=issue_tracker`, `failure_stage=setup`, all writes not attempted.
-The HTTP construction tests replace this seam; they do not claim real integration.
+`open_issue_creator()` selects the tagged Team 4 Trello provider explicitly,
+checks required configuration before other setup, and owns cleanup. Its adapter
+maps shared Issue Tracker errors to existing service errors. Missing selection
+or configuration reports 503 at Issue Tracker setup before any writes. See
+[handoff](ISSUE_TRACKER_HANDOFF.md) for configuration and verification limits.
 
 ### Decisions and safety boundaries
 
@@ -70,7 +68,7 @@ fake as another team's implementation. A compatible second package and its
 actual deployed config-only swap demonstration remain external acceptance work.
 
 [TESTING.md](TESTING.md#hw3-workflow-failure-and-configuration-84) maps the new
-credential-free checks. Team 4 installation/adapter belongs to #83; final deployed
+credential-free checks. Team 4 installation/adapter is documented in the handoff; final deployed
 three-vertical/provider-record/swap evidence and external-team design review
 belong to #85 and the team. No new live verification or review is claimed here.
 
@@ -155,7 +153,7 @@ partial-failure rendering, and deployment verification remain their owners' work
 This section establishes the storage portion of service composition. The
 remaining sections retain the HW2 design and its historical verification/review
 records. The HW3 workflow/failure behavior is now described in the #84 section
-above; real Issue Tracker wiring, final deployment/swap evidence and new human
+above; final deployment/swap evidence and new human
 design reviews remain pending in their respective workstreams.
 The storage package's real Dropbox verification passed; no deployed HW3
 three-vertical run or new human review is claimed here.

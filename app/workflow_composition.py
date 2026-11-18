@@ -7,10 +7,21 @@ from dataclasses import dataclass
 from typing import TypeVar, cast
 
 from cloud_storage_api import DocumentStorage, FileInfo
+from issue_tracker_contract.errors import ErrorCode as IssueErrorCode
+from issue_tracker_contract.errors import ServiceError as IssueServiceError
+from issue_tracker_contract.interface import IssueProvider
+from issue_tracker_contract.models import Issue
+from team_4_issue_tracker_trello import TrelloIssueProvider
 
 from app.composition import open_calendar_service
 from app.controlled_workflow import controlled_workflow
-from app.errors import ProviderFailureError, ProviderUnavailableError
+from app.errors import (
+    InvalidInputError,
+    NotFoundError,
+    PermissionDeniedError,
+    ProviderFailureError,
+    ProviderUnavailableError,
+)
 from app.storage import create_document
 from app.storage_composition import get_document_storage
 from app.workflows import (
@@ -34,12 +45,48 @@ class StorageCreator:
         return create_document(self.storage, path, content)
 
 
-def open_issue_creator() -> AbstractContextManager[IssueCreator]:
-    """Construction seam for #83's shared-contract adapter and client lifetime."""
-    # shortcut: #83 has not supplied its factory; replace this seam when available.
-    raise ProviderUnavailableError(
-        "Issue Tracker implementation is not configured", provider_involved=False
-    )
+@dataclass(frozen=True)
+class IssueTrackerCreator:
+    """Translate shared Issue Tracker failures into workflow service errors."""
+
+    provider: IssueProvider
+
+    def create_issue(self, title: str) -> Issue:
+        """Create one issue without exposing provider error details."""
+        try:
+            return self.provider.create_issue(title)
+        except IssueServiceError as error:
+            error_type = {
+                IssueErrorCode.INVALID_INPUT: InvalidInputError,
+                IssueErrorCode.NOT_FOUND: NotFoundError,
+                IssueErrorCode.ACCESS_DENIED: PermissionDeniedError,
+                IssueErrorCode.SERVICE_NOT_CONFIGURED: ProviderUnavailableError,
+            }.get(error.code, ProviderFailureError)
+            raise error_type(
+                "Issue Tracker operation failed",
+                provider_involved=error.provider_involved,
+            ) from None
+
+
+@contextmanager
+def open_issue_creator() -> Iterator[IssueCreator]:
+    """Open the explicitly selected Team 4 provider, failing closed by default."""
+    if os.getenv("ISSUE_TRACKER_IMPLEMENTATION") != "team4-trello":
+        raise ProviderUnavailableError(
+            "Issue Tracker implementation is not configured", provider_involved=False
+        )
+    if any(
+        not os.getenv(name, "").strip()
+        for name in ("TRELLO_API_KEY", "TRELLO_TOKEN", "TRELLO_LIST_ID")
+    ):
+        raise ProviderUnavailableError(
+            "Issue Tracker configuration is incomplete", provider_involved=False
+        )
+    provider = TrelloIssueProvider()
+    try:
+        yield IssueTrackerCreator(provider)
+    finally:
+        provider.close()
 
 
 def _open_step(
@@ -74,7 +121,7 @@ def get_project_kickoff_workflow(
             stage="setup",
         )
     with ExitStack() as stack:
-        # Missing #83 wiring must fail before auth/client setup in other verticals.
+        # Reject missing Issue Tracker configuration before other provider setup.
         issues = _open_step(stack, "issue_tracker", open_issue_creator)
         calendar = _open_step(stack, "calendar", open_calendar_service)
         storage = _open_step(

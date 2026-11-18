@@ -8,6 +8,9 @@ import pytest
 from calendar_contract import Event
 from cloud_storage_api import FileInfo, ProviderUnavailableError as StorageUnavailable
 from fastapi.testclient import TestClient
+from issue_tracker_contract.errors import ErrorCode as IssueErrorCode
+from issue_tracker_contract.errors import ServiceError as IssueServiceError
+from issue_tracker_contract.models import Issue
 
 from app import composition, storage_composition, workflow_composition
 from app.errors import ProviderUnavailableError
@@ -30,6 +33,7 @@ BODY = {
 def isolated_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("WORKFLOW_IMPLEMENTATION", raising=False)
     monkeypatch.delenv("WORKFLOW_FAIL_STEP", raising=False)
+    monkeypatch.delenv("ISSUE_TRACKER_IMPLEMENTATION", raising=False)
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 
 
@@ -290,6 +294,68 @@ def test_request_validation_precedes_resource_setup(
     assert resources[1] == []
 
 
+def test_overlong_issue_title_is_rejected_before_provider_construction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    factories = [
+        Mock(side_effect=AssertionError("Unexpected provider setup")) for _ in range(3)
+    ]
+    for name, factory in zip(
+        ("open_issue_creator", "open_calendar_service", "get_document_storage"),
+        factories,
+    ):
+        monkeypatch.setattr(workflow_composition, name, factory)
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/workflows/project-kickoff", json={**BODY, "issue_title": "x" * 257}
+        )
+    assert response.status_code == 422
+    for factory in factories:
+        factory.assert_not_called()
+
+
+def test_maximum_length_issue_title_reaches_provider(
+    resources: tuple[dict[str, Mock], list[str]],
+) -> None:
+    title = "x" * 256
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/workflows/project-kickoff", json={**BODY, "issue_title": title}
+        )
+    assert response.status_code == 201
+    resources[0]["issue_tracker"].create_issue.assert_called_once_with(title)
+
+
+@pytest.mark.parametrize(
+    "missing", ["TRELLO_API_KEY", "TRELLO_TOKEN", "TRELLO_LIST_ID"]
+)
+def test_whitespace_trello_configuration_fails_before_any_setup(
+    monkeypatch: pytest.MonkeyPatch, missing: str
+) -> None:
+    monkeypatch.setenv("ISSUE_TRACKER_IMPLEMENTATION", "team4-trello")
+    for name in ("TRELLO_API_KEY", "TRELLO_TOKEN", "TRELLO_LIST_ID"):
+        monkeypatch.setenv(name, "valid")
+    monkeypatch.setenv(missing, "   ")
+    constructors = [
+        Mock(side_effect=AssertionError("Unexpected provider setup")) for _ in range(3)
+    ]
+    for name, constructor in zip(
+        ("TrelloIssueProvider", "open_calendar_service", "get_document_storage"),
+        constructors,
+    ):
+        monkeypatch.setattr(workflow_composition, name, constructor)
+    with TestClient(create_app()) as client:
+        response = client.post("/workflows/project-kickoff", json=BODY)
+    assert response.status_code == 503
+    assert response.json()["failed_step"] == "issue_tracker"
+    assert all(
+        step == {"outcome": "not_attempted"}
+        for step in response.json()["steps"].values()
+    )
+    for constructor in constructors:
+        constructor.assert_not_called()
+
+
 def test_missing_issue_integration_is_explicit_and_never_falls_back_to_fake(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -305,6 +371,84 @@ def test_missing_issue_integration_is_explicit_and_never_falls_back_to_fake(
     assert all(step == {"outcome": "not_attempted"} for step in body["steps"].values())
     calendar.assert_not_called()
     storage.assert_not_called()
+
+
+@pytest.mark.parametrize("selection", ["", "unknown", "team4-trello"])
+def test_issue_selection_fails_closed_without_usable_configuration(
+    monkeypatch: pytest.MonkeyPatch, selection: str
+) -> None:
+    monkeypatch.setenv("ISSUE_TRACKER_IMPLEMENTATION", selection)
+    for name in ("TRELLO_API_KEY", "TRELLO_TOKEN", "TRELLO_LIST_ID"):
+        monkeypatch.delenv(name, raising=False)
+    with TestClient(create_app()) as client:
+        response = client.post("/workflows/project-kickoff", json=BODY)
+    assert response.status_code == 503
+    assert response.json()["failed_step"] == "issue_tracker"
+    assert all(
+        step == {"outcome": "not_attempted"}
+        for step in response.json()["steps"].values()
+    )
+
+
+def test_issue_contract_adapter_returns_shared_issue() -> None:
+    provider = Mock()
+    provider.create_issue.return_value = Issue(id="issue-1", title="Title")
+    result = workflow_composition.IssueTrackerCreator(provider).create_issue("Title")
+    assert result == Issue(id="issue-1", title="Title")
+    provider.create_issue.assert_called_once_with("Title")
+
+
+def test_selected_team4_provider_is_constructed_and_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ISSUE_TRACKER_IMPLEMENTATION", "team4-trello")
+    for name in ("TRELLO_API_KEY", "TRELLO_TOKEN", "TRELLO_LIST_ID"):
+        monkeypatch.setenv(name, "controlled")
+    provider = Mock()
+    provider.create_issue.return_value = Issue(id="issue-1", title="Title")
+    monkeypatch.setattr(workflow_composition, "TrelloIssueProvider", lambda: provider)
+    with workflow_composition.open_issue_creator() as creator:
+        assert creator.create_issue("Title") == Issue(id="issue-1", title="Title")
+    provider.create_issue.assert_called_once_with("Title")
+    provider.close.assert_called_once_with()
+
+
+def test_tagged_team4_provider_instantiates_through_factory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ISSUE_TRACKER_IMPLEMENTATION", "team4-trello")
+    for name in ("TRELLO_API_KEY", "TRELLO_TOKEN", "TRELLO_LIST_ID"):
+        monkeypatch.setenv(name, "controlled")
+    with workflow_composition.open_issue_creator() as creator:
+        assert isinstance(creator, workflow_composition.IssueTrackerCreator)
+        assert isinstance(creator.provider, workflow_composition.TrelloIssueProvider)
+
+
+@pytest.mark.parametrize(
+    "code,status",
+    [
+        (IssueErrorCode.ACCESS_DENIED, 403),
+        (IssueErrorCode.SERVICE_NOT_CONFIGURED, 503),
+        (IssueErrorCode.PROVIDER_ERROR, 502),
+    ],
+)
+def test_issue_contract_errors_map_through_workflow(
+    resources: tuple[dict[str, Mock], list[str]], code: IssueErrorCode, status: int
+) -> None:
+    provider = Mock()
+    provider.create_issue.side_effect = IssueServiceError(code, "private")
+    resources[0][
+        "issue_tracker"
+    ].create_issue.side_effect = workflow_composition.IssueTrackerCreator(
+        provider
+    ).create_issue
+    with TestClient(create_app()) as client:
+        response = client.post("/workflows/project-kickoff", json=BODY)
+    assert response.status_code == status
+    assert response.json()["failed_step"] == "issue_tracker"
+    assert response.json()["error"]["retryable"] is False
+    assert "private" not in response.text
+    provider.create_issue.assert_called_once_with("Kickoff follow-up")
 
 
 def test_openapi_keeps_original_request_success_and_documents_new_errors() -> None:

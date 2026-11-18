@@ -31,7 +31,8 @@ The fixed [`POST /workflows/project-kickoff`](docs/CONTRACT.md#project-kickoff-c
 retains step-aware failure/progress information without retrying writes.
 [Workflow configuration](docs/DESIGN.md#hw3-milestone-1-workflow-configuration-and-partial-failure-84)
 distinguishes real construction from explicit synthetic failure verification;
-real Issue Tracker wiring and a second compatible storage implementation remain pending.
+the [Issue Tracker handoff](docs/ISSUE_TRACKER_HANDOFF.md) documents Team 4
+configuration and remaining live verification. A second compatible storage implementation remains pending.
 The [operator quick reference](docs/OPERATIONS.md) identifies the running
 resources, health, release, telemetry, recovery path, costs, and blast radius.
 
