@@ -35,7 +35,7 @@ and the contract tag in `pyproject.toml` and `uv.lock`.
 ## Configuration and behavior
 
 Set `ISSUE_TRACKER_IMPLEMENTATION=team4-trello` and supply all three Trello
-variables above. Missing or unsupported selection and missing credentials fail
+variables above. Missing or unsupported selection and missing or whitespace-only credentials fail
 at Issue Tracker setup before any workflow writes. The adapter closes the Team 4
 provider after each workflow. It translates shared invalid-input, not-found,
 access-denied, and unconfigured errors to corresponding Team 2 errors; other

@@ -76,7 +76,7 @@ def open_issue_creator() -> Iterator[IssueCreator]:
             "Issue Tracker implementation is not configured", provider_involved=False
         )
     if any(
-        not os.getenv(name)
+        not os.getenv(name, "").strip()
         for name in ("TRELLO_API_KEY", "TRELLO_TOKEN", "TRELLO_LIST_ID")
     ):
         raise ProviderUnavailableError(

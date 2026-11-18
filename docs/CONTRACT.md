@@ -423,7 +423,8 @@ The request body is:
 
 `event` uses the existing shared Calendar create model. `document_path` must be a
 nonempty absolute path, `document_content` must be a nonempty string, and
-`issue_title` must contain non-whitespace content. Unknown fields are rejected.
+`issue_title` must contain non-whitespace content and be at most 256 characters,
+matching the shared Issue Tracker contract. Unknown fields are rejected.
 
 After all three steps succeed, the operation returns HTTP 201 with one combined
 provider-independent result:
