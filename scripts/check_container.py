@@ -103,14 +103,18 @@ def main() -> None:
                 "Runtime token must be readable/writable only by its owner"
             )
 
-            def request(path: str, *, authorized: bool = False) -> tuple[int, dict]:
+            def request(
+                path: str, *, authorized: bool = False, data: bytes | None = None
+            ) -> tuple[int, dict]:
                 headers = (
                     {"Authorization": "Bearer " + os.environ["CALENDAR_API_TOKEN"]}
                     if authorized
                     else {}
                 )
                 req = urllib.request.Request(
-                    "http://127.0.0.1:18068" + path, headers=headers
+                    "http://127.0.0.1:18068" + path,
+                    data=data,
+                    headers={**headers, "Content-Type": "application/json"},
                 )
                 try:
                     response = urllib.request.urlopen(req, timeout=3)
@@ -126,6 +130,32 @@ def main() -> None:
             assert status == 503 and body["error"]["retryable"] is True
             assert request("/readyz")[0] == 200
             assert request("/healthz")[0] == 200
+            # Exercise packaged HW3 imports and the real HTTP composition route,
+            # without networking or provider credentials. This is synthetic proof.
+            os.environ["WORKFLOW_IMPLEMENTATION"] = "controlled"
+            os.environ["WORKFLOW_FAIL_STEP"] = "storage"
+            payload = json.dumps(
+                {
+                    "event": {
+                        "title": "Container verification",
+                        "start": "2030-01-07T15:00:00Z",
+                        "end": "2030-01-07T15:30:00Z",
+                    },
+                    "document_path": "/container-verification.md",
+                    "document_content": "synthetic",
+                    "issue_title": "Container verification",
+                }
+            ).encode()
+            assert request("/workflows/project-kickoff", data=payload)[0] == 403
+            status, body = request(
+                "/workflows/project-kickoff", authorized=True, data=payload
+            )
+            assert status == 403 and body["failed_step"] == "storage"
+            assert body["failure_stage"] == "operation"
+            assert body["steps"]["calendar"]["outcome"] == "succeeded"
+            assert body["steps"]["storage"]["outcome"] == "failed"
+            assert body["steps"]["issue_tracker"]["outcome"] == "not_attempted"
+            assert body["error"]["retryable"] is False
         finally:
             server.should_exit = True
             thread.join(timeout=10)

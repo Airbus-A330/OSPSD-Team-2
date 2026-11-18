@@ -53,3 +53,8 @@ infra-check:
 .PHONY: container-check
 container-check:
 	docker run --rm --platform linux/amd64 --network none -i $(CONTAINER_IMAGE) python - < scripts/check_container.py
+
+# Opt-in: creates three test records and retains them for provider inspection.
+.PHONY: verify-kickoff
+verify-kickoff:
+	uv run --locked python -m scripts.verify_kickoff --allow-create

@@ -41,7 +41,9 @@ resources, health, release, telemetry, recovery path, costs, and blast radius.
 ## Automated delivery
 
 [Delivery and rollback](docs/DELIVERY.md) uses the existing container and Render
-Blueprint on `assgn2-ms3-submission`. PR checks include Infrastructure validation
+Blueprint on `hw3-ms1-submission`. See [HW3 deployment and verification](docs/HW3_DEPLOYMENT.md)
+for new runtime configuration and the distinction between Calendar smoke and
+three-provider acceptance evidence. PR checks include Infrastructure validation
 and explicit controlled shared conformance. The retained Delivery evidence records
 a successful immutable deployment, real-provider smoke/cleanup, and the bounded
 game-day recovery. Leon Liu deployed and tested the Render service, and Nicolas

@@ -2,7 +2,7 @@ name: Delivery
 
 on:
   push:
-    branches: [assgn2-ms3-submission]
+    branches: [hw3-ms1-submission]
   workflow_dispatch:
     inputs:
       image:
@@ -27,16 +27,16 @@ concurrency:
 
 jobs:
   build-check:
-    if: github.ref == 'refs/heads/assgn2-ms3-submission'
+    if: github.ref == 'refs/heads/hw3-ms1-submission'
     uses: ./.github/workflows/build.yml
   format-check:
-    if: github.ref == 'refs/heads/assgn2-ms3-submission'
+    if: github.ref == 'refs/heads/hw3-ms1-submission'
     uses: ./.github/workflows/format.yml
   tests-check:
-    if: github.ref == 'refs/heads/assgn2-ms3-submission'
+    if: github.ref == 'refs/heads/hw3-ms1-submission'
     uses: ./.github/workflows/tests.yml
   infra-check:
-    if: github.ref == 'refs/heads/assgn2-ms3-submission'
+    if: github.ref == 'refs/heads/hw3-ms1-submission'
     uses: ./.github/workflows/infrastructure.yml
 
   artifact:
