@@ -1,6 +1,7 @@
 # Delivery and rollback
 
-Status: implemented and exercised. Retained evidence records an immutable
+HW2 status: implemented and exercised. HW3 deployment/provider verification is
+pending; see [HW3 deployment and evidence](HW3_DEPLOYMENT.md). Retained evidence records an immutable
 deployment with real-provider smoke/cleanup and a bounded faulty-release recovery
 using the same Delivery path. Public contract unchanged; no dependency changes.
 Use the existing [Dockerfile](../Dockerfile), [Blueprint](../infra/render.template.yaml),
@@ -26,7 +27,7 @@ obsolete image. Retain each generated Blueprint as the image-selection record.
 
 Repository administrators must establish these protections before delivery:
 
-1. Protect `assgn2-ms3-submission`: require a teammate approval, current Build,
+1. Protect `hw3-ms1-submission`: require a teammate approval, current Build,
    Format, Tests and Infrastructure checks, and an up-to-date branch. Restrict
    direct pushes and bypasses. YAML alone cannot require reviewed merges.
 2. Create GitHub environments `production` and `disposable`, restricted to the
@@ -144,7 +145,7 @@ Render deployment; reconcile both before resuming.
 3. Confirm the digest remains in GHCR. Check runtime configuration compatibility;
    image rollback does not restore env values. If changed, restore reviewed
    configuration separately in protected Render settings without exporting it.
-4. Actions → Delivery → Run workflow: select `assgn2-ms3-submission`, paste
+4. Actions → Delivery → Run workflow: select `hw3-ms1-submission`, paste
    the retained digest reference, select `production` (or `disposable` for the
    exercise) and approve the environment if required. Dispatch never rebuilds.
    Use the integrated workflow revision. GitHub must know the workflow on the

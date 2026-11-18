@@ -1,4 +1,74 @@
-# Shared Calendar Contract Migration Design
+# Calendar and Three-Vertical Composition Design
+
+## HW3 deployment and request trace (#85)
+
+The [deployment runbook](HW3_DEPLOYMENT.md) is the configuration, hosted usage,
+verification, cleanup, and evidence source of truth. HW2 evidence below remains
+historical; it does not certify the new three-provider operation.
+
+```mermaid
+flowchart TD
+    Caller[Caller with API bearer token] --> API[Render: FastAPI hosted API]
+    API --> W[Fixed project kickoff workflow]
+    W --> C[CalendarService contract]
+    W --> S[DocumentStorage contract]
+    W --> I[IssueProvider contract]
+    C --> C2[Team 2 Google implementation]
+    S --> S3[Team 3 Dropbox implementation]
+    I --> I4[Team 4 Trello implementation]
+    C2 --> Google[Google Calendar]
+    S3 --> Dropbox[Dropbox]
+    I4 --> Trello[Trello]
+    Runtime[Render runtime secrets: provider credentials] -.-> C2
+    Runtime -.-> S3
+    Runtime -.-> I4
+    GH[GitHub Actions: Render key and HTTP bearer token] --> Render[Render deploy API]
+    Render --> API
+```
+
+Provider credentials remain behind the hosted service boundary. The caller only
+needs the HTTP bearer token. GitHub builds the locked image and selects its
+digest; provider credentials are neither baked into layers nor sent to callers.
+The workflow uses small capability protocols over the shared contract packages;
+concrete package construction is owned by the configuration boundary.
+
+### Concrete request trace (illustrative, not observed evidence)
+
+Consider the request in [HW3_DEPLOYMENT.md](HW3_DEPLOYMENT.md#run-the-deployed-operation)
+with `UNIQUE-MARKER=example-001`. HTTP validation rejects bad fields before
+provider construction. Issue Tracker, Calendar and Storage are preflighted and
+owned by an `ExitStack`; no write has happened at this point.
+
+1. Calendar creates the kickoff event for 2030-01-07 15:00–15:30 UTC. Its returned
+   Event becomes `calendar.outcome=succeeded`; later steps are not attempted yet.
+2. Storage writes `/kickoff-example-001.md` with the supplied UTF-8 text. Its
+   returned document ID/path becomes `storage.outcome=succeeded`. Calendar remains.
+3. Issue Tracker creates `Project kickoff example-001`. Its ID/title becomes
+   `issue_tracker.outcome=succeeded`. HTTP 201 returns all three result objects.
+
+The caller supplies the related text; this implementation does not automatically
+insert the returned Calendar ID into the document or the document ID into the
+card. Each result is preserved in the combined response. All request-scoped
+clients close when the dependency exits.
+
+If Storage fails after Calendar creation, the error names Storage, preserves the
+confirmed Calendar event, and leaves Issue Tracker unattempted. No automatic
+compensation or replay occurs. The client must inspect the provider state before
+resubmission. Existing partial-failure decisions below remain authoritative.
+
+### Deployment decision
+
+Constraint: HW3 must reuse the HW2 delivery path. Keep the existing image-backed
+Render service and digest-based Delivery workflow, changing the integration
+branch and adding external runtime configuration. A second independent pipeline
+would duplicate release/rollback controls; another production instance would
+split URLs and credentials. The tradeoff is that changing the shared service
+can affect teammates, so stage configuration and coordinate rollout. Revisit
+separate staging when concurrent demonstrations or incompatible runtime settings
+require isolation. The deployment probe still verifies Calendar; the separate
+opt-in composition check and direct provider inspection establish HW3 evidence.
+
+
 
 ## HW3 Milestone 1: workflow configuration and partial failure (#84)
 
