@@ -43,6 +43,18 @@ the authoritative contract. No mismatch was found in Team 3's exercised
 create/download/conflict path. Other operations are not claimed verified.
 No external issue or message has been submitted on another team's behalf.
 
+Rechecked for #84 on 2026-11-17: those are still the latest published tags.
+[Team 1's tagged interface](https://github.com/Dayana20/sandbox/blob/v1.1.0/app/providers/base.py)
+defines `upload(path, content) -> FileResource` under its top-level `app`
+namespace, not shared `DocumentStorage.create(path, content) -> FileInfo`.
+[Team 6's tagged interface](https://github.com/FaizalJnu/OSPSD-TEAM-6/blob/v0.1.0/src/storage_service/storage/base.py)
+defines `put(key, stream, content_type)`, which creates **or overwrites**, rather
+than the shared create-only operation. Thus renaming a method or ignoring the
+Python constraint would not establish compatible semantics. Either team needs
+a compatible, installable release/adapter behind the shared contract before
+#84's genuine different-team swap can be verified. Controlled workflow mode is
+not a substitute. No upstream package or dependency constraints were modified.
+
 ## Construction and credentials
 
 Set `STORAGE_IMPLEMENTATION=team3` explicitly. This is the first storage selector

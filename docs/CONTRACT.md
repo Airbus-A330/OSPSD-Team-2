@@ -456,10 +456,72 @@ provider-independent result:
 }
 ```
 
-The workflow performs each write once and does not retry completed steps. Real
-vertical-package selection and cross-vertical failure responses are supplied at
-the composition boundary by their integration workstreams; this operation's
-orchestration contains no provider SDK behavior.
+### Failure and progress response (#84)
+
+The success request/HTTP 201 response above are unchanged. For a workflow setup
+or operation failure, the endpoint preserves the shared `error` fields and adds
+`failed_step`, `failure_stage` and `steps`. For example, after Calendar succeeds
+but the storage write has an uncertain outcome, HTTP 502 returns:
+
+```json
+{
+  "error": {
+    "code": "provider_error",
+    "message": "Workflow storage operation failed",
+    "retryable": false
+  },
+  "failed_step": "storage",
+  "failure_stage": "operation",
+  "steps": {
+    "calendar": {
+      "outcome": "succeeded",
+      "event": {
+        "id": "event-123",
+        "title": "Project kickoff",
+        "start": "2026-11-16T10:00:00-05:00",
+        "end": "2026-11-16T11:00:00-05:00"
+      }
+    },
+    "storage": {"outcome": "uncertain"},
+    "issue_tracker": {"outcome": "not_attempted"}
+  }
+}
+```
+
+`failed_step` is `calendar`, `storage`, `issue_tracker`, or `configuration` for
+invalid workflow selection. `failure_stage` is `setup` or `operation`. Setup
+completes before any workflow write; a setup failure leaves all three writes
+`not_attempted`, even when the failed constructor is the last one acquired.
+Constructors acquire Issue Tracker, Calendar, then Storage; **writes** still run
+Calendar, Storage, then Issue Tracker. Acquired resources close on every exit.
+
+A confirmed successful step retains its existing public result/identifier.
+Known input/not-found/access rejections are `failed`; provider errors,
+unavailability and unexpected call/result-validation errors are conservatively
+`uncertain` because the workflow cannot prove the write did not commit. The
+later steps stay `not_attempted`. Exception text/details are never returned.
+
+Codes/statuses remain `invalid_input`/422, `not_found`/404, `access_denied`/403,
+`provider_error`/502 and `provider_unavailable`/503. Malformed request JSON is
+400; request/schema errors are 422 with only `error` (no step was entered).
+Input validation precedes provider construction. All workflow error envelopes
+include boolean `retryable`; Calendar operations' existing contracts are unchanged.
+
+**No automatic retry, rollback, resume or request deduplication is provided.**
+Operation failures always return `retryable=false`, even if the underlying
+single-operation error was retryable: replaying the workflow may duplicate an
+earlier successful write. A setup-only error may retain retryability because no
+workflow writes ran. The caller must correct configuration/access/input or
+reconcile provider state, using retained identifiers and the stable document
+path, before starting a new execution. Repeating the same HTTP request is a
+**new run**, not a continuation: Calendar may be created again before storage
+rejects an existing path. A conflict is not proof that the original content
+matches or that the whole workflow succeeded.
+
+Runtime configuration and the pending real Issue Tracker/second-team storage
+handoffs are documented in [DESIGN.md](DESIGN.md#hw3-milestone-1-workflow-configuration-and-partial-failure-84).
+Only explicit controlled mode uses synthetic providers; it is never a fallback,
+real-provider verification, or evidence of a different-team implementation swap.
 
 ## Domain Models
 

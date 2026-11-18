@@ -27,6 +27,11 @@ HW3 issue #82 adds a configuration-selected Team 3 Cloud Storage package.
 [Storage integration](docs/STORAGE.md) documents tagged dependencies, external
 credentials, workflow handoff, error/retry behavior, and completed live-provider
 verification.
+The fixed [`POST /workflows/project-kickoff`](docs/CONTRACT.md#project-kickoff-composition-workflow)
+retains step-aware failure/progress information without retrying writes.
+[Workflow configuration](docs/DESIGN.md#hw3-milestone-1-workflow-configuration-and-partial-failure-84)
+distinguishes real construction from explicit synthetic failure verification;
+real Issue Tracker wiring and a second compatible storage implementation remain pending.
 The [operator quick reference](docs/OPERATIONS.md) identifies the running
 resources, health, release, telemetry, recovery path, costs, and blast radius.
 

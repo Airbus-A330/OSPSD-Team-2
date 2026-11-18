@@ -36,6 +36,42 @@ requires no Grafana credentials or network access.
 
 Repository-wide testing rules are defined in `../AGENTS.md`.
 
+## HW3 workflow failure and configuration (#84)
+
+`tests/test_project_kickoff_workflow.py` retains the original exact successful
+result and adds HTTP coverage for every step against input/not-found/access,
+provider/unavailability and unexpected failures. It checks earlier results,
+later unattempted steps, sanitized shared codes/statuses, uncertainty and no
+automatic retry. Controlled lost responses retain committed state; a repeated
+HTTP request explicitly demonstrates duplicate Calendar risk before storage
+rejects the existing path. Prior successful executions do not leak state into a
+new failure, malformed results remain uncertain, and nullable storage IDs work.
+
+`tests/test_workflow_composition.py` covers actual dependency resolution,
+construction preflight, reverse cleanup on success/failure, explicit controlled
+selection for all three steps, rejection of invalid mode/fault combinations,
+existing Calendar/Storage selectors before auth, input validation before client
+setup, the pending Issue Tracker seam and OpenAPI request/response shapes.
+Changing only controlled configuration changes the failing step; this is not
+presented as a real different-team package swap.
+
+All these cases are credential-free and run in `make test` / `make check`.
+`make conformance` checks the existing shared Calendar behavior separately.
+The storage package tests above still verify real package error translation
+through the helper used by workflow construction. No existing checks are skipped.
+
+For local, credential-free API failure demonstration, explicitly set
+`WORKFLOW_IMPLEMENTATION=controlled` and `WORKFLOW_FAIL_STEP=storage`, then start
+the existing local `app.main:app` entry point and POST the request from
+[CONTRACT.md](CONTRACT.md#project-kickoff-composition-workflow). It returns 403,
+Calendar `controlled-event` succeeded, storage failed and issue not attempted.
+Change only the fail-step variable to `calendar` or `issue_tracker` for the other
+cases. These results are deliberately synthetic; do not claim provider records.
+
+Real Team 4 setup, compatible second-team storage, deployed three-vertical runs,
+provider inspection, actual config-only package swap and new human design
+reviews remain external acceptance work. See [DESIGN.md](DESIGN.md#hw3-milestone-1-workflow-configuration-and-partial-failure-84).
+
 ## Shared contract integration
 
 `tests/integration/test_shared_conformance.py` subclasses the complete upstream

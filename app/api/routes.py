@@ -17,9 +17,11 @@ from app.models import CreateEventRequest, Event, EventPatch, EventReplacement
 from app.providers import EventProvider
 from app.workflow_composition import get_project_kickoff_workflow
 from app.workflows import (
+    ProjectKickoffFailureResult,
     ProjectKickoffRequest,
     ProjectKickoffResult,
     ProjectKickoffWorkflow,
+    WorkflowErrorResponse,
 )
 
 router = APIRouter()
@@ -28,6 +30,14 @@ router = APIRouter()
 @router.post(
     "/workflows/project-kickoff",
     response_model=ProjectKickoffResult,
+    responses={
+        400: {"model": WorkflowErrorResponse},
+        422: {"model": WorkflowErrorResponse | ProjectKickoffFailureResult},
+        **{
+            code: {"model": ProjectKickoffFailureResult}
+            for code in (403, 404, 502, 503)
+        },
+    },
     status_code=status.HTTP_201_CREATED,
     name="create_project_kickoff",
 )
