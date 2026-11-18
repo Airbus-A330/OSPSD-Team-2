@@ -7,6 +7,8 @@ dependencies = [
     "calendar-contract",
     "cloud-storage-api",
     "dropbox-client-impl",
+    "issue-tracker-contract==1.1.0",
+    "team-4-issue-tracker-trello==1.0.0",
     "fastapi==0.124.4",
     "google-api-python-client==2.201.0",
     "google-auth-httplib2==0.4.4",
@@ -34,3 +36,5 @@ calendar-contract = { git = "https://github.com/Airbus-A330/OSPSD-Calendar.git",
 cloud-storage-api = { git = "https://github.com/Dayana20/ospsd26-cloud-storage", tag = "0.3.1", subdirectory = "src/cloud_storage_api" }
 dropbox-client-impl = { git = "https://github.com/Shreyas191/OSPSD-Team-3", tag = "v0.3.0", subdirectory = "src/dropbox_client_impl" }
 cloud-storage-client-api = { git = "https://github.com/Shreyas191/OSPSD-Team-3", tag = "v0.3.0", subdirectory = "src/cloud_storage_client_api" }
+issue-tracker-contract = { git = "https://github.com/Tyler-Arciniaga/OSPSD-Team-4.git", rev = "issue-tracker-contract-v1.1.0", subdirectory = "contract" }
+team-4-issue-tracker-trello = { git = "https://github.com/Tyler-Arciniaga/OSPSD-Team-4.git", rev = "team-4-issue-tracker-trello-v1.0.0", subdirectory = "team-4-trello-impl" }
