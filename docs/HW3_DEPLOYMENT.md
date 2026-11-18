@@ -151,7 +151,7 @@ sample results.
 | Hosted three-step happy path | Pending external credentials and deployment |
 | Direct Calendar / Dropbox / Trello confirmation | Pending |
 | Test-record cleanup | Pending |
-| Controlled step-aware failure | Pending recorded exercise |
+| Controlled step-aware failure | Local offline container storage failure and three-step failure tests passed; see 2026-11-18 check below |
 | Genuine configuration-only implementation swap | Blocked: no supported second implementation; see DESIGN.md |
 | Architecture and request trace | [DESIGN.md](DESIGN.md#hw3-deployment-and-request-trace-85) |
 | External-team design review and substantive responses | Pending review request and response links |
@@ -173,3 +173,22 @@ On the uncommitted #85 working tree based on `7892b35`:
   check result is claimed. The independent infrastructure check above passed.
 - No cloud deployment, credential changes, provider writes or external review
   were performed as part of this preparation.
+
+## Local Docker and failure checks (2026-11-18)
+
+Tested source revision `69c0d2f` on the issue #85 branch:
+
+- `make container-build container-check CONTAINER_IMAGE=ospsd-team2-issue85:local`
+  passed with the pinned Linux/amd64 base images and locked dependencies.
+  Local image ID: `sha256:5569b85df31673dbccb1e48241842979d6f8ae965b18ecba3269f974cbe998ba`.
+- The disposable container ran with `--network none` and synthetic credentials.
+  Checks covered non-root startup, rejection of missing configuration, ephemeral
+  token-cache recovery, readiness, authentication, and the real HTTP workflow
+  route with a controlled storage failure: Calendar succeeded, Storage failed,
+  Issue Tracker was not attempted, and `retryable` was false.
+- `uv run --locked python -m pytest -q tests/test_project_kickoff_workflow.py tests/test_workflow_composition.py tests/test_verify_kickoff.py`:
+  83 passed; one existing Starlette/AnyIO deprecation warning. This covers each
+  step's failure, setup failures before writes, partial progress, no automatic
+  retries, client cleanup, uncertain writes, and sanitized verification reports.
+- These are local synthetic checks, not hosted three-provider acceptance or a
+  real implementation swap. No Render configuration or deployment was changed.
