@@ -40,7 +40,7 @@ applying the template blindly.
 | `DROPBOX_APP_KEY` | Dedicated test app, coordinate with Nicolas (#82) |
 | `DROPBOX_APP_SECRET` | External secret from the test app owner |
 | `DROPBOX_REFRESH_TOKEN` | Authorized test-account refresh token |
-| `TRELLO_API_KEY` | Dedicated test app, coordinate with Dorien (#83) |
+| `TRELLO_API_KEY` | Dedicated test app provisioned by the deployment operator; see the Trello check below |
 | `TRELLO_TOKEN` | Authorized token for that test account |
 | `TRELLO_LIST_ID` | Dedicated disposable test list |
 
@@ -192,3 +192,24 @@ Tested source revision `69c0d2f` on the issue #85 branch:
   retries, client cleanup, uncertain writes, and sanitized verification reports.
 - These are local synthetic checks, not hosted three-provider acceptance or a
   real implementation swap. No Render configuration or deployment was changed.
+
+## Direct Trello API check (2026-11-18)
+
+At 20:20:45 UTC, the deployment operator verified the test account's API key and
+token directly against the Trello REST API from a local process. The target was
+the private `OSPSD Team 2 Test` board's `API Test` list. The disposable card used
+the unique marker `OSPSD disposable API verification 8ec59573c2aa`.
+
+| Check | Observed result |
+| --- | --- |
+| Read target list and confirm its name | HTTP 200; `API Test` matched |
+| Create disposable card | HTTP 200; card ID returned |
+| Read the created card | HTTP 200; title, description and list ID matched |
+| Delete that test card | HTTP 200 |
+| Read the deleted card again | HTTP 404; cleanup confirmed |
+
+All five checks passed. Credentials were supplied only to the local test process
+and are excluded from this evidence. No Render settings or deployment changed.
+This verifies Trello credential access and direct API create/read/delete behavior;
+it does not exercise the shared issue-tracker adapter or the composed HTTP route.
+Hosted three-provider verification and its cleanup evidence remain pending.
