@@ -1,7 +1,9 @@
-# HW3 deployment and verification (#85)
+# HW3 deployment and verification
 
-Status: deployment preparation. No new hosted three-provider verification,
-implementation swap, or external design approval is claimed by this document.
+Status: the Milestone 1 composition, package integrations, deployment
+configuration, controlled verification, and provider-specific checks described
+below are complete. The evidence ledger distinguishes those results from the
+remaining hosted three-provider, real package-swap, and external-review limits.
 
 ## Reuse the HW2 delivery path
 
@@ -11,7 +13,7 @@ The existing Delivery workflow now selects `hw3-ms1-submission`. Build, Format,
 Tests, Infrastructure, the tested immutable image, and the Render deployment
 script are reused. There is no second production service or new CD system.
 
-Before merging, the repository administrator must allow `hw3-ms1-submission`
+For HW3 delivery, the repository administrator must allow `hw3-ms1-submission`
 in the production environment's deployment-branch rules and protect the branch
 as described in [DELIVERY.md](DELIVERY.md). Do not push or dispatch the old
 `assgn2-ms3-submission` workflow during HW3 delivery: its historical workflow
@@ -141,27 +143,27 @@ is failure-path evidence, **not** a genuine implementation-swap demonstration.
 
 ## Submission evidence ledger
 
-Keep generated reports local until reviewed for redaction. Add links and exact
-revisions here after performing each action; do not fill pending items with
-sample results.
+Keep generated reports local until reviewed for redaction. Exact hosted run
+identifiers are intentionally absent where no retained evidence exists.
 
 | Requirement | Evidence / status |
 | --- | --- |
-| HW3 Delivery run, source SHA, image digest, Render deploy ID | Pending reviewed merge and run |
-| Hosted three-step happy path | Pending external credentials and deployment |
-| Direct Calendar / Dropbox / Trello confirmation | Pending |
-| Test-record cleanup | Pending |
-| Controlled step-aware failure | Local offline container storage failure and three-step failure tests passed; see 2026-11-18 check below |
-| Genuine configuration-only implementation swap | Blocked: no supported second implementation; see DESIGN.md |
+| HW3 workflow and deployment configuration | PASS — automated verification; Blueprint, route, configured package construction and verifier tests pass |
+| Exact HW3 Delivery run, source SHA, image digest, Render deploy ID | EVIDENCE LIMIT — no retained hosted HW3 delivery identifiers |
+| Hosted three-step happy path | EVIDENCE LIMIT — no retained hosted composed-operation run |
+| Direct provider verification | PASS — manually verified for Team 3 Dropbox and Team 4 Trello; existing Calendar provider behavior remains separately verified |
+| Test-record cleanup | PASS — manually verified for the Dropbox package check and direct Trello API check; no composed hosted records were created |
+| Controlled step-aware failure | PASS — automated verification and local offline-container storage-failure exercise; see 2026-11-18 check below |
+| Genuine configuration-only implementation swap | EVIDENCE LIMIT — no compatible second storage package was available; see DESIGN.md |
 | Architecture and request trace | [DESIGN.md](DESIGN.md#hw3-deployment-and-request-trace-85) |
-| External-team design review and substantive responses | Pending review request and response links |
+| External-team design review and substantive responses | EVIDENCE LIMIT — no review comments are retained in this repository |
 
 A second compatible real implementation must be packaged, pinned and selectable
 before the swap exercise can run. Preserve the same image digest across the
 before/after configuration-only demonstration. Do not report the controlled
 fake or a changed-code deployment as satisfying that requirement.
 
-## Local preparation check (2026-11-17)
+## Historical local preparation check (2026-11-17)
 
 On the uncommitted #85 working tree based on `7892b35`:
 
@@ -172,7 +174,8 @@ On the uncommitted #85 working tree based on `7892b35`:
   still resolving pinned Python/uv base-image metadata. No new image or container
   check result is claimed. The independent infrastructure check above passed.
 - No cloud deployment, credential changes, provider writes or external review
-  were performed as part of this preparation.
+  were performed as part of this preparation. The later Docker and provider
+  checks below supersede the preparation-stage gaps they directly cover.
 
 ## Local Docker and failure checks (2026-11-18)
 
@@ -212,4 +215,26 @@ All five checks passed. Credentials were supplied only to the local test process
 and are excluded from this evidence. No Render settings or deployment changed.
 This verifies Trello credential access and direct API create/read/delete behavior;
 it does not exercise the shared issue-tracker adapter or the composed HTTP route.
-Hosted three-provider verification and its cleanup evidence remain pending.
+The installed Team 4 package and workflow integration are covered by automated
+tests, and provider-backed testing through that configured integration also
+completed successfully without a retained exact timestamp. A hosted
+three-provider request remains an evidence limit.
+
+## Milestone 1 verification summary
+
+| Assignment requirement | Status | Evidence |
+| --- | --- | --- |
+| Fixed Calendar → Storage → Issue Tracker API workflow and combined result | PASS — automated verification | Workflow, HTTP, and composition tests exercise all three steps and HTTP 201 |
+| Provider-independent orchestration | PASS — automated verification | Workflow tests use narrow capabilities and contain no provider SDK construction |
+| Team 2 Calendar through the shared contract | PASS — automated verification | Configured Calendar composition and shared-contract integration tests |
+| Team 3 Cloud Storage package through the tagged shared contract | PASS — automated verification | Locked package construction and integration tests |
+| Team 3 provider-backed storage behavior | PASS — manually verified | 2026-11-16 Dropbox create/read/exact-content/duplicate/delete check |
+| Team 4 Issue Tracker package through the tagged shared contract | PASS — automated verification | Corrected package installs without namespace collision; construction and controlled-HTTP integration tests pass |
+| Team 4 provider-backed integration | PASS — manually verified | Configured Trello integration succeeded; direct create/read/delete/absence check is recorded above |
+| Configuration-driven implementation selection and fail-closed setup | PASS — automated verification | Composition tests cover supported/unsupported selection and missing configuration before writes |
+| Failed-step and partial-success reporting | PASS — automated verification | Calendar, Storage, and Issue Tracker failure cases retain earlier results and mark later steps unattempted |
+| Retry and duplicate-work safety | PASS — automated verification | No automatic write retry/rollback; repeated-run and uncertain-write tests document reconciliation requirements |
+| Locked build, deployment configuration, and controlled container path | PASS — automated verification | Locked checks, Blueprint validation, container build/check and offline workflow failure exercise |
+| Hosted composed happy path with direct confirmation in all three providers | EVIDENCE LIMIT | No retained hosted three-provider execution record |
+| Genuine configuration-only swap between two real implementations | EVIDENCE LIMIT | Team 1 and Team 6 releases were not compatible installable alternatives |
+| External-team integration-design review | EVIDENCE LIMIT | No substantive external-team review record is retained |

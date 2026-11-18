@@ -31,8 +31,10 @@ The fixed [`POST /workflows/project-kickoff`](docs/CONTRACT.md#project-kickoff-c
 retains step-aware failure/progress information without retrying writes.
 [Workflow configuration](docs/DESIGN.md#hw3-milestone-1-workflow-configuration-and-partial-failure-84)
 distinguishes real construction from explicit synthetic failure verification;
-the [Issue Tracker handoff](docs/ISSUE_TRACKER_HANDOFF.md) documents Team 4
-configuration and remaining live verification. A second compatible storage implementation remains pending.
+the [Issue Tracker handoff](docs/ISSUE_TRACKER_HANDOFF.md) documents the tagged
+Team 4 package, configuration, automated integration coverage, and direct Trello
+provider verification. No compatible second storage implementation was available
+for the assignment's configuration-only package-swap demonstration.
 The [operator quick reference](docs/OPERATIONS.md) identifies the running
 resources, health, release, telemetry, recovery path, costs, and blast radius.
 

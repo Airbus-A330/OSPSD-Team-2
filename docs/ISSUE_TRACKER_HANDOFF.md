@@ -66,7 +66,15 @@ returned card directly from Trello to check its ID, title and list, and deletes
 a confirmed creation. If creation fails without an ID, inspect the list for the
 printed unique title before retrying; a write could have succeeded despite a
 lost response. This test verifies the Issue Tracker integration, not the full
-three-provider workflow or deployment. Record the date and outcome after a real
-run; do not record credentials. No Trello credentials were present during this
-work, so live creation and direct read-back remain unverified and the Team 2
-integration issue remains open. Team 4's packaging collision is resolved.
+three-provider workflow or deployment.
+
+Team 4's packaging collision is resolved, and its tagged package installs and
+constructs alongside Team 2 without a namespace collision. Automated tests use
+the installed package through the configured factory and controlled Trello HTTP.
+The deployment operator also completed a direct Trello API create/read/delete
+check and confirmed cleanup, as recorded in
+[HW3_DEPLOYMENT.md](HW3_DEPLOYMENT.md#direct-trello-api-check-2026-11-18).
+Provider-backed testing through the configured Team 4 integration also
+completed successfully; an exact timestamp was not retained. The direct check
+separately proves the disposable target and cleanup behavior. Neither check is a
+retained hosted three-provider workflow run.

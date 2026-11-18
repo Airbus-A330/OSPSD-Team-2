@@ -140,7 +140,7 @@ leave the expected file present even though creation raised. Inspect
 belongs to the original request; never turn every conflict into success or
 retry with a fresh random path. There is no automatic rollback or retry here.
 
-## Verification and remaining acceptance
+## Verification
 
 `tests/test_storage.py` covers shared results, every shared error category,
 sanitization, no write retries, and unexpected-error propagation.
@@ -193,9 +193,9 @@ SDK `datetime.utcnow()` deprecations. OAuth credentials were saved locally;
 both `.env` and `.dropbox_token.json` were confirmed ignored by Git. No secret
 or account identity is retained in this evidence.
 
-This satisfies #82's provider-backed storage check, but does not establish a
-deployed composed API run. The composed-workflow/deployment owners must still
-retain a deployed request/result, independent provider record/content evidence
-before cleanup, configuration-swap evidence, and controlled failed-step evidence.
-Internal and external-team HW3 design reviews are pending; earlier HW2 review
-records do not establish review of this integration.
+This satisfies the provider-backed storage check. The fixed workflow, configured
+Team 3 construction, and controlled failed-step behavior are also covered by the
+automated composition suite. This package-level run does not establish a hosted
+three-provider request or a genuine configuration-only swap to another team's
+storage package. Those evidence limits, along with the unrecorded external-team
+HW3 design review, are tracked in [HW3_DEPLOYMENT.md](HW3_DEPLOYMENT.md).

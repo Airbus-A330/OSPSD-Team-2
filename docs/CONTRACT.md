@@ -519,8 +519,9 @@ path, before starting a new execution. Repeating the same HTTP request is a
 rejects an existing path. A conflict is not proof that the original content
 matches or that the whole workflow succeeded.
 
-Runtime configuration and the pending real Issue Tracker/second-team storage
-handoffs are documented in [DESIGN.md](DESIGN.md#hw3-milestone-1-workflow-configuration-and-partial-failure-84).
+Runtime configuration, the completed Team 3 and Team 4 package integrations,
+and the unavailable second-team storage-package option are documented in
+[DESIGN.md](DESIGN.md#hw3-milestone-1-workflow-configuration-and-partial-failure-84).
 Only explicit controlled mode uses synthetic providers; it is never a fallback,
 real-provider verification, or evidence of a different-team implementation swap.
 

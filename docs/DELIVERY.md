@@ -1,7 +1,9 @@
 # Delivery and rollback
 
-HW2 status: implemented and exercised. HW3 deployment/provider verification is
-pending; see [HW3 deployment and evidence](HW3_DEPLOYMENT.md). Retained evidence records an immutable
+HW2 status: implemented and exercised. The HW3 workflow, package integrations,
+deployment configuration, and local verification are complete; the remaining
+hosted evidence limits are listed in [HW3 deployment and evidence](HW3_DEPLOYMENT.md).
+Retained HW2 evidence records an immutable
 deployment with real-provider smoke/cleanup and a bounded faulty-release recovery
 using the same Delivery path. Public contract unchanged; no dependency changes.
 Use the existing [Dockerfile](../Dockerfile), [Blueprint](../infra/render.template.yaml),

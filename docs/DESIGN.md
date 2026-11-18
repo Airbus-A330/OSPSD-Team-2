@@ -32,8 +32,10 @@ digest; provider credentials are neither baked into layers nor sent to callers.
 The workflow uses small capability protocols over the shared contract packages;
 concrete package construction is owned by the configuration boundary.
 
-### Concrete request trace (illustrative, not observed evidence)
+### Implemented request trace
 
+The automated workflow and HTTP integration tests verify this request path. The
+values below are illustrative rather than retained hosted-provider evidence.
 Consider the request in [HW3_DEPLOYMENT.md](HW3_DEPLOYMENT.md#run-the-deployed-operation)
 with `UNIQUE-MARKER=example-001`. HTTP validation rejects bad fields before
 provider construction. Issue Tracker, Calendar and Storage are preflighted and
@@ -137,10 +139,11 @@ FastAPI/Uvicorn ranges. Do not silently patch around them or count a controlled
 fake as another team's implementation. A compatible second package and its
 actual deployed config-only swap demonstration remain external acceptance work.
 
-[TESTING.md](TESTING.md#hw3-workflow-failure-and-configuration-84) maps the new
-credential-free checks. Team 4 installation/adapter is documented in the handoff; final deployed
-three-vertical/provider-record/swap evidence and external-team design review
-belong to #85 and the team. No new live verification or review is claimed here.
+[TESTING.md](TESTING.md#hw3-workflow-failure-and-configuration-84) maps the
+credential-free checks. Team 4 installation, configuration, adapter behavior,
+and provider-backed Trello verification are documented in the handoff. The hosted
+three-provider run, real package swap, and external-team design review remain
+evidence limits tracked in [HW3_DEPLOYMENT.md](HW3_DEPLOYMENT.md).
 
 ## HW3 Milestone 1: Calendar composition entry point (issue #81)
 
@@ -212,21 +215,20 @@ response can leave an event without a returned ID and raises `provider_error`
 with `retryable=false`; it requires reconciliation before another create.
 
 Controlled creation, failure, cleanup, and configuration checks are described in
-[TESTING.md](TESTING.md#hw3-calendar-composition). Live verification of this entry
-point and the eventual deployed three-vertical workflow remains separate. It must
-confirm the kickoff event in the test calendar and clean up test-owned records.
-The other vertical integrations, implementation-swap demonstration, public
-partial-failure rendering, and deployment verification remain their owners' work.
+[TESTING.md](TESTING.md#hw3-calendar-composition). The Team 3 and Team 4 package
+integrations, public partial-failure rendering, and deployment configuration are
+implemented and covered by automated tests. A hosted three-provider run must
+still confirm the kickoff event and clean up test-owned records; it and the
+genuine second-package swap remain evidence limits.
 
 ## HW3 Milestone 1: storage integration (#82)
 
 This section establishes the storage portion of service composition. The
 remaining sections retain the HW2 design and its historical verification/review
-records. The HW3 workflow/failure behavior is now described in the #84 section
-above; final deployment/swap evidence and new human
-design reviews remain pending in their respective workstreams.
-The storage package's real Dropbox verification passed; no deployed HW3
-three-vertical run or new human review is claimed here.
+records. The HW3 workflow/failure behavior is described in the #84 section
+above. The storage package's real Dropbox verification passed, and the complete
+configured workflow is covered by automated tests. Hosted three-provider,
+second-package swap, and external review evidence are not claimed here.
 
 ```mermaid
 flowchart TD
@@ -239,12 +241,12 @@ flowchart TD
     Create --> Storage[DocumentStorage shared contract]
     Storage --> Team3[Team 3 DropboxDocumentStorage package]
     Team3 --> Dropbox[Dropbox document/content]
-    Workflow -. integration pending .-> Issue[Issue shared contract]
-    Issue -. integration pending .-> Team4[Team 4 implementation]
+    Workflow --> Issue[Issue shared contract]
+    Issue --> Team4[Team 4 implementation]
     Config[External test-account credentials/configuration] --> Factory[Construction boundaries]
     Factory --> Team2
     Factory --> Team3
-    Factory -. pending .-> Team4
+    Factory --> Team4
 ```
 
 Storage consumes the authoritative contract at tag `0.3.1` and Team 3's
@@ -256,8 +258,8 @@ canonical in [STORAGE.md](STORAGE.md).
 implementation, disables automatic SDK retries, and owns session cleanup.
 `app/storage.py` accepts only the shared interface, creates once, returns shared
 metadata, and translates typed storage errors into existing Team 2 errors.
-No Calendar interface or HTTP behavior changes. The composed route must attach
-failed-step information and preserve prior results; that route is outside #82.
+No Calendar interface behavior changes. The composed route attaches failed-step
+information and preserves prior results through the workflow error contract.
 
 ### Storage request trace and validation
 
@@ -297,11 +299,11 @@ There is no workflow-state persistence or automatic rollback in this issue.
 Controlled verification exercises the actual installed package over a controlled
 SDK, including a write committed before its response is lost. The opt-in live
 storage test passed against Dropbox on 2026-11-16, confirming exact content,
-duplicate refusal, and cleanup. Deployed three-vertical API,
-direct provider confirmation, different-team configuration swap, and step-aware
-failure evidence remain pending. See [storage verification](STORAGE.md#verification-and-remaining-acceptance).
-Internal and external-team HW3 review comments/responses must be recorded when
-those reviews happen; the HW2 reviewers below have not reviewed this addition.
+duplicate refusal, and cleanup. Automated tests verify the configured three-step
+workflow and step-aware failures at every stage. A hosted three-provider API run,
+genuine different-team storage-package swap, and external-team review remain
+evidence limits. See
+[storage verification](STORAGE.md#verification).
 
 ## Milestone 3 delivery
 

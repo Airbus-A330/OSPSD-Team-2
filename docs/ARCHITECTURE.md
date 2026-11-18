@@ -517,8 +517,8 @@ once. The successful result contains the public Calendar Event, stored-document
 ID/path, and issue ID/title with an explicit `succeeded` outcome for every step.
 Controlled tests replace the composition dependency, so they require no provider
 credentials or network. Real package adapters, configuration selection,
-cross-vertical error translation, and partial-failure reporting are separate
-Milestone 1 integration workstreams and do not require changes to this sequence.
+cross-vertical error translation, and partial-failure reporting are implemented
+at the composition boundary without changing this sequence.
 
 ## Operation Cost Summary
 

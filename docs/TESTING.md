@@ -51,7 +51,8 @@ new failure, malformed results remain uncertain, and nullable storage IDs work.
 construction preflight, reverse cleanup on success/failure, explicit controlled
 selection for all three steps, rejection of invalid mode/fault combinations,
 existing Calendar/Storage selectors before auth, input validation before client
-setup, the pending Issue Tracker seam and OpenAPI request/response shapes.
+setup, configured Team 4 Issue Tracker construction, and OpenAPI request/response
+shapes.
 Changing only controlled configuration changes the failing step; this is not
 presented as a real different-team package swap.
 
@@ -68,9 +69,11 @@ Calendar `controlled-event` succeeded, storage failed and issue not attempted.
 Change only the fail-step variable to `calendar` or `issue_tracker` for the other
 cases. These results are deliberately synthetic; do not claim provider records.
 
-Real Team 4 setup, compatible second-team storage, deployed three-vertical runs,
-provider inspection, actual config-only package swap and new human design
-reviews remain external acceptance work. See [DESIGN.md](DESIGN.md#hw3-milestone-1-workflow-configuration-and-partial-failure-84).
+The corrected tagged Team 4 package is installed and covered through controlled
+Trello HTTP. Provider-backed tests for both the Team 3 Dropbox and configured
+Team 4 Trello integrations completed successfully. A hosted three-provider run,
+genuine config-only package swap, and external-team design review remain evidence
+limits. See [DESIGN.md](DESIGN.md#hw3-milestone-1-workflow-configuration-and-partial-failure-84).
 
 ## Shared contract integration
 
