@@ -3,9 +3,13 @@ name: Format
 on:
   push:
   pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-format-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -38,3 +42,22 @@ jobs:
 
       - name: Check types
         run: make typecheck
+
+      - name: Install pinned reliability tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl --fail --silent --show-error --location --retry 3 -o prometheus.tar.gz \
+            https://github.com/prometheus/prometheus/releases/download/v3.16.0/prometheus-3.16.0.linux-amd64.tar.gz
+          echo '68727009472a2c02e1ff7f062fd5b3e637285bffc8fc2d340c76fb449d6e0f34  prometheus.tar.gz' | sha256sum --check
+          tar -xzf prometheus.tar.gz prometheus-3.16.0.linux-amd64/promtool
+          curl --fail --silent --show-error --location --retry 3 -o alertmanager.tar.gz \
+            https://github.com/prometheus/alertmanager/releases/download/v0.35.0/alertmanager-0.35.0.linux-amd64.tar.gz
+          echo '6c7752a903c40c8a749e0b29df9240437e4fbb8228068d0af8807377db32addd  alertmanager.tar.gz' | sha256sum --check
+          tar -xzf alertmanager.tar.gz alertmanager-0.35.0.linux-amd64/amtool
+          echo "$RUNNER_TEMP/prometheus-3.16.0.linux-amd64" >> "$GITHUB_PATH"
+          echo "$RUNNER_TEMP/alertmanager-0.35.0.linux-amd64" >> "$GITHUB_PATH"
+
+      - name: Check reliability rules and receiver configuration
+        run: make reliability-check

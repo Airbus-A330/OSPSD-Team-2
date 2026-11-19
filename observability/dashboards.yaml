@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: Team 2 Calendar
+    folder: Team 2
+    type: file
+    options:
+      path: /otel-lgtm/calendar-dashboard.json

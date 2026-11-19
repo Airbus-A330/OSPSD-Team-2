@@ -1,0 +1,65 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 128
+    spike_limit_mib: 32
+  batch:
+    timeout: 1s
+    send_batch_size: 64
+    send_batch_max_size: 512
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+    path: /ready
+
+exporters:
+  otlp_http/metrics:
+    endpoint: http://127.0.0.1:9090/api/v1/otlp
+    timeout: 2s
+    sending_queue:
+      queue_size: 32
+    retry_on_failure:
+      initial_interval: 1s
+      max_interval: 3s
+      max_elapsed_time: 10s
+  otlp_http/traces:
+    endpoint: http://127.0.0.1:4418
+    timeout: 2s
+    sending_queue:
+      queue_size: 32
+    retry_on_failure:
+      initial_interval: 1s
+      max_interval: 3s
+      max_elapsed_time: 10s
+  otlp_http/logs:
+    endpoint: http://127.0.0.1:3100/otlp
+    timeout: 2s
+    sending_queue:
+      queue_size: 32
+    retry_on_failure:
+      initial_interval: 1s
+      max_interval: 3s
+      max_elapsed_time: 10s
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/traces]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/metrics]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/logs]

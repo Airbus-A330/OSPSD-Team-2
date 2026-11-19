@@ -1,0 +1,69 @@
+{
+  "checked_at_utc": "2026-11-11T21:11:06.332856+00:00",
+  "scope": "read-only public Grafana panel queries; no credentials, writes or fault injection",
+  "dashboard_uid": "team2-calendar-shared",
+  "datasource_uid": "grafanacloud-prom",
+  "public_url": "https://gianthamster2577.grafana.net/public-dashboards/94e9aa89613d4e1faea770e897d47f37",
+  "requested_range": {
+    "from": "1793826266209",
+    "to": "1794431066209"
+  },
+  "exact_sli_counts_verified": false,
+  "full_window_coverage_verified": false,
+  "series": [
+    {
+      "panel_id": 2,
+      "kind": "traffic_rate",
+      "labels": {
+        "operation": "Get",
+        "release": "692597cc799b2f5e640c142eee6986106c92a848"
+      },
+      "non_null_samples": 41,
+      "first_returned_sample_utc": "2026-11-11T07:10:00+00:00",
+      "last_returned_sample_utc": "2026-11-11T19:05:00+00:00",
+      "last_returned_value": 0,
+      "response_sha256": "2b9244259552126140fa53df584bc5dd19fbfd068158092d9da456da15ec694c"
+    },
+    {
+      "panel_id": 3,
+      "kind": "error_rate",
+      "labels": {
+        "operation": "Get",
+        "outcome": "access_denied",
+        "release": "692597cc799b2f5e640c142eee6986106c92a848"
+      },
+      "non_null_samples": 34,
+      "first_returned_sample_utc": "2026-11-11T07:10:00+00:00",
+      "last_returned_sample_utc": "2026-11-11T19:05:00+00:00",
+      "last_returned_value": 0,
+      "response_sha256": "99596e12ee9b352702d4a84b387c85bc84bb6e0a42ee37048f6aab7ca843846a"
+    },
+    {
+      "panel_id": 3,
+      "kind": "error_rate",
+      "labels": {
+        "operation": "Get",
+        "outcome": "not_found",
+        "release": "692597cc799b2f5e640c142eee6986106c92a848"
+      },
+      "non_null_samples": 37,
+      "first_returned_sample_utc": "2026-11-11T14:15:00+00:00",
+      "last_returned_sample_utc": "2026-11-11T19:05:00+00:00",
+      "last_returned_value": 0,
+      "response_sha256": "99596e12ee9b352702d4a84b387c85bc84bb6e0a42ee37048f6aab7ca843846a"
+    },
+    {
+      "panel_id": 1,
+      "kind": "latency_p95",
+      "labels": {
+        "operation": "Get",
+        "release": "692597cc799b2f5e640c142eee6986106c92a848"
+      },
+      "non_null_samples": 10,
+      "first_returned_sample_utc": "2026-11-11T14:40:00+00:00",
+      "last_returned_sample_utc": "2026-11-11T18:50:00+00:00",
+      "last_returned_value": 0.475,
+      "response_sha256": "66598a91d05922c913e8265eb9066b38f846c2d229c000e4c304807b4ffbd3fe"
+    }
+  ]
+}

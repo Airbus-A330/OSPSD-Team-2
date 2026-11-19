@@ -3,9 +3,13 @@ name: Tests
 on:
   push:
   pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-tests-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -32,3 +36,6 @@ jobs:
 
       - name: Run tests
         run: make test
+
+      - name: Shared Calendar conformance (controlled Python and HTTP)
+        run: make conformance

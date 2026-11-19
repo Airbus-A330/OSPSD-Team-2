@@ -1,0 +1,88 @@
+{
+  "environment": "local actual application/routes/Google provider, only Google SDK controlled; no deployment or live Google",
+  "service_base_commit": "7116084ae0be2f2aa37458233f4999041b11d3af",
+  "release": "local-restored-service-check",
+  "captured_at_utc": "2026-11-10T04:24:45.335468+00:00",
+  "verification_waves": 4,
+  "total_requests_excluding_saturation_hold": 48,
+  "requests": [
+    {
+      "operation": "Create",
+      "case": "success",
+      "status": 201,
+      "request_id": "60180ae34cb14d83912d77abb84b6758"
+    },
+    {
+      "operation": "Create",
+      "case": "invalid_input",
+      "status": 400,
+      "request_id": "6c7cf2acc2f4434f876e30dd5b06d649"
+    },
+    {
+      "operation": "Create",
+      "case": "provider_failure",
+      "status": 502,
+      "request_id": "491b63ef90ce4249be052679817d750b"
+    },
+    {
+      "operation": "Get",
+      "case": "success",
+      "status": 200,
+      "request_id": "c71fd3c83ced4f6f93fd5688f4890da0"
+    },
+    {
+      "operation": "Get",
+      "case": "invalid_input",
+      "status": 422,
+      "request_id": "4cd21a1d4de44b388519dbb3f6b593b4"
+    },
+    {
+      "operation": "Get",
+      "case": "provider_failure",
+      "status": 503,
+      "request_id": "8de77105eaa44202af86eb4095ebeb96"
+    },
+    {
+      "operation": "Replace",
+      "case": "success",
+      "status": 200,
+      "request_id": "ded1a026475b4eb68c93507dae30bf4e"
+    },
+    {
+      "operation": "Replace",
+      "case": "invalid_input",
+      "status": 400,
+      "request_id": "127975d431f74a89a49124f3d97d604e"
+    },
+    {
+      "operation": "Replace",
+      "case": "provider_failure",
+      "status": 502,
+      "request_id": "07e5d60bea5f4a299cbc17f247380d47"
+    },
+    {
+      "operation": "Delete",
+      "case": "success",
+      "status": 204,
+      "request_id": "5a72d7142cd04226a03aed5e0d634612"
+    },
+    {
+      "operation": "Delete",
+      "case": "invalid_input",
+      "status": 400,
+      "request_id": "3d8bd549b81a4b13b644836dc1dadaab"
+    },
+    {
+      "operation": "Delete",
+      "case": "provider_failure",
+      "status": 502,
+      "request_id": "a5684ce0256240e7861e772774e98456"
+    }
+  ],
+  "source_sha256": {
+    "app/main.py": "3ff84a46d0e49e342a49bd2e316b9eeb52c576f1d8f39f3b815b231939860d76",
+    "app/google_calendar.py": "3f8a1de893593c8d8d0223eb2dddd0f299947cefe9aa5826cffaa8d1f1f951dc",
+    "app/telemetry/http.py": "0e2c76a42aeba9e152a4be95721d037ca87d28118670e0db94095b879e42a871",
+    "app/telemetry/runtime.py": "c9e55b7fa846ee34f20be3c7d550c70e0d60db210bbb57f6350dab63724b6697"
+  }
+}

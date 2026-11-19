@@ -1,0 +1,317 @@
+{
+  "invalid_input": {
+    "timestamp_nanoseconds": "1794284655229312000",
+    "log": {
+      "operation": "Get",
+      "outcome": "invalid_input",
+      "status": 422,
+      "release": "local-restored-service-check",
+      "request_id": "1abf4be0d1144d5a8aa774cdff64e3a0",
+      "trace_id": "c0ae2fefadb06ef853d0b03414a2d44c",
+      "duration": 0.000778300003730692
+    },
+    "trace": {
+      "batches": [
+        {
+          "resource": {
+            "attributes": [
+              {
+                "key": "service.version",
+                "value": {
+                  "stringValue": "local-restored-service-check"
+                }
+              },
+              {
+                "key": "service.name",
+                "value": {
+                  "stringValue": "team2-calendar"
+                }
+              }
+            ]
+          },
+          "scopeSpans": [
+            {
+              "scope": {
+                "name": "team2.calendar"
+              },
+              "spans": [
+                {
+                  "traceId": "wK4v762wbvhT0LA0FKLUTA==",
+                  "spanId": "72vlC+DyHq4=",
+                  "name": "calendar.Get",
+                  "kind": "SPAN_KIND_SERVER",
+                  "startTimeUnixNano": "1794284655229312000",
+                  "endTimeUnixNano": "1794284655229312000",
+                  "attributes": [
+                    {
+                      "key": "operation",
+                      "value": {
+                        "stringValue": "Get"
+                      }
+                    },
+                    {
+                      "key": "release",
+                      "value": {
+                        "stringValue": "local-restored-service-check"
+                      }
+                    },
+                    {
+                      "key": "request_id",
+                      "value": {
+                        "stringValue": "1abf4be0d1144d5a8aa774cdff64e3a0"
+                      }
+                    },
+                    {
+                      "key": "outcome",
+                      "value": {
+                        "stringValue": "invalid_input"
+                      }
+                    },
+                    {
+                      "key": "http.response.status_code",
+                      "value": {
+                        "intValue": "422"
+                      }
+                    }
+                  ],
+                  "status": {}
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "success": {
+    "log": {
+      "operation": "Get",
+      "outcome": "success",
+      "status": 200,
+      "release": "local-restored-service-check",
+      "request_id": "8bc6c86d8f3640168efa9100a125950e",
+      "trace_id": "9d136ea3bd5f31b156befe974506f71f",
+      "duration": 12.003536799995345
+    },
+    "trace": {
+      "batches": [
+        {
+          "resource": {
+            "attributes": [
+              {
+                "key": "service.version",
+                "value": {
+                  "stringValue": "local-restored-service-check"
+                }
+              },
+              {
+                "key": "service.name",
+                "value": {
+                  "stringValue": "team2-calendar"
+                }
+              }
+            ]
+          },
+          "scopeSpans": [
+            {
+              "scope": {
+                "name": "team2.calendar"
+              },
+              "spans": [
+                {
+                  "traceId": "nRNuo71fMbFWvv6XRQb3Hw==",
+                  "spanId": "ildPQhoqXew=",
+                  "parentSpanId": "E6G4bDF4stA=",
+                  "name": "google.calendar.Get",
+                  "kind": "SPAN_KIND_CLIENT",
+                  "startTimeUnixNano": "1794284645215693900",
+                  "endTimeUnixNano": "1794284657216993800",
+                  "attributes": [
+                    {
+                      "key": "operation",
+                      "value": {
+                        "stringValue": "Get"
+                      }
+                    },
+                    {
+                      "key": "release",
+                      "value": {
+                        "stringValue": "local-restored-service-check"
+                      }
+                    },
+                    {
+                      "key": "outcome",
+                      "value": {
+                        "stringValue": "success"
+                      }
+                    }
+                  ],
+                  "status": {}
+                },
+                {
+                  "traceId": "nRNuo71fMbFWvv6XRQb3Hw==",
+                  "spanId": "E6G4bDF4stA=",
+                  "name": "calendar.Get",
+                  "kind": "SPAN_KIND_SERVER",
+                  "startTimeUnixNano": "1794284645213640900",
+                  "endTimeUnixNano": "1794284657218001600",
+                  "attributes": [
+                    {
+                      "key": "operation",
+                      "value": {
+                        "stringValue": "Get"
+                      }
+                    },
+                    {
+                      "key": "release",
+                      "value": {
+                        "stringValue": "local-restored-service-check"
+                      }
+                    },
+                    {
+                      "key": "request_id",
+                      "value": {
+                        "stringValue": "8bc6c86d8f3640168efa9100a125950e"
+                      }
+                    },
+                    {
+                      "key": "outcome",
+                      "value": {
+                        "stringValue": "success"
+                      }
+                    },
+                    {
+                      "key": "http.response.status_code",
+                      "value": {
+                        "intValue": "200"
+                      }
+                    }
+                  ],
+                  "status": {}
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "provider_unavailable": {
+    "timestamp_nanoseconds": "1794284645195655400",
+    "log": {
+      "operation": "Get",
+      "outcome": "provider_unavailable",
+      "status": 503,
+      "release": "local-restored-service-check",
+      "request_id": "8de77105eaa44202af86eb4095ebeb96",
+      "trace_id": "fef48fbef22af65436bd8fb6d22720cc",
+      "duration": 0.0018714000034378842
+    },
+    "trace": {
+      "batches": [
+        {
+          "resource": {
+            "attributes": [
+              {
+                "key": "service.version",
+                "value": {
+                  "stringValue": "local-restored-service-check"
+                }
+              },
+              {
+                "key": "service.name",
+                "value": {
+                  "stringValue": "team2-calendar"
+                }
+              }
+            ]
+          },
+          "scopeSpans": [
+            {
+              "scope": {
+                "name": "team2.calendar"
+              },
+              "spans": [
+                {
+                  "traceId": "/vSPvvIq9lQ2vY+20icgzA==",
+                  "spanId": "i5hXo/FIKac=",
+                  "parentSpanId": "tPAk99yr7dU=",
+                  "name": "google.calendar.Get",
+                  "kind": "SPAN_KIND_CLIENT",
+                  "startTimeUnixNano": "1794284645195655400",
+                  "endTimeUnixNano": "1794284645195655400",
+                  "attributes": [
+                    {
+                      "key": "operation",
+                      "value": {
+                        "stringValue": "Get"
+                      }
+                    },
+                    {
+                      "key": "release",
+                      "value": {
+                        "stringValue": "local-restored-service-check"
+                      }
+                    },
+                    {
+                      "key": "outcome",
+                      "value": {
+                        "stringValue": "provider_unavailable"
+                      }
+                    }
+                  ],
+                  "status": {
+                    "code": "STATUS_CODE_ERROR"
+                  }
+                },
+                {
+                  "traceId": "/vSPvvIq9lQ2vY+20icgzA==",
+                  "spanId": "tPAk99yr7dU=",
+                  "name": "calendar.Get",
+                  "kind": "SPAN_KIND_SERVER",
+                  "startTimeUnixNano": "1794284645194655100",
+                  "endTimeUnixNano": "1794284645195655400",
+                  "attributes": [
+                    {
+                      "key": "operation",
+                      "value": {
+                        "stringValue": "Get"
+                      }
+                    },
+                    {
+                      "key": "release",
+                      "value": {
+                        "stringValue": "local-restored-service-check"
+                      }
+                    },
+                    {
+                      "key": "request_id",
+                      "value": {
+                        "stringValue": "8de77105eaa44202af86eb4095ebeb96"
+                      }
+                    },
+                    {
+                      "key": "outcome",
+                      "value": {
+                        "stringValue": "provider_unavailable"
+                      }
+                    },
+                    {
+                      "key": "http.response.status_code",
+                      "value": {
+                        "intValue": "503"
+                      }
+                    }
+                  ],
+                  "status": {
+                    "code": "STATUS_CODE_ERROR"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,29 @@
+# Allowlist the complete build context. No local credentials, Git history,
+# tests, caches or arbitrary JSON files can enter a build layer.
+**
+!Dockerfile
+!.dockerignore
+!pyproject.toml
+!uv.lock
+!app/
+!app/**/
+!app/**/*.py
+app/**/__pycache__/
+app/**/*.pyc
+app/**/*.json
+app/**/.env*
+app/**/*.pem
+app/**/*.key
+
+# Never include nested developer environments, repository metadata or secrets,
+# even if they contain Python files matched by the source allowlist above.
+**/.git/
+**/.venv/
+**/venv/
+**/env/
+**/secrets/
+**/.secrets/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/local_settings.py
