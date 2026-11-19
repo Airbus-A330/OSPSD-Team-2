@@ -3,7 +3,8 @@
 Status: the Milestone 1 composition, package integrations, deployment
 configuration, controlled verification, and provider-specific checks described
 below are complete. The evidence ledger distinguishes those results from the
-remaining hosted three-provider, real package-swap, and external-review limits.
+completed hosted three-provider verification from the remaining real package-swap
+and external-review limits.
 
 ## Reuse the HW2 delivery path
 
@@ -149,10 +150,10 @@ identifiers are intentionally absent where no retained evidence exists.
 | Requirement | Evidence / status |
 | --- | --- |
 | HW3 workflow and deployment configuration | PASS — automated verification; Blueprint, route, configured package construction and verifier tests pass |
-| Exact HW3 Delivery run, source SHA, image digest, Render deploy ID | EVIDENCE LIMIT — no retained hosted HW3 delivery identifiers |
-| Hosted three-step happy path | EVIDENCE LIMIT — no retained hosted composed-operation run |
-| Direct provider verification | PASS — manually verified for Team 3 Dropbox and Team 4 Trello; existing Calendar provider behavior remains separately verified |
-| Test-record cleanup | PASS — manually verified for the Dropbox package check and direct Trello API check; no composed hosted records were created |
+| Exact HW3 Delivery run, source SHA, image digest, Render deploy ID | PASS — exact Delivery, source SHA, image digest and both Render deployment IDs recorded below |
+| Hosted three-step happy path | PASS — HTTP 201 at 2026-11-18T23:45:43.945189+00:00; all three steps succeeded |
+| Direct provider verification | PASS — composed-run Calendar title/time, exact Dropbox filename/content and Trello card independently verified |
+| Test-record cleanup | PASS — all three composed-run records deleted; absence confirmed through direct APIs and UI |
 | Controlled step-aware failure | PASS — automated verification and local offline-container storage-failure exercise; see 2026-11-18 check below |
 | Genuine configuration-only implementation swap | EVIDENCE LIMIT — no compatible second storage package was available; see DESIGN.md |
 | Architecture and request trace | [DESIGN.md](DESIGN.md#hw3-deployment-and-request-trace-85) |
@@ -162,6 +163,37 @@ A second compatible real implementation must be packaged, pinned and selectable
 before the swap exercise can run. Preserve the same image digest across the
 before/after configuration-only demonstration. Do not report the controlled
 fake or a changed-code deployment as satisfying that requirement.
+
+## Hosted evidence and deployment provenance (2026-11-18)
+
+The [PR evidence comment](https://github.com/Airbus-A330/OSPSD-Team-2/pull/89#issuecomment-6995518658)
+retains sanitized workflow, cleanup and Delivery reports.
+
+- Submitted/build SHA: `e5f0135006c1cca66506a61d596441f9e4a86f0e` on
+  `hw3-ms1-submission`; this does not assert PR #89 has merged into master.
+- [Delivery run 44410995133, attempt 1](https://github.com/Airbus-A330/OSPSD-Team-2/actions/runs/44410995133):
+  Build, Format, Tests, Infrastructure, artifact and deploy jobs succeeded.
+- Immutable image:
+  `ghcr.io/airbus-a330/ospsd-team-2@sha256:d1ab9453014d771b6af5f439f9b7d1fcf109c74b07fd7b29cf2abd06401094f6`.
+- [Delivery artifact](https://github.com/Airbus-A330/OSPSD-Team-2/actions/runs/44410995133/artifacts/14477935218):
+  `delivery.json` / `delivery.yaml`, also retained locally. CI deployment
+  `dep-dbv2b16tlv9c73fjaeq0` reached live; Calendar smoke passed and cleanup was confirmed.
+- Subsequent [environment-update deployment](https://dashboard.render.com/web/srv-dbprkbh5efls738r7rf0/deploys/dep-dbv3gtrl550s738jrnqg):
+  `dep-dbv3gtrl550s738jrnqg`, same immutable image, triggered by the operator's
+  environment update on November 18 at 6:44:55 PM EST. Render reported live at
+  6:45:28 PM EST, before the successful composed test at 6:45:43 PM EST.
+  This is distinct from the earlier CI deployment ID.
+- Test marker: `ospsd-kickoff-304fd548d1674ac0a846fbad83782a7c`.
+- Google event: January 7, 2030, 15:00–15:30 UTC (10:00–10:30 AM New York).
+  Dropbox exact Markdown content and Trello matching card were independently verified.
+- Cleanup preflight found exactly one matching record per provider; all three
+  outcomes were `deleted_verified`, reported at 2026-11-19T00:02:18.612550+00:00.
+  Subsequent UI checks confirmed absence.
+
+The original workflow report's pending/retained fields describe its initial state;
+later inspection and cleanup are documented separately without rewriting that report.
+Delivery's Calendar smoke and the subsequent three-provider run are separate checks.
+External-team design review and genuine implementation-swap evidence remain pending.
 
 ## Historical local preparation check (2026-11-17)
 
@@ -217,8 +249,8 @@ This verifies Trello credential access and direct API create/read/delete behavio
 it does not exercise the shared issue-tracker adapter or the composed HTTP route.
 The installed Team 4 package and workflow integration are covered by automated
 tests, and provider-backed testing through that configured integration also
-completed successfully without a retained exact timestamp. A hosted
-three-provider request remains an evidence limit.
+completed successfully without a retained exact timestamp. The later hosted
+three-provider verification and cleanup are recorded above.
 
 ## Milestone 1 verification summary
 
@@ -235,6 +267,6 @@ three-provider request remains an evidence limit.
 | Failed-step and partial-success reporting | PASS — automated verification | Calendar, Storage, and Issue Tracker failure cases retain earlier results and mark later steps unattempted |
 | Retry and duplicate-work safety | PASS — automated verification | No automatic write retry/rollback; repeated-run and uncertain-write tests document reconciliation requirements |
 | Locked build, deployment configuration, and controlled container path | PASS — automated verification | Locked checks, Blueprint validation, container build/check and offline workflow failure exercise |
-| Hosted composed happy path with direct confirmation in all three providers | EVIDENCE LIMIT | No retained hosted three-provider execution record |
+| Hosted composed happy path with direct confirmation in all three providers | PASS — hosted verification | Sanitized HTTP 201 report, direct provider checks and confirmed cleanup linked above |
 | Genuine configuration-only swap between two real implementations | EVIDENCE LIMIT | Team 1 and Team 6 releases were not compatible installable alternatives |
 | External-team integration-design review | EVIDENCE LIMIT | No substantive external-team review record is retained |
