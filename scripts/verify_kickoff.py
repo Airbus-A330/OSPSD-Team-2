@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 import httpx
+from calendar_contract import ErrorCode
 
 from app.workflows import ProjectKickoffFailureResult, ProjectKickoffResult
 from scripts.smoke_calendar import require
@@ -63,11 +64,16 @@ def verify_kickoff(
         require(
             failure.failed_step == expected_failure
             and failure.failure_stage == "operation"
-            and failure.error.code.value == "access_denied"
+            and (
+                failure.error.code.value
+                if isinstance(failure.error.code, ErrorCode)
+                else failure.error.code
+            )
+            == "access_denied"
             and failure.error.retryable is False,
             "Unexpected workflow failure",
         )
-        steps = ("calendar", "storage", "issue_tracker")
+        steps = ("storage", "issue_tracker", "calendar")
         index = steps.index(expected_failure)
         outcomes = [getattr(failure.steps, name).outcome for name in steps]
         require(

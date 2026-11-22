@@ -41,22 +41,23 @@ with `UNIQUE-MARKER=example-001`. HTTP validation rejects bad fields before
 provider construction. Issue Tracker, Calendar and Storage are preflighted and
 owned by an `ExitStack`; no write has happened at this point.
 
-1. Calendar creates the kickoff event for 2030-01-07 15:00–15:30 UTC. Its returned
-   Event becomes `calendar.outcome=succeeded`; later steps are not attempted yet.
-2. Storage writes `/kickoff-example-001.md` with the supplied UTF-8 text. Its
-   returned document ID/path becomes `storage.outcome=succeeded`. Calendar remains.
-3. Issue Tracker creates `Project kickoff example-001`. Its ID/title becomes
-   `issue_tracker.outcome=succeeded`. HTTP 201 returns all three result objects.
+1. Storage creates `/kickoff-example-001.md` with the supplied UTF-8 text. Its
+   returned document ID/path becomes `storage.outcome=succeeded`. The create-only
+   stable path is the request claim for later manual resubmission.
+2. Issue Tracker creates `Project kickoff example-001`. Its ID/title becomes
+   `issue_tracker.outcome=succeeded`; Calendar is still not attempted.
+3. Calendar creates the kickoff event for 2030-01-07 15:00–15:30 UTC. Its Event
+   becomes `calendar.outcome=succeeded`. HTTP 201 returns all three result objects.
 
 The caller supplies the related text; this implementation does not automatically
 insert the returned Calendar ID into the document or the document ID into the
 card. Each result is preserved in the combined response. All request-scoped
 clients close when the dependency exits.
 
-If Storage fails after Calendar creation, the error names Storage, preserves the
-confirmed Calendar event, and leaves Issue Tracker unattempted. No automatic
-compensation or replay occurs. The client must inspect the provider state before
-resubmission. Existing partial-failure decisions below remain authoritative.
+If Storage fails, both Issue Tracker and Calendar remain unattempted. If Issue
+Tracker fails, the confirmed Storage document remains and Calendar is not
+attempted. If Calendar fails, both prior results remain. No automatic compensation
+or replay occurs. The client must inspect provider state before resubmission.
 
 ### Deployment decision
 
@@ -76,7 +77,7 @@ opt-in composition check and direct provider inspection establish HW3 evidence.
 
 Current behavior extends #80's fixed `POST /workflows/project-kickoff`, reusing
 #81's Calendar entry point and #82's shared storage factory. The workflow remains
-Calendar -> Storage -> Issue Tracker; provider selection lives in
+Storage -> Issue Tracker -> Calendar; provider selection lives in
 `app/workflow_composition.py`, not orchestration. Public failure states and retry
 semantics are canonical in [CONTRACT.md](CONTRACT.md#failure-and-progress-response-84).
 No API consumer should infer exactly-once execution from these progress fields.
@@ -100,7 +101,8 @@ for two different teams' packages or actual provider-created records.
 route so invalid input cannot trigger construction/authentication. An `ExitStack`
 preflights all constructors before yielding the workflow and releases acquired
 resources in reverse order on success or failure. Construction order is Issue
-Tracker, Calendar, Storage; execution order is unchanged. A missing Issue Tracker
+Tracker, Calendar, Storage; execution order is Storage, Issue Tracker, Calendar.
+A missing Issue Tracker
 integration therefore cannot start Google/Dropbox setup or create partial data.
 
 `StorageCreator` is a narrow boundary adapter: it calls #82's existing
@@ -117,7 +119,7 @@ or configuration reports 503 at Issue Tracker setup before any writes. See
 | Constraint | Choice | Alternative / accepted tradeoff / revisit |
 | --- | --- | --- |
 | Preserve results when a later call fails | Typed per-execution progress and a composition-only error extension; catch/sanitize each vertical call and result validation | Plain error loses earlier IDs; automatic compensation can destroy data. No database/resume/exactly-once claim; revisit only with an explicit idempotency/persistence requirement. |
-| Unsafe replay after a committed or uncertain write | Stop immediately, never retry or roll back writes; operation errors always advertise `retryable=false` | A retryable single-operation error cannot authorize replay of the whole pipeline. A manually resubmitted request can still duplicate Calendar before storage conflict; callers must reconcile. |
+| Unsafe replay after a committed or uncertain write | Use the create-only Storage path as the first claim; stop immediately, never retry or roll back writes; operation errors advertise `retryable=false` | A repeated path conflicts before downstream writes, reducing duplicate Calendar/Issue risk. A conflict still does not prove matching content or full success; callers must reconcile. |
 | Every stage must be testable without credentials | Explicit controlled configuration implementing the same narrow capabilities | Hidden fallback would masquerade as real success. Controlled results use `controlled-*` IDs and never prove a package swap; keep real-provider verification separate. |
 
 Known input/access/not-found failures are rejected; provider-error/unavailable
@@ -126,6 +128,28 @@ unexpected exception or malformed result is also sanitized as uncertain
 `provider_error`, retaining prior confirmed results. Broad catches are limited
 to these operation/setup boundaries, where losing progress would make retry
 risk invisible; they are not a generic exception-swallowing policy.
+
+### External design review — Faisal (Team 6)
+
+Faisal identified three substantive issues: Calendar-first execution left an
+avoidable duplicate-write risk on manual resubmission; portable Storage path and
+content validation occurred too late; and a Storage conflict lost its useful
+reconciliation meaning at the workflow error boundary.
+
+The review was accepted and addressed by:
+
+- changing execution to Storage → Issue Tracker → Calendar so the stable,
+  create-only path acts as the first request claim;
+- validating portable path segments and the 150,000,000-byte UTF-8 content limit
+  before dependency construction while preserving submitted path case;
+- exposing a pre-existing path as non-retryable workflow HTTP 409 `conflict`
+  with fixed reconciliation guidance and complete step metadata.
+
+The service still has no automatic resume, rollback or exactly-once guarantee.
+An uncertain Storage response requires inspection, and case equivalence remains
+provider-dependent because the shared Storage contract does not standardize it.
+These changes record the response to the review; they do not claim Faisal's
+subsequent approval.
 
 ### Genuine swap limitation and verification
 
@@ -207,28 +231,31 @@ supplied secrets and noninteractive setup in [DEPLOYMENT.md](DEPLOYMENT.md).
 No new credential format, dependency, or deployment resource is introduced.
 
 Shared Calendar errors propagate unchanged, including code and `retryable`.
-The entry point does not retry writes or perform rollback. If document or issue
-creation fails after Calendar succeeds, the event remains: the orchestration
-owner must retain its returned ID and report partial success. Do not replay the
-whole workflow merely because a later error is retryable. A lost Calendar write
-response can leave an event without a returned ID and raises `provider_error`
-with `retryable=false`; it requires reconciliation before another create.
+The entry point does not retry writes or perform rollback. Storage runs first,
+then Issue Tracker, then Calendar. A later failure retains the confirmed earlier
+results, and callers must not replay the whole workflow merely because a later
+error is retryable. A lost Calendar write response can leave an event without a
+returned ID after Storage and Issue Tracker have succeeded; it raises
+`provider_error` with `retryable=false` and requires reconciliation before
+another create.
 
 Controlled creation, failure, cleanup, and configuration checks are described in
 [TESTING.md](TESTING.md#hw3-calendar-composition). The Team 3 and Team 4 package
 integrations, public partial-failure rendering, and deployment configuration are
-implemented and covered by automated tests. A hosted three-provider run must
-still confirm the kickoff event and clean up test-owned records; it and the
-genuine second-package swap remain evidence limits.
+implemented and covered by automated tests. The hosted three-provider run,
+direct provider checks, and cleanup are recorded in HW3_DEPLOYMENT.md. The
+genuine second-package swap remains an evidence limit.
 
 ## HW3 Milestone 1: storage integration (#82)
 
 This section establishes the storage portion of service composition. The
 remaining sections retain the HW2 design and its historical verification/review
 records. The HW3 workflow/failure behavior is described in the #84 section
-above. The storage package's real Dropbox verification passed, and the complete
-configured workflow is covered by automated tests. Hosted three-provider,
-second-package swap, and external review evidence are not claimed here.
+above. The storage package's real Dropbox verification passed, the complete
+configured workflow is covered by automated tests, and the hosted
+three-provider run and external review are recorded in HW3_DEPLOYMENT.md and
+the external-review section above. The second-package swap remains an evidence
+limit.
 
 ```mermaid
 flowchart TD
@@ -263,19 +290,23 @@ information and preserves prior results through the workflow error contract.
 
 ### Storage request trace and validation
 
-For an example workflow request with stable document path, Calendar creation
-may return `event-123`. The storage step receives a path such as
-`/hw3-meeting-123.md` and fixed UTF-8 summary bytes containing that calendar ID.
+For an example workflow request, the storage step receives a stable path such as
+`/hw3-meeting-123.md` and caller-supplied UTF-8 summary bytes. It runs before
+Calendar, so document content never depends on a provider-generated event ID.
 `create_document` calls `DocumentStorage.create(path, content)`. Team 3 validates
 absolute paths without empty, `.` or `..` segments, then creates without
 overwrite/autorename and returns shared `FileInfo`. The workflow retains this
 metadata for its combined result and subsequent issue step. Controlled tests
 verify exact stored/downloaded bytes and returned shared metadata.
 
-HTTP request/schema validation belongs to the composed route workstream;
-storage path/provider validation remains behind the shared storage boundary.
-Configuration selection is validated before credential loading. Credentials
-remain external; workflow code does not import provider SDKs.
+The HTTP request model applies those portable path rules and the selected
+implementation's 150,000,000-byte UTF-8 ceiling before any provider is built.
+It preserves path case because the shared contract does not define case
+equivalence: Dropbox is case-insensitive while another implementation may not
+be. Callers must reuse the exact path spelling for reconciliation. Provider
+validation remains behind the shared boundary as defense in depth. Configuration
+selection is validated before credential loading. Credentials remain external;
+workflow code does not import provider SDKs.
 
 ### Integration decisions
 
@@ -287,22 +318,24 @@ remain external; workflow code does not import provider SDKs.
 
 ### Partial failure and evidence
 
-If calendar creation succeeds and storage fails, preserve the calendar ID;
-mark storage failed for a known rejection or uncertain for a provider/transport
-failure; leave issue creation not attempted. `StorageWriteUncertainError`
-carries existing `provider_error` with `retryable=false`. If storage succeeded
-and the issue step fails, preserve its `FileInfo` as succeeded and do not replay
-either completed write. Reconcile the stable storage path and exact bytes
-before retrying an uncertain write. A conflict alone is not proof of success.
+If storage fails, mark it failed for a known rejection or uncertain for a
+provider/transport failure; leave Issue Tracker and Calendar not attempted.
+`StorageWriteUncertainError` carries existing `provider_error` with
+`retryable=false`. If Storage succeeded and Issue Tracker fails, preserve its
+`FileInfo`; if Calendar fails last, preserve both earlier results. Do not replay
+completed writes. A pre-existing path is exposed as workflow-only HTTP 409
+`conflict`, distinct from malformed input. Reconcile the stable path using
+`get_metadata` and `download`, then compare exact bytes before deciding whether
+manual continuation is safe. A conflict alone is not proof of success.
 There is no workflow-state persistence or automatic rollback in this issue.
 
 Controlled verification exercises the actual installed package over a controlled
 SDK, including a write committed before its response is lost. The opt-in live
 storage test passed against Dropbox on 2026-11-16, confirming exact content,
 duplicate refusal, and cleanup. Automated tests verify the configured three-step
-workflow and step-aware failures at every stage. A hosted three-provider API run,
-genuine different-team storage-package swap, and external-team review remain
-evidence limits. See
+workflow and step-aware failures at every stage. The hosted three-provider API
+run and Faisal's external review are recorded; only the genuine different-team
+storage-package swap remains an evidence limit. See
 [storage verification](STORAGE.md#verification).
 
 ## Milestone 3 delivery

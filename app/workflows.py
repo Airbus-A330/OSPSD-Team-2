@@ -5,13 +5,18 @@ from typing import Literal, Protocol
 
 from calendar_contract import CalendarError, CreateEvent, ErrorCode, Event
 from issue_tracker_contract.models import MAX_TITLE_LENGTH
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 
-from app.errors import ProviderFailureError, ServiceError
+from app.errors import ProviderFailureError, ServiceError, StorageConflictError
 
 StepName = Literal["calendar", "storage", "issue_tracker"]
 FailureStep = Literal["calendar", "storage", "issue_tracker", "configuration"]
 FailureStage = Literal["setup", "operation"]
+WorkflowErrorCode = ErrorCode | Literal["conflict"]
+
+# Team 3's selected implementation uses Dropbox's documented single-upload
+# ceiling. Validate the encoded payload before any workflow dependency is built.
+MAX_DOCUMENT_CONTENT_BYTES = 150_000_000
 
 
 class CalendarCreator(Protocol):
@@ -60,6 +65,24 @@ class ProjectKickoffRequest(BaseModel):
     issue_title: StrictStr = Field(
         min_length=1, max_length=MAX_TITLE_LENGTH, pattern=r"\S"
     )
+
+    @field_validator("document_path")
+    @classmethod
+    def validate_document_path(cls, value: str) -> str:
+        """Require the portable absolute path shape used by the shared contract."""
+        if value == "/" or any(
+            segment in {"", ".", ".."} for segment in value[1:].split("/")
+        ):
+            raise ValueError("Document path contains an invalid segment")
+        return value
+
+    @field_validator("document_content")
+    @classmethod
+    def validate_document_content(cls, value: str) -> str:
+        """Enforce the selected implementation's byte limit before any write."""
+        if len(value.encode("utf-8")) > MAX_DOCUMENT_CONTENT_BYTES:
+            raise ValueError("Document content exceeds the 150 MB limit")
+        return value
 
 
 class CalendarStepResult(BaseModel):
@@ -128,7 +151,7 @@ class WorkflowProgress(BaseModel):
 class WorkflowErrorBody(BaseModel):
     """Existing shared error fields without dependency exception details."""
 
-    code: ErrorCode
+    code: WorkflowErrorCode
     message: str
     retryable: bool
 
@@ -159,10 +182,19 @@ class WorkflowFailure(ServiceError):
         stage: FailureStage = "operation",
     ) -> None:
         cause = error if isinstance(error, CalendarError) else ProviderFailureError()
+        conflict = error if isinstance(error, StorageConflictError) else None
+        message = (
+            conflict.public_message
+            if conflict is not None and conflict.public_message is not None
+            else f"Workflow {step} {stage} failed"
+        )
         super().__init__(
-            f"Workflow {step} {stage} failed",
+            message,
             code=cause.code,
             retryable=cause.retryable if stage == "setup" else False,
+        )
+        self.public_code: WorkflowErrorCode = (
+            "conflict" if conflict is not None else self.code
         )
         self.failed_step = step
         self.failure_stage = stage
@@ -183,7 +215,7 @@ class WorkflowFailure(ServiceError):
         """Return safe public metadata; never include underlying error text/details."""
         return ProjectKickoffFailureResult(
             error=WorkflowErrorBody(
-                code=self.code, message=self.message, retryable=self.retryable
+                code=self.public_code, message=self.message, retryable=self.retryable
             ),
             failed_step=self.failed_step,
             failure_stage=self.failure_stage,
@@ -193,7 +225,7 @@ class WorkflowFailure(ServiceError):
 
 @dataclass(frozen=True)
 class ProjectKickoffWorkflow:
-    """Run the fixed Calendar, Storage, then Issue Tracker workflow."""
+    """Run the fixed Storage, Issue Tracker, then Calendar workflow."""
 
     calendar: CalendarCreator
     storage: DocumentCreator
@@ -207,11 +239,6 @@ class ProjectKickoffWorkflow:
         exception text nor provider details are copied to the public error.
         """
         progress = WorkflowProgress()
-        try:
-            calendar = CalendarStepResult(event=self.calendar.create(request.event))
-        except Exception as error:
-            raise WorkflowFailure("calendar", error, progress) from None
-        progress.calendar = calendar
         try:
             document = self.storage.create(
                 request.document_path, request.document_content.encode("utf-8")
@@ -228,6 +255,11 @@ class ProjectKickoffWorkflow:
         except Exception as error:
             raise WorkflowFailure("issue_tracker", error, progress) from None
         progress.issue_tracker = issues
+        try:
+            calendar = CalendarStepResult(event=self.calendar.create(request.event))
+        except Exception as error:
+            raise WorkflowFailure("calendar", error, progress) from None
+        progress.calendar = calendar
         return ProjectKickoffResult(
             calendar=calendar, storage=storage, issue_tracker=issues
         )

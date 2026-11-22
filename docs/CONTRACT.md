@@ -402,9 +402,9 @@ for the create/delete/cleanup procedure and live-verification status.
 
 `POST /workflows/project-kickoff` executes one fixed workflow in this order:
 
-1. create a Calendar event;
-2. create a related Cloud Storage document;
-3. create a related Issue Tracker issue.
+1. create a related Cloud Storage document as the stable-path claim;
+2. create a related Issue Tracker issue;
+3. create a Calendar event.
 
 The request body is:
 
@@ -422,9 +422,14 @@ The request body is:
 ```
 
 `event` uses the existing shared Calendar create model. `document_path` must be a
-nonempty absolute path, `document_content` must be a nonempty string, and
-`issue_title` must contain non-whitespace content and be at most 256 characters,
-matching the shared Issue Tracker contract. Unknown fields are rejected.
+nonempty absolute path below `/`, with no empty, `.` or `..` segments and no
+trailing slash. Case is preserved; the shared Storage contract does not define
+case equivalence, so callers must reuse the exact same spelling when reconciling
+a path. `document_content` must be a nonempty string whose UTF-8 encoding is no
+larger than 150,000,000 bytes, the selected Team 3 implementation's documented
+single-upload ceiling. `issue_title` must contain non-whitespace content and be
+at most 256 characters, matching the shared Issue Tracker contract. Unknown
+fields are rejected. All these checks run before provider construction.
 
 After all three steps succeed, the operation returns HTTP 201 with one combined
 provider-independent result:
@@ -461,8 +466,8 @@ provider-independent result:
 
 The success request/HTTP 201 response above are unchanged. For a workflow setup
 or operation failure, the endpoint preserves the shared `error` fields and adds
-`failed_step`, `failure_stage` and `steps`. For example, after Calendar succeeds
-but the storage write has an uncertain outcome, HTTP 502 returns:
+`failed_step`, `failure_stage` and `steps`. For example, when the first Storage
+write has an uncertain outcome, HTTP 502 returns:
 
 ```json
 {
@@ -474,15 +479,7 @@ but the storage write has an uncertain outcome, HTTP 502 returns:
   "failed_step": "storage",
   "failure_stage": "operation",
   "steps": {
-    "calendar": {
-      "outcome": "succeeded",
-      "event": {
-        "id": "event-123",
-        "title": "Project kickoff",
-        "start": "2026-11-16T10:00:00-05:00",
-        "end": "2026-11-16T11:00:00-05:00"
-      }
-    },
+    "calendar": {"outcome": "not_attempted"},
     "storage": {"outcome": "uncertain"},
     "issue_tracker": {"outcome": "not_attempted"}
   }
@@ -493,8 +490,8 @@ but the storage write has an uncertain outcome, HTTP 502 returns:
 invalid workflow selection. `failure_stage` is `setup` or `operation`. Setup
 completes before any workflow write; a setup failure leaves all three writes
 `not_attempted`, even when the failed constructor is the last one acquired.
-Constructors acquire Issue Tracker, Calendar, then Storage; **writes** still run
-Calendar, Storage, then Issue Tracker. Acquired resources close on every exit.
+Constructors acquire Issue Tracker, Calendar, then Storage; **writes** run
+Storage, Issue Tracker, then Calendar. Acquired resources close on every exit.
 
 A confirmed successful step retains its existing public result/identifier.
 Known input/not-found/access rejections are `failed`; provider errors,
@@ -503,8 +500,11 @@ unavailability and unexpected call/result-validation errors are conservatively
 later steps stay `not_attempted`. Exception text/details are never returned.
 
 Codes/statuses remain `invalid_input`/422, `not_found`/404, `access_denied`/403,
-`provider_error`/502 and `provider_unavailable`/503. Malformed request JSON is
-400; request/schema errors are 422 with only `error` (no step was entered).
+`provider_error`/502 and `provider_unavailable`/503. A create-only Storage path
+that already exists is the workflow-only `conflict`/409 outcome, with
+`failed_step=storage`, later writes `not_attempted`, and `retryable=false`.
+Malformed request JSON is 400; request/schema errors are 422 with only `error`
+(no step was entered).
 Input validation precedes provider construction. All workflow error envelopes
 include boolean `retryable`; Calendar operations' existing contracts are unchanged.
 
@@ -515,9 +515,12 @@ earlier successful write. A setup-only error may retain retryability because no
 workflow writes ran. The caller must correct configuration/access/input or
 reconcile provider state, using retained identifiers and the stable document
 path, before starting a new execution. Repeating the same HTTP request is a
-**new run**, not a continuation: Calendar may be created again before storage
-rejects an existing path. A conflict is not proof that the original content
-matches or that the whole workflow succeeded.
+**new run**, not a continuation, but the stable create-only Storage path now
+rejects a repeat before Issue Tracker or Calendar writes. A conflict is not
+proof that the original content matches or that the whole workflow succeeded.
+Call `get_metadata(path)` and `download(path)`, compare the existing bytes with
+the intended request, and determine what earlier work completed before taking
+manual action. Never automatically replay the entire workflow.
 
 Runtime configuration, the completed Team 3 and Team 4 package integrations,
 and the unavailable second-team storage-package option are documented in

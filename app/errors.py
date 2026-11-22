@@ -37,6 +37,24 @@ class InvalidInputError(ServiceError):
         self.public_message = public_message
 
 
+class StorageConflictError(InvalidInputError):
+    """A create-only workflow storage path is already occupied.
+
+    The underlying Calendar error model has no conflict member, so this retains
+    ``invalid_input`` internally while the composition endpoint exposes the
+    shared Storage contract's narrower ``409 conflict`` outcome.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Storage path already exists",
+            public_message=(
+                "Storage path already exists; inspect its metadata and content "
+                "before retrying"
+            ),
+        )
+
+
 class NotFoundError(ServiceError):
     """The requested event does not exist."""
 

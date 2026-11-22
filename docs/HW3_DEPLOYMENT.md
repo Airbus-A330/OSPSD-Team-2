@@ -3,8 +3,9 @@
 Status: the Milestone 1 composition, package integrations, deployment
 configuration, controlled verification, and provider-specific checks described
 below are complete. The evidence ledger distinguishes those results from the
-completed hosted three-provider verification from the remaining real package-swap
-and external-review limits.
+completed hosted three-provider verification from the remaining real
+package-swap limit. Faisal from Team 6 completed the external design review;
+the response is recorded in DESIGN.md.
 
 ## Reuse the HW2 delivery path
 
@@ -136,7 +137,7 @@ uv run --locked python -m scripts.verify_kickoff --allow-create --expected-failu
 ```
 
 The script expects 403, `failed_step=storage`, `failure_stage=operation`,
-`retryable=false`, Calendar succeeded, Storage failed, Issue Tracker not attempted.
+`retryable=false`, Storage failed, and both Issue Tracker and Calendar not attempted.
 Confirm the instance really has controlled configuration before interpreting it
 as synthetic: the HTTP error alone cannot prove no external writes occurred.
 Restore configured mode and remove `WORKFLOW_FAIL_STEP` afterward. This exercise
@@ -157,7 +158,7 @@ identifiers are intentionally absent where no retained evidence exists.
 | Controlled step-aware failure | PASS — automated verification and local offline-container storage-failure exercise; see 2026-11-18 check below |
 | Genuine configuration-only implementation swap | EVIDENCE LIMIT — no compatible second storage package was available; see DESIGN.md |
 | Architecture and request trace | [DESIGN.md](DESIGN.md#hw3-deployment-and-request-trace-85) |
-| External-team design review and substantive responses | EVIDENCE LIMIT — no review comments are retained in this repository |
+| External-team design review and substantive responses | PASS — Faisal from Team 6 identified three substantive concerns; the implemented response is retained in DESIGN.md |
 
 A second compatible real implementation must be packaged, pinned and selectable
 before the swap exercise can run. Preserve the same image digest across the
@@ -193,7 +194,8 @@ retains sanitized workflow, cleanup and Delivery reports.
 The original workflow report's pending/retained fields describe its initial state;
 later inspection and cleanup are documented separately without rewriting that report.
 Delivery's Calendar smoke and the subsequent three-provider run are separate checks.
-External-team design review and genuine implementation-swap evidence remain pending.
+The external-team design review is complete. Genuine implementation-swap
+evidence remains unavailable because no second compatible package was released.
 
 ## Historical local preparation check (2026-11-17)
 
@@ -227,6 +229,8 @@ Tested source revision `69c0d2f` on the issue #85 branch:
   retries, client cleanup, uncertain writes, and sanitized verification reports.
 - These are local synthetic checks, not hosted three-provider acceptance or a
   real implementation swap. No Render configuration or deployment was changed.
+  This retained run used the earlier Calendar-first sequence; Faisal's external
+  review led to the safer Storage-first sequence now covered by current tests.
 
 ## Direct Trello API check (2026-11-18)
 
@@ -256,7 +260,7 @@ three-provider verification and cleanup are recorded above.
 
 | Assignment requirement | Status | Evidence |
 | --- | --- | --- |
-| Fixed Calendar → Storage → Issue Tracker API workflow and combined result | PASS — automated verification | Workflow, HTTP, and composition tests exercise all three steps and HTTP 201 |
+| Fixed Storage → Issue Tracker → Calendar API workflow and combined result | PASS — automated verification | Workflow, HTTP, and composition tests exercise all three steps and HTTP 201 |
 | Provider-independent orchestration | PASS — automated verification | Workflow tests use narrow capabilities and contain no provider SDK construction |
 | Team 2 Calendar through the shared contract | PASS — automated verification | Configured Calendar composition and shared-contract integration tests |
 | Team 3 Cloud Storage package through the tagged shared contract | PASS — automated verification | Locked package construction and integration tests |
@@ -264,9 +268,9 @@ three-provider verification and cleanup are recorded above.
 | Team 4 Issue Tracker package through the tagged shared contract | PASS — automated verification | Corrected package installs without namespace collision; construction and controlled-HTTP integration tests pass |
 | Team 4 provider-backed integration | PASS — manually verified | Configured Trello integration succeeded; direct create/read/delete/absence check is recorded above |
 | Configuration-driven implementation selection and fail-closed setup | PASS — automated verification | Composition tests cover supported/unsupported selection and missing configuration before writes |
-| Failed-step and partial-success reporting | PASS — automated verification | Calendar, Storage, and Issue Tracker failure cases retain earlier results and mark later steps unattempted |
+| Failed-step and partial-success reporting | PASS — automated verification | Storage, Issue Tracker, and Calendar failure cases retain earlier results and mark later steps unattempted |
 | Retry and duplicate-work safety | PASS — automated verification | No automatic write retry/rollback; repeated-run and uncertain-write tests document reconciliation requirements |
 | Locked build, deployment configuration, and controlled container path | PASS — automated verification | Locked checks, Blueprint validation, container build/check and offline workflow failure exercise |
 | Hosted composed happy path with direct confirmation in all three providers | PASS — hosted verification | Sanitized HTTP 201 report, direct provider checks and confirmed cleanup linked above |
 | Genuine configuration-only swap between two real implementations | EVIDENCE LIMIT | Team 1 and Team 6 releases were not compatible installable alternatives |
-| External-team integration-design review | EVIDENCE LIMIT | No substantive external-team review record is retained |
+| External-team integration-design review | PASS | Faisal from Team 6 identified ordering, validation, and conflict-semantics issues; the response is recorded in DESIGN.md |

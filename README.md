@@ -268,6 +268,7 @@ PATCH retain their documented extension behavior; see [CONTRACT.md](docs/CONTRAC
 |---|---:|---|
 | Malformed/non-JSON or empty body | `400` | `invalid_input` |
 | Invalid fields, values, or path input | `422` | `invalid_input` |
+| Existing workflow document path | `409` | `conflict` |
 | Missing resource | `404` | `not_found` |
 | Access denied | `403` | `access_denied` |
 | Unexpected response or uncertain write | `502` | `provider_error` |

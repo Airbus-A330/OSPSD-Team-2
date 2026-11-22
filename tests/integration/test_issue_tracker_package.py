@@ -109,7 +109,7 @@ def test_team4_http_failure_preserves_workflow_progress(
     assert response.status_code == status
     result = response.json()
     assert result["failed_step"] == "issue_tracker"
-    assert result["steps"]["calendar"]["outcome"] == "succeeded"
+    assert result["steps"]["calendar"]["outcome"] == "not_attempted"
     assert result["steps"]["storage"]["outcome"] == "succeeded"
     assert result["steps"]["issue_tracker"] == {"outcome": outcome}
     assert result["error"]["retryable"] is False

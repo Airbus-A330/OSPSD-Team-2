@@ -500,9 +500,9 @@ boundary for `POST /workflows/project-kickoff`:
 FastAPI route
     ↓
 ProjectKickoffWorkflow
-    ├── CalendarCreator.create(CreateEvent)
     ├── DocumentCreator.create(path, bytes)
-    └── IssueCreator.create_issue(title)
+    ├── IssueCreator.create_issue(title)
+    └── CalendarCreator.create(CreateEvent)
 ```
 
 The three small structural protocols expose only the capabilities this workflow
@@ -512,9 +512,11 @@ boundaries. The orchestrator imports no Google, Dropbox/S3, Trello/Linear, or
 other provider SDK types. Concrete package construction and implementation
 selection belong in `app.workflow_composition`, outside workflow behavior.
 
-The fixed sequence is Calendar, Storage, then Issue Tracker. Each write is called
-once. The successful result contains the public Calendar Event, stored-document
-ID/path, and issue ID/title with an explicit `succeeded` outcome for every step.
+The fixed sequence is Storage, Issue Tracker, then Calendar. Storage's stable,
+create-only path acts as the first claim and blocks downstream duplicate writes
+on a repeated request. Each write is called once. The successful result contains
+the public Calendar Event, stored-document ID/path, and issue ID/title with an
+explicit `succeeded` outcome for every step.
 Controlled tests replace the composition dependency, so they require no provider
 credentials or network. Real package adapters, configuration selection,
 cross-vertical error translation, and partial-failure reporting are implemented

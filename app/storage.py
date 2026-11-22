@@ -17,6 +17,7 @@ from app.errors import (
     NotFoundError,
     PermissionDeniedError,
     ProviderFailureError,
+    StorageConflictError,
 )
 
 
@@ -40,7 +41,8 @@ def create_document(storage: DocumentStorage, path: str, content: bytes) -> File
         Shared metadata confirming creation; never a raw provider response.
 
     Raises:
-        InvalidInputError: Invalid content/path, or a destination already exists.
+        InvalidInputError: Invalid content or path.
+        StorageConflictError: The create-only destination already exists.
         NotFoundError: A required storage resource is missing.
         PermissionDeniedError: Storage refused access.
         StorageWriteUncertainError: Creation may have committed despite failure.
@@ -48,10 +50,7 @@ def create_document(storage: DocumentStorage, path: str, content: bytes) -> File
     try:
         return storage.create(path, content)
     except ConflictError:
-        raise InvalidInputError(
-            "Storage path already exists",
-            public_message="Storage path already exists; reconcile before retrying",
-        ) from None
+        raise StorageConflictError() from None
     except (InvalidRequestError, InvalidOperationError, FileTooLargeError):
         raise InvalidInputError(
             "Invalid storage document", public_message="Invalid storage document"

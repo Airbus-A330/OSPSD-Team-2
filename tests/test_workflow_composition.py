@@ -12,7 +12,7 @@ from issue_tracker_contract.errors import ErrorCode as IssueErrorCode
 from issue_tracker_contract.errors import ServiceError as IssueServiceError
 from issue_tracker_contract.models import Issue
 
-from app import composition, storage_composition, workflow_composition
+from app import composition, storage_composition, workflow_composition, workflows
 from app.errors import ProviderUnavailableError
 from app.main import create_app
 from app.workflows import IssueResult
@@ -128,6 +128,14 @@ def test_operation_failure_closes_all_clients_and_does_not_retry(
     assert response.json()["error"]["retryable"] is False
     assert response.json()["steps"][step] == {"outcome": "uncertain"}
     assert method.call_count == 1
+    order = ["storage", "issue_tracker", "calendar"]
+    for later_step in order[order.index(step) + 1 :]:
+        later_method = (
+            services[later_step].create_issue
+            if later_step == "issue_tracker"
+            else services[later_step].create
+        )
+        later_method.assert_not_called()
     assert lifetime[-3:] == ["close:storage", "close:calendar", "close:issue_tracker"]
     assert "private" not in response.text
 
@@ -186,7 +194,7 @@ def test_explicit_controlled_mode_forces_selected_step_without_provider_setup(
     assert response.status_code == 403
     body = response.json()
     assert body["failed_step"] == step and body["failure_stage"] == "operation"
-    names = ["calendar", "storage", "issue_tracker"]
+    names = ["storage", "issue_tracker", "calendar"]
     for index, name in enumerate(names):
         expected = (
             "succeeded"
@@ -196,8 +204,10 @@ def test_explicit_controlled_mode_forces_selected_step_without_provider_setup(
             else "not_attempted"
         )
         assert body["steps"][name]["outcome"] == expected
-    if step != "calendar":
-        assert body["steps"]["calendar"]["event"]["id"] == "controlled-event"
+    if names.index(step) > 0:
+        assert body["steps"]["storage"]["document"]["id"] == "controlled-document"
+    if names.index(step) > 1:
+        assert body["steps"]["issue_tracker"]["issue"]["id"] == "controlled-issue"
     for constructor in constructors:
         constructor.assert_not_called()
 
@@ -292,6 +302,87 @@ def test_request_validation_precedes_resource_setup(
         "retryable": False,
     }
     assert resources[1] == []
+
+
+@pytest.mark.parametrize(
+    "document_path",
+    [
+        "",
+        "relative.md",
+        "/",
+        "/notes//a.md",
+        "/notes/./a.md",
+        "/notes/../a.md",
+        "/notes/",
+    ],
+)
+def test_nonportable_document_path_is_rejected_before_provider_setup(
+    resources: tuple[dict[str, Mock], list[str]], document_path: str
+) -> None:
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/workflows/project-kickoff",
+            json={**BODY, "document_path": document_path},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"] == {
+        "code": "invalid_input",
+        "message": "Invalid project kickoff data",
+        "retryable": False,
+    }
+    assert resources[1] == []
+    for service in resources[0].values():
+        service.create.assert_not_called()
+        service.create_issue.assert_not_called()
+
+
+def test_mixed_case_document_path_is_preserved(
+    resources: tuple[dict[str, Mock], list[str]],
+) -> None:
+    path = "/Projects/Alpha/Kickoff.md"
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/workflows/project-kickoff", json={**BODY, "document_path": path}
+        )
+
+    assert response.status_code == 201
+    resources[0]["storage"].create.assert_called_once_with(
+        path, str(BODY["document_content"]).encode("utf-8")
+    )
+
+
+@pytest.mark.parametrize(
+    ("content", "expected_status"),
+    [("abcd", 201), ("abcde", 422), ("éé", 201), ("ééa", 422)],
+)
+def test_document_content_limit_uses_encoded_byte_length_before_setup(
+    resources: tuple[dict[str, Mock], list[str]],
+    monkeypatch: pytest.MonkeyPatch,
+    content: str,
+    expected_status: int,
+) -> None:
+    monkeypatch.setattr(workflows, "MAX_DOCUMENT_CONTENT_BYTES", 4)
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/workflows/project-kickoff",
+            json={**BODY, "document_content": content},
+        )
+
+    assert response.status_code == expected_status
+    if expected_status == 201:
+        resources[0]["storage"].create.assert_called_once_with(
+            BODY["document_path"], content.encode("utf-8")
+        )
+    else:
+        assert resources[1] == []
+        for service in resources[0].values():
+            service.create.assert_not_called()
+            service.create_issue.assert_not_called()
+
+
+def test_document_content_limit_is_150_decimal_megabytes() -> None:
+    assert workflows.MAX_DOCUMENT_CONTENT_BYTES == 150_000_000
 
 
 def test_overlong_issue_title_is_rejected_before_provider_construction(
@@ -460,7 +551,7 @@ def test_openapi_keeps_original_request_success_and_documents_new_errors() -> No
     assert responses["201"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/ProjectKickoffResult"
     }
-    for status in (403, 404, 502, 503):
+    for status in (403, 404, 409, 502, 503):
         assert responses[str(status)]["content"]["application/json"]["schema"] == {
             "$ref": "#/components/schemas/ProjectKickoffFailureResult"
         }

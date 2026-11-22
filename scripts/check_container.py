@@ -152,7 +152,7 @@ def main() -> None:
             )
             assert status == 403 and body["failed_step"] == "storage"
             assert body["failure_stage"] == "operation"
-            assert body["steps"]["calendar"]["outcome"] == "succeeded"
+            assert body["steps"]["calendar"]["outcome"] == "not_attempted"
             assert body["steps"]["storage"]["outcome"] == "failed"
             assert body["steps"]["issue_tracker"]["outcome"] == "not_attempted"
             assert body["error"]["retryable"] is False

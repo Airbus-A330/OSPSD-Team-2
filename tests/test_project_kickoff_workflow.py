@@ -13,10 +13,10 @@ from app.errors import (
     PermissionDeniedError,
     ProviderFailureError,
     ProviderUnavailableError,
+    StorageConflictError,
 )
 from app.main import create_app
 from app.workflow_composition import get_project_kickoff_workflow
-from app.storage import StorageWriteUncertainError
 from app.workflows import ProjectKickoffRequest, ProjectKickoffWorkflow, WorkflowFailure
 
 
@@ -114,7 +114,7 @@ def test_project_kickoff_runs_three_steps_once_in_fixed_order() -> None:
 
     result = workflow.run(request)
 
-    assert calls == ["calendar", "storage", "issue_tracker"]
+    assert calls == ["storage", "issue_tracker", "calendar"]
     assert calendar.requests == [CreateEvent(**EVENT_INPUT)]
     assert storage.requests == [
         ("/projects/alpha/kickoff.txt", b"Agenda and decisions")
@@ -142,8 +142,8 @@ def test_project_kickoff_runs_three_steps_once_in_fixed_order() -> None:
     }
 
 
-def test_storage_failure_retains_calendar_result_and_identifies_failed_step() -> None:
-    workflow, calls, _, storage, _ = configured_workflow()
+def test_storage_failure_prevents_downstream_writes_and_identifies_step() -> None:
+    workflow, calls, calendar, storage, issues = configured_workflow()
     application = create_app()
     application.dependency_overrides[get_project_kickoff_workflow] = lambda: workflow
     with (
@@ -164,10 +164,12 @@ def test_storage_failure_retains_calendar_result_and_identifies_failed_step() ->
     assert response.status_code == 502
     body = response.json()
     assert body["failed_step"] == "storage"
-    assert body["steps"]["calendar"]["event"]["id"] == "event-123"
+    assert body["steps"]["calendar"] == {"outcome": "not_attempted"}
     assert body["steps"]["storage"] == {"outcome": "uncertain"}
     assert body["steps"]["issue_tracker"] == {"outcome": "not_attempted"}
-    assert calls == ["calendar"]
+    assert calls == []
+    assert calendar.requests == []
+    assert issues.titles == []
     assert "private detail" not in response.text
 
 
@@ -188,7 +190,7 @@ def test_project_kickoff_http_operation_returns_combined_result() -> None:
         )
 
     assert response.status_code == 201
-    assert calls == ["calendar", "storage", "issue_tracker"]
+    assert calls == ["storage", "issue_tracker", "calendar"]
     assert response.json()["calendar"]["event"]["id"] == "event-123"
     assert response.json()["storage"]["document"]["id"] == "file-456"
     assert response.json()["issue_tracker"]["issue"]["id"] == "issue-789"
@@ -233,9 +235,9 @@ def test_each_step_failure_preserves_progress_and_sanitizes_errors(
     kickoff_body: dict[str, object],
 ) -> None:
     workflow, calls, calendar, storage, issues = configured_workflow()
-    names = ["calendar", "storage", "issue_tracker"]
-    target = (calendar, storage, issues)[step_index]
-    method = "create_issue" if step_index == 2 else "create"
+    names = ["storage", "issue_tracker", "calendar"]
+    target = (storage, issues, calendar)[step_index]
+    method = "create_issue" if names[step_index] == "issue_tracker" else "create"
     application = create_app()
     application.dependency_overrides[get_project_kickoff_workflow] = lambda: workflow
     with (
@@ -261,47 +263,68 @@ def test_each_step_failure_preserves_progress_and_sanitizes_errors(
             else "not_attempted"
         )
     if step_index > 0:
-        assert body["steps"]["calendar"]["event"] == {"id": "event-123", **EVENT_INPUT}
-    if step_index > 1:
         assert body["steps"]["storage"]["document"] == {
             "id": "file-456",
             "path": kickoff_body["document_path"],
+        }
+    if step_index > 1:
+        assert body["steps"]["issue_tracker"]["issue"] == {
+            "id": "issue-789",
+            "title": kickoff_body["issue_title"],
         }
     assert calls == names[:step_index]
     assert failed_call.call_count == 1
     assert "private" not in response.text
 
 
-def test_lost_write_response_then_manual_resubmission_can_duplicate_calendar(
+def test_successful_storage_claim_blocks_downstream_writes_on_resubmission(
     kickoff_body: dict[str, object],
 ) -> None:
     workflow, calls, calendar, storage, issues = configured_workflow()
     saved: dict[str, bytes] = {}
 
-    def commit_then_lose_response(path: str, content: bytes) -> ControlledFile:
+    def claim_path(path: str, content: bytes) -> ControlledFile:
         calls.append("storage")
         if path in saved:
-            raise InvalidInputError("Existing path must be reconciled")
+            raise StorageConflictError()
         saved[path] = content
-        raise StorageWriteUncertainError("Lost response after commit")
+        return ControlledFile(id="file-456", path=path)
+
+    def fail_issue(*args: object) -> None:
+        calls.append("issue_tracker")
+        raise ProviderUnavailableError("private provider detail")
 
     application = create_app()
     application.dependency_overrides[get_project_kickoff_workflow] = lambda: workflow
     with (
-        patch.object(storage, "create", side_effect=commit_then_lose_response),
+        patch.object(storage, "create", side_effect=claim_path),
+        patch.object(issues, "create_issue", side_effect=fail_issue) as issue_call,
         TestClient(application) as client,
     ):
         first = client.post("/workflows/project-kickoff", json=kickoff_body)
-        assert first.status_code == 502
-        assert first.json()["steps"]["storage"]["outcome"] == "uncertain"
-        assert len(calendar.requests) == 1  # No automatic replay.
         second = client.post("/workflows/project-kickoff", json=kickoff_body)
-    assert second.status_code == 422
+
+    assert first.status_code == 503
+    assert first.json()["steps"]["storage"]["outcome"] == "succeeded"
+    assert first.json()["steps"]["issue_tracker"]["outcome"] == "uncertain"
+    assert first.json()["steps"]["calendar"] == {"outcome": "not_attempted"}
+    assert second.status_code == 409
+    assert second.json()["error"] == {
+        "code": "conflict",
+        "message": (
+            "Storage path already exists; inspect its metadata and content "
+            "before retrying"
+        ),
+        "retryable": False,
+    }
     assert second.json()["steps"]["storage"]["outcome"] == "failed"
+    assert second.json()["steps"]["issue_tracker"] == {"outcome": "not_attempted"}
+    assert second.json()["steps"]["calendar"] == {"outcome": "not_attempted"}
     assert first.json()["error"]["retryable"] is False
     assert second.json()["error"]["retryable"] is False
-    assert len(calendar.requests) == 2  # A new HTTP request is NOT deduplicated.
-    assert calls == ["calendar", "storage", "calendar", "storage"]
+    assert calendar.requests == []
+    assert issue_call.call_count == 1
+    assert calls == ["storage", "issue_tracker", "storage"]
     assert saved == {"/projects/alpha/kickoff.txt": b"Agenda and decisions"}
     assert issues.titles == []
 
@@ -313,7 +336,7 @@ def test_committed_write_with_lost_response_is_uncertain_not_known_failed(
 ) -> None:
     workflow, _, calendar, storage, issues = configured_workflow()
     committed: list[str] = []
-    target = (calendar, storage, issues)[step_index]
+    target = (storage, issues, calendar)[step_index]
 
     def lose_response(*args: object) -> None:
         committed.append("write happened")
@@ -321,19 +344,19 @@ def test_committed_write_with_lost_response_is_uncertain_not_known_failed(
 
     with patch.object(
         target,
-        "create_issue" if step_index == 2 else "create",
+        "create_issue" if step_index == 1 else "create",
         side_effect=lose_response,
     ):
         with pytest.raises(WorkflowFailure) as caught:
             workflow.run(ProjectKickoffRequest.model_validate(kickoff_body))
     result = caught.value.result().model_dump(mode="json")
-    step = ["calendar", "storage", "issue_tracker"][step_index]
+    step = ["storage", "issue_tracker", "calendar"][step_index]
     assert result["steps"][step] == {"outcome": "uncertain"}
     assert result["error"]["retryable"] is False
     assert committed == ["write happened"]
 
 
-def test_malformed_return_after_storage_write_preserves_calendar(
+def test_malformed_return_after_storage_write_prevents_downstream_calls(
     kickoff_body: dict[str, object],
 ) -> None:
     workflow, _, _, storage, issues = configured_workflow()
@@ -341,7 +364,7 @@ def test_malformed_return_after_storage_write_preserves_calendar(
         with pytest.raises(WorkflowFailure) as caught:
             workflow.run(ProjectKickoffRequest.model_validate(kickoff_body))
     assert caught.value.failed_step == "storage"
-    assert caught.value.steps.calendar.outcome == "succeeded"
+    assert caught.value.steps.calendar.outcome == "not_attempted"
     assert caught.value.steps.storage.outcome == "uncertain"
     assert issues.titles == []
 
@@ -357,8 +380,20 @@ def test_previous_success_does_not_leak_into_a_later_failed_execution(
             workflow.run(request)
     assert caught.value.result().steps.model_dump() == {
         "calendar": {"outcome": "failed"},
-        "storage": {"outcome": "not_attempted"},
-        "issue_tracker": {"outcome": "not_attempted"},
+        "storage": {
+            "outcome": "succeeded",
+            "document": {
+                "id": "file-456",
+                "path": "/projects/alpha/kickoff.txt",
+            },
+        },
+        "issue_tracker": {
+            "outcome": "succeeded",
+            "issue": {
+                "id": "issue-789",
+                "title": "Track kickoff follow-up",
+            },
+        },
     }
     assert first.calendar.event.id == "event-123"
 

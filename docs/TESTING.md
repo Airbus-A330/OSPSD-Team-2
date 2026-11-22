@@ -43,16 +43,20 @@ result and adds HTTP coverage for every step against input/not-found/access,
 provider/unavailability and unexpected failures. It checks earlier results,
 later unattempted steps, sanitized shared codes/statuses, uncertainty and no
 automatic retry. Controlled lost responses retain committed state; a repeated
-HTTP request explicitly demonstrates duplicate Calendar risk before storage
-rejects the existing path. Prior successful executions do not leak state into a
-new failure, malformed results remain uncertain, and nullable storage IDs work.
+HTTP request demonstrates that the Storage claim conflicts before Issue Tracker
+or Calendar can create duplicates. Conflict remains distinct from malformed
+input and retains safe reconciliation guidance. Prior successful executions do
+not leak state into a new failure, malformed results remain uncertain, and
+nullable storage IDs work.
 
 `tests/test_workflow_composition.py` covers actual dependency resolution,
 construction preflight, reverse cleanup on success/failure, explicit controlled
 selection for all three steps, rejection of invalid mode/fault combinations,
 existing Calendar/Storage selectors before auth, input validation before client
 setup, configured Team 4 Issue Tracker construction, and OpenAPI request/response
-shapes.
+shapes. Portable path cases, path-case preservation, the decimal 150 MB UTF-8
+byte boundary, and multibyte content are rejected or accepted before setup as
+documented.
 Changing only controlled configuration changes the failing step; this is not
 presented as a real different-team package swap.
 
@@ -65,15 +69,17 @@ For local, credential-free API failure demonstration, explicitly set
 `WORKFLOW_IMPLEMENTATION=controlled` and `WORKFLOW_FAIL_STEP=storage`, then start
 the existing local `app.main:app` entry point and POST the request from
 [CONTRACT.md](CONTRACT.md#project-kickoff-composition-workflow). It returns 403,
-Calendar `controlled-event` succeeded, storage failed and issue not attempted.
+storage failed, and both Issue Tracker and Calendar were not attempted.
 Change only the fail-step variable to `calendar` or `issue_tracker` for the other
 cases. These results are deliberately synthetic; do not claim provider records.
 
 The corrected tagged Team 4 package is installed and covered through controlled
 Trello HTTP. Provider-backed tests for both the Team 3 Dropbox and configured
-Team 4 Trello integrations completed successfully. A hosted three-provider run,
-genuine config-only package swap, and external-team design review remain evidence
-limits. See [DESIGN.md](DESIGN.md#hw3-milestone-1-workflow-configuration-and-partial-failure-84).
+Team 4 Trello integrations completed successfully, and the hosted
+three-provider run is retained in [HW3_DEPLOYMENT.md](HW3_DEPLOYMENT.md).
+Faisal from Team 6 reviewed the integration design; the response is recorded in
+[DESIGN.md](DESIGN.md#external-design-review--faisal-team-6). A genuine
+config-only package swap remains the evidence limit.
 
 ## Shared contract integration
 
@@ -472,7 +478,7 @@ Trello verification procedure are documented in [ISSUE_TRACKER_HANDOFF.md](ISSUE
 
 `tests/test_project_kickoff_workflow.py` supplies controlled Calendar, Cloud
 Storage, and Issue Tracker implementations through the composition boundary. The
-focused tests verify the fixed Calendar → Storage → Issue Tracker call order,
+focused tests verify the fixed Storage → Issue Tracker → Calendar call order,
 exactly one call per step, UTF-8 document bytes, unchanged provider-independent
 inputs, the complete combined result, and HTTP 201 behavior. They use neither
 network access nor credentials.

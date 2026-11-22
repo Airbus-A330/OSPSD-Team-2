@@ -15,7 +15,12 @@ from fastapi import Depends
 from fastapi.testclient import TestClient
 
 from app import storage_composition
-from app.errors import InvalidInputError, ProviderFailureError, ProviderUnavailableError
+from app.errors import (
+    InvalidInputError,
+    ProviderFailureError,
+    ProviderUnavailableError,
+    StorageConflictError,
+)
 from app.main import create_app
 from app.storage import StorageWriteUncertainError, create_document
 from app.storage_composition import get_document_storage
@@ -110,7 +115,7 @@ def test_lost_write_response_preserves_record_and_refuses_duplicate(sdk: Mock) -
         assert sdk.files_upload.call_count == 1
         assert stored == {PATH: CONTENT}
 
-        with pytest.raises(InvalidInputError, match="Storage path already exists"):
+        with pytest.raises(StorageConflictError, match="Storage path already exists"):
             create_document(storage, PATH, b"different content")
 
     assert stored == {PATH: CONTENT}

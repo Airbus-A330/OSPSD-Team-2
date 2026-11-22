@@ -112,24 +112,26 @@ attribute that failure to storage setup, separately from a failed create call.
 | Shared storage failure | Team 2 error/code | Outcome / recovery |
 |---|---|---|
 | Invalid request, invalid operation, file too large | `InvalidInputError` / `invalid_input` | Failed; correct input |
-| Existing destination | `InvalidInputError` / `invalid_input` | Failed create; inspect existing content, never infer success |
+| Existing destination | `StorageConflictError`; workflow HTTP 409 / `conflict` | Failed create; inspect existing metadata/content, never infer success |
 | Missing resource | `NotFoundError` / `not_found` | Failed; inspect configuration/path |
 | Permission denied | `PermissionDeniedError` / `access_denied` | Failed; correct access |
 | Provider error, unavailable, or other shared storage error | `StorageWriteUncertainError` / `provider_error` | Uncertain; reconcile before retry |
 
-Every write error has `retryable=false`. HW1 has no dedicated conflict/size
-code, so those known rejections use its invalid-input category. Provider error
-text is discarded. Unexpected programming errors propagate rather than being
+Every write error has `retryable=false`. HW1 has no dedicated conflict member,
+so `StorageConflictError` retains `invalid_input` internally while the composition
+endpoint exposes the shared Storage contract's narrower 409 `conflict` result.
+File-size and malformed-path failures remain `invalid_input`. Provider error text
+is discarded. Unexpected programming errors propagate rather than being
 disguised as contract failures. `StorageWriteUncertainError` subclasses the
 existing `ProviderFailureError`, allowing the workflow to distinguish uncertainty
 without exposing Dropbox types. The ordinary shared Calendar HTTP contract is
 unchanged. The composed route must render its own approved step-aware messages;
 the existing Calendar handlers contain Calendar-specific messages.
 
-For calendar-success/storage-failure, retain the calendar ID, storage path, and
-intended bytes; report storage as failed or uncertain and the issue step as not
-attempted. If storage succeeded and issue creation fails, retain its `FileInfo`
-and mark storage succeeded. Do not rerun completed steps. Neither this helper
+Storage runs first. If it fails, report it as failed or uncertain and leave
+Issue Tracker and Calendar not attempted. If Storage succeeded and Issue Tracker
+fails, retain its `FileInfo`; if Calendar fails last, retain both earlier results.
+Do not rerun completed steps. Neither this helper
 nor the shared storage contract persists workflow progress or provides a global
 idempotency key. The workflow owner must preserve that state for reconciliation.
 
@@ -195,7 +197,8 @@ or account identity is retained in this evidence.
 
 This satisfies the provider-backed storage check. The fixed workflow, configured
 Team 3 construction, and controlled failed-step behavior are also covered by the
-automated composition suite. This package-level run does not establish a hosted
-three-provider request or a genuine configuration-only swap to another team's
-storage package. Those evidence limits, along with the unrecorded external-team
-HW3 design review, are tracked in [HW3_DEPLOYMENT.md](HW3_DEPLOYMENT.md).
+automated composition suite. The hosted three-provider request and Faisal's
+external review are recorded in [HW3_DEPLOYMENT.md](HW3_DEPLOYMENT.md) and
+[DESIGN.md](DESIGN.md#external-design-review--faisal-team-6). A genuine
+configuration-only swap to another team's storage package remains the evidence
+limit.

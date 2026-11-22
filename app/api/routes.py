@@ -35,7 +35,7 @@ router = APIRouter()
         422: {"model": WorkflowErrorResponse | ProjectKickoffFailureResult},
         **{
             code: {"model": ProjectKickoffFailureResult}
-            for code in (403, 404, 502, 503)
+            for code in (403, 404, 409, 502, 503)
         },
     },
     status_code=status.HTTP_201_CREATED,

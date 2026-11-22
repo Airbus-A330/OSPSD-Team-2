@@ -125,12 +125,18 @@ def workflow_failure_response(request: Request, error: Exception) -> JSONRespons
     """Render the composition-only error extension without leaking dependency data."""
     if not isinstance(error, WorkflowFailure):
         raise error
-    status, _ = _SHARED_ERROR_RESPONSES[error.code]
+    status = (
+        409
+        if error.public_code == "conflict"
+        else _SHARED_ERROR_RESPONSES[error.code][0]
+    )
     logger.warning(
         "Workflow failed: step=%s stage=%s code=%s status=%s unexpected=%s",
         error.failed_step,
         error.failure_stage,
-        error.code.value,
+        error.public_code.value
+        if isinstance(error.public_code, ErrorCode)
+        else error.public_code,
         status,
         error.unexpected,
     )
