@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = "==3.12.*"
 
 [[package]]
@@ -678,7 +678,9 @@ dependencies = [
     { name = "google-api-python-client" },
     { name = "google-auth-httplib2" },
     { name = "google-auth-oauthlib" },
+    { name = "httpx" },
     { name = "issue-tracker-contract" },
+    { name = "jinja2" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
     { name = "pydantic" },
@@ -688,7 +690,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "ruff" },
@@ -703,7 +704,9 @@ requires-dist = [
     { name = "google-api-python-client", specifier = "==2.201.0" },
     { name = "google-auth-httplib2", specifier = "==0.4.4" },
     { name = "google-auth-oauthlib", specifier = "==1.5.0" },
+    { name = "httpx", specifier = "==0.28.1" },
     { name = "issue-tracker-contract", git = "https://github.com/Tyler-Arciniaga/OSPSD-Team-4.git?subdirectory=contract&rev=issue-tracker-contract-v1.1.0" },
+    { name = "jinja2", specifier = "==3.1.6" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.45.2" },
     { name = "opentelemetry-sdk", specifier = ">=1.45.2" },
     { name = "pydantic", specifier = "==2.12.5" },
@@ -713,7 +716,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx", specifier = "==0.28.1" },
     { name = "mypy", specifier = "==2.4.0" },
     { name = "pytest", specifier = "==9.1.1" },
     { name = "ruff", specifier = "==0.15.9" },
