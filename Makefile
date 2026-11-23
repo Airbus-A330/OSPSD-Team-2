@@ -23,8 +23,8 @@ conformance:
 	uv run --locked python -m pytest tests/integration/test_shared_conformance.py
 
 build:
-	uv run --locked python -m compileall app
-	uv run --locked python -c "import app.main"
+	uv run --locked python -m compileall app agent_service
+	uv run --locked python -c "import app.main, agent_service.main"
 
 check: format-check lint typecheck test build
 
