@@ -1,5 +1,100 @@
 # Calendar and Three-Vertical Composition Design
 
+## HW3 Milestone 2: agent service and model orchestration
+
+The agent is a separate FastAPI service between the user interface and Team 2's
+deterministic API. It interprets natural-language goals and selects tools, but it
+does not import provider packages, receive provider credentials, authorize an
+acting user, or execute a write from model text.
+
+```text
+Interface
+    -> natural-language request
+Agent service
+    |- real or scripted ModelClient
+    |- bounded explicit loop
+    |- product ToolRegistry
+    |- durable RunStore
+    `- HTTP API client
+             -> Team 2 API service
+                     -> shared vertical contracts and provider implementations
+```
+
+The first model-assisted path builds on the existing project-kickoff scenario.
+The model decides whether information is sufficiently explicit, asks for
+clarification when a material field is missing, and may select the composed
+proposal tool. Code validates the exact `ProjectKickoffRequest` and produces a
+digest-bound proposal. The run then stops at `approval_required`; it does not
+call the composed write endpoint. Level 4 will bind approval to the authenticated
+user and exact proposal at the API execution boundary.
+
+The only read tool retrieves a known event through `GET /events/{event_id}`.
+This establishes the API-only execution path without exposing every provider
+operation to the model. Tool output is bounded and marked untrusted before it
+returns to the model. Retrieved issue, document, or event text cannot modify the
+registry, identity, approval, limits, or system policy.
+
+### Model versus code
+
+| Model judgment | Deterministic code |
+|---|---|
+| Interpret the natural-language goal | Validate all request and tool schemas |
+| Decide whether a material choice is ambiguous | Reject unknown tools and extra/model-supplied identity fields |
+| Select a registered read or proposal tool | Enforce the registry, budgets, cancellation, and proposal-only writes |
+| Produce a concise clarification or summary | Call only the API service and sanitize failures/results |
+| Decide when a useful explanation is complete | Persist the run, proposal, trace, usage, and stopping reason |
+
+`ModelClient` isolates the real OpenAI Responses implementation from the loop;
+`ScriptedModel` supplies the same contract for deterministic CI. The real adapter
+uses a versioned application instruction and structured response schema. It
+passes no provider credentials or acting-user identifier. The configured model,
+prompt version, exact tool-definition digest, reported usage, duration, outcome,
+and failure are retained for evaluations.
+
+### Stopping, persistence, and safety
+
+The loop stops for completion, clarification, approval, policy block,
+cancellation, model failure, or explicit step/time/token/available-cost limits.
+Unknown or malformed tool calls become safe observations the model may correct
+within the remaining budget; they never reach the API or providers.
+
+SQLite is the development implementation of `RunStore`. It persists stopped
+runs, exact proposals, sanitized traces, and cancellation across process
+restarts, proving the persistence boundary without introducing another framework.
+It is not the final multi-user database. Authentication/database owners must
+scope this seam to the verified user and replace or configure it for deployment.
+
+Trace entries identify model calls, tool names/call IDs, outcomes, policy
+decisions, duration, model version, stopping reason, and usage. They exclude raw
+authorization headers, provider credentials, provider payload dumps, and private
+chain-of-thought.
+
+### Decisions and tradeoffs
+
+| Constraint | Decision | Tradeoff / revisit condition |
+|---|---|---|
+| Keep the model outside deterministic execution | Separate `agent_service` process calling the API over HTTP | Two processes require deployment wiring; do not merge them merely for convenience |
+| Prevent premature writes | The composed tool creates only an exact proposal and exposes no apply endpoint | Complete approval/provider verification waits for Level 4 integration |
+| Keep the loop inspectable | Small custom loop with two product tools instead of a general agent framework | Add framework features only after a measured failure requires them |
+| Test without credentials | Shared protocol with `ScriptedModel`; SQLite and controlled API boundary | Scripted success does not prove real-model quality |
+| Avoid prompt injection becoming authority | Mark tool results untrusted and enforce tools/policy in code | Model summaries may still be poor; deterministic boundaries contain effects |
+
+### Evaluation status
+
+Deterministic tests exercise read-tool feedback, exact write proposals,
+clarification, unknown/malformed calls, model/API failure, cancellation, restart,
+step/time/token limits, and adversarial retrieved content. Executable evaluation
+definitions record initial state, allowed actions, stopping conditions,
+observable success, prohibited effects, model/prompt versions, exact tool digest,
+duration, usage, and failure.
+
+Five-run real-model evidence, a real-model adversarial run, a measured
+before/after improvement, authenticated approval execution, and provider
+read-back are not claimed yet. They require real model credentials and the Level
+4 identity/approval path. The current remaining design limitation is the
+single-process SQLite development store. See [AGENT.md](AGENT.md) for operations
+and exact evidence procedures.
+
 ## HW3 deployment and request trace (#85)
 
 The [deployment runbook](HW3_DEPLOYMENT.md) is the configuration, hosted usage,

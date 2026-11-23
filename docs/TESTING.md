@@ -36,6 +36,38 @@ requires no Grafana credentials or network access.
 
 Repository-wide testing rules are defined in `../AGENTS.md`.
 
+## HW3 Milestone 2 agent service
+
+`tests/agent/` is the credential-free evidence for the separate agent service.
+It uses `ScriptedModel` and a controlled API boundary; normal CI neither calls a
+real model nor reaches a provider. The focused cases verify:
+
+- the natural-language HTTP boundary and durable run lookup/cancellation;
+- the explicit model/tool loop, clarification, proposals, and every stopping
+  limit;
+- rejection of unknown tools, malformed arguments, and model-supplied identity
+  before API execution;
+- API-only reads and exact digest-bound multi-vertical proposals that stop before
+  any write;
+- untrusted retrieved content, bounded tool output, sanitized failures, and no
+  credential or provider-package exposure;
+- SQLite restart/cancellation persistence and evaluation provenance;
+- real-model request construction and structured-response parsing without a
+  network call.
+
+Run the focused suite with:
+
+```bash
+uv run --locked python -m pytest tests/agent -q
+```
+
+The executable real-model scenarios in `agent_service/evaluation.py` are opt-in
+because they incur model cost. They require at least five attempts and record the
+model, prompt version, exact tool-definition digest, duration, usage, outcome,
+and failure. Deterministic tests do not constitute the required real-model
+five-run evidence or a measured before/after improvement. The exact procedure
+and remaining evidence limits are documented in [AGENT.md](AGENT.md).
+
 ## HW3 workflow failure and configuration (#84)
 
 `tests/test_project_kickoff_workflow.py` retains the original exact successful
