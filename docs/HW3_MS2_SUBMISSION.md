@@ -1,6 +1,6 @@
 # HW3 Milestone 2 submission index
 
-**Team 2 · Calendar · Kickoff Handoff (proposed)**
+**Team 2 · Calendar · Kickoff Handoff**
 
 Team members and roles are in the [repository README](../README.md#team-members-and-operation-ownership).
 

@@ -1,6 +1,6 @@
 # Kickoff Handoff — HW3 Milestone 2 product brief
 
-**Owner:** Nicolas Ollivier · **Proposed:** November 23, 2026  
+**Owner:** Nicolas Ollivier · **Selected:** November 23, 2026
 **Build and Ship due:** December 2 · **Launch week:** December 2–6, 2026
 
 This short requirements brief connects the user job, product scope and
