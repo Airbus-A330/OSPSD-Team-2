@@ -12,7 +12,8 @@ references, unchanged request snapshots, stale/repeated confirmation rejection,
 CSRF/session separation, escaped content, safe response headers, and optional
 agent/account adapter decisions. Client tests cover all documented error codes,
 timeouts/malformed responses without retries, HTTPS selection, token handling,
-and the no-provider/database import boundary.
+the real agent request/status/cancel schema, exact proposal digest mapping,
+fail-closed unsupported approval, and the no-provider/database import boundary.
 
 The explicit [controlled demo and usability procedure](INTERFACE.md#controlled-demo-and-usability-check)
 provides success/failure scenarios for independent browser use. Automated HTML

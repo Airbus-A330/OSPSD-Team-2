@@ -13,7 +13,7 @@ Browser forms + presentation-only JavaScript
     -> interface.web (templates, transient browser drafts/results)
     -> HTTPWorkflowClient -> Team 2 API -> existing vertical boundaries
 
-AgentClient adapter [integration pending] -> separate agent service -> API
+HTTPAgentClient -> separate agent request/status/cancel service -> API
 AccountClient adapter [integration pending] -> account/connection API
 Database / durable approvals / provider secrets remain backend responsibilities
 ```
@@ -36,8 +36,13 @@ Python rendering reuses the API's request/result models and existing tools, avoi
 a second-language API client and duplicated schemas. Browser JavaScript makes no
 service requests. The tradeoff is full-page form navigation and final rather than
 streamed step results. Revisit streaming once the backend publishes a run/progress
-contract. Provisional typed agent/account adapters are injected per browser session;
-their fakes exist only in tests/demo. No speculative endpoint paths are called.
+contract. The agent adapter uses the implemented natural-language request,
+durable-status, and cancellation endpoints and maps the service's exact proposal
+ID/digest/action into the review screen. Until the approval workstream publishes
+authenticated execution, the real adapter exposes rejection through cancellation
+but never an approval button. The typed account adapter remains provisional and
+is injected per browser session; account fakes exist only in tests/demo. No
+speculative endpoint paths are called.
 
 The interface tests run through real API routes with controlled providers and
 exercise error display, review/replay safeguards, exact proposal decisions, and

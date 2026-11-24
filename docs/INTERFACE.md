@@ -7,7 +7,7 @@ product scenario. The product owner will confirm the final wording and inputs.
 
 ## For the person using the interface
 
-1. Ask the operator to start the interface, then open **http://127.0.0.1:8001**.
+1. Ask the operator to start the interface, then open **http://127.0.0.1:8002**.
 2. Check which environment the operator supplied. The current preview uses one
    designated test account; the controlled demo creates only synthetic records.
    **Real-user sign-in is not connected yet.** Do not enter provider credentials.
@@ -45,11 +45,16 @@ backend idempotency or durable approval guarantees. A new run remains a new writ
 
 ### Assistant and account panels
 
-In the normal client these panels explicitly say that integration is pending.
-Once adapters are connected, the assistant can show context retrieval, proposals,
-exact before/after changes, target, revision, and approve/reject/request-change
-controls. A plain chat message is not an approval. The account panel can display
-signed-in/out state, provider attention, reconnect and disconnect controls.
+When `INTERFACE_AGENT_URL` is configured, the assistant uses the implemented
+agent request, durable-status, and cancellation operations. It displays the exact
+proposal digest, API action, before/after changes, affected services, and effects.
+The current agent service has no authenticated approval endpoint, so the real
+adapter offers rejection through persisted cancellation but deliberately does not
+offer approval or request-change controls. Those controls become available only
+after the approval workstream publishes its enforced contract. A plain chat
+message is not approval.
+The account panel can display signed-in/out state, provider attention, reconnect,
+and disconnect once the account adapter is integrated.
 
 The controlled demo supplies **fake** agent/account responses to exercise these
 screens. Its sign-in button does not authenticate a real user, and its proposal
@@ -64,6 +69,7 @@ then run `uv sync --locked`. Start Team 2's API separately using the existing
 
 ```bash
 export INTERFACE_API_URL=http://127.0.0.1:8000
+export INTERFACE_AGENT_URL=http://127.0.0.1:8001
 make interface-run
 ```
 
@@ -77,8 +83,11 @@ The token stays in the Python client's outbound Authorization header.
 | --- | --- |
 | `INTERFACE_API_URL` | Team 2 API origin/base path; default `http://127.0.0.1:8000`; remote URLs require HTTPS |
 | `INTERFACE_API_TOKEN` | Optional application bearer token for the configured API; never returned to the browser |
+| `INTERFACE_AGENT_URL` | Optional agent-service origin; use `http://127.0.0.1:8001` locally and HTTPS remotely |
+| `INTERFACE_AGENT_TOKEN` | Optional application bearer token for the agent; never included in model goals or browser responses |
+| `INTERFACE_SECURE_COOKIE` | Set to `1` for an HTTPS-hosted interface; local loopback development leaves it unset |
 
-`make interface-run` binds to loopback, port 8001, with access logging disabled.
+`make interface-run` binds to loopback, port 8002, with access logging disabled.
 This is a single-test-account preview. **Do not publicly deploy it** before
 per-user authentication, backend approval enforcement, HTTPS/cookie configuration,
 and durable run/reconciliation APIs are integrated. The API deployment and Docker
@@ -98,22 +107,25 @@ Start these in separate terminals from the repository root:
 
 ```bash
 # Terminal 1: actual API routes with controlled providers
-uv run --locked uvicorn interface.tests.demo:api --host 127.0.0.1 --port 8002 --no-access-log
+uv run --locked uvicorn interface.tests.demo:api --host 127.0.0.1 --port 8003 --no-access-log
 
 # Terminal 2: UI pointed only at that local controlled API; fake agent/account panels
-uv run --locked uvicorn interface.tests.demo:ui --host 127.0.0.1 --port 8001 --no-access-log
+uv run --locked uvicorn interface.tests.demo:ui --host 127.0.0.1 --port 8002 --no-access-log
 ```
 
-Open http://127.0.0.1:8001 and follow the user steps above. To demonstrate a partial
+Open http://127.0.0.1:8002 and follow the user steps above. To demonstrate a partial
 failure, stop Terminal 1 and restart it with:
 
 ```bash
-INTERFACE_DEMO_FAILURE=calendar uv run --locked uvicorn interface.tests.demo:api --host 127.0.0.1 --port 8002 --no-access-log
+INTERFACE_DEMO_FAILURE=calendar uv run --locked uvicorn interface.tests.demo:api --host 127.0.0.1 --port 8003 --no-access-log
 ```
 
 The document and issue succeed synthetically, Calendar fails with `access_denied`,
 and the UI preserves the earlier references. Add `INTERFACE_DEMO_UNCERTAIN=1`
 to demonstrate an uncertain Calendar write. Stop both servers with Ctrl+C afterward.
+
+The current port allocation reserves 8001 for the agent service. The historical
+smoke record below predates that allocation and therefore lists its original ports.
 
 Ask a teammate who did not implement this interface to use **only this page and
 the interface**, without coaching. Have them:
@@ -122,7 +134,7 @@ the interface**, without coaching. Have them:
    and confirm; find all three resulting references.
 2. Repeat with the controlled failure; explain what succeeded, what failed,
    and what they would safely do next.
-3. Inspect a fake agent proposal and identify its target and exact revision;
+3. Inspect a fake agent proposal and identify its target and exact digest;
    reject it or request a change. Confirm they understand the demo is synthetic.
 
 Record the reviewer/date/commit, environment, task outcome, verbatim confusion,
@@ -131,7 +143,8 @@ severity, fix commit, and independent retest. Do not record secrets or private d
 | Evidence | Status |
 | --- | --- |
 | Automated forms → HTTP client → actual API with controlled providers | Covered by `interface/tests/test_web.py` |
-| Automated proposal/account adapter interactions | Covered using explicit fakes; no real auth/agent endpoints |
+| Agent request/status/cancel adapter | Covered against the exact agent-service HTTP payloads with controlled transport; no live model call |
+| Account and future approval adapter interactions | Covered using explicit fakes; no real auth/approval endpoints |
 | Browser visual inspection | Pending: computer-use permission was unavailable in the implementation environment |
 | Uncoached teammate success/failure session | Pending; no teammate session or feedback is claimed |
 | Observed usability issues and fixes | Pending the uncoached session; do not infer these from automated checks |
@@ -149,12 +162,13 @@ programmatic HTTP check, not a browser visual review or a human usability sessio
 
 - **Product owner:** kickoff labels/fields live in `interface/web.py` and its
   templates. Keep business validation/execution in the API when replacing the scenario.
-- **Alexander / Maksym:** `AgentClient` in `interface/clients.py` is a provisional
-  typed adapter, not invented HTTP endpoints. Implement `submit`, `refresh`, and
-  `decide` against the agreed separate agent service. `decide` carries run ID,
-  proposal ID, exact revision, and explicit decision. The backend must derive
-  identity from verified credentials, enforce current revision/approval, persist
-  state, and prevent replay. The UI never executes agent tools itself.
+- **Alexander / Maksym:** `HTTPAgentClient` implements the agent service's request,
+  status, and cancellation endpoints. Rejection sends the exact run/proposal ID
+  and digest through the adapter and cancels the run. When the approval workstream
+  adds authenticated execution, extend `available_decisions` only after its client
+  can send the proposal ID and digest to that enforced endpoint. The backend must
+  derive identity from verified credentials, enforce the current digest/approval,
+  persist state, and prevent replay. The UI never executes agent tools itself.
 - **Dorien:** `AccountClient` reports status and handles sign-in/reconnect/disconnect.
   A factory supplies a separate adapter per browser session. Implement the actual
   authentication/redirect/callback flow and verified per-user API credentials when
