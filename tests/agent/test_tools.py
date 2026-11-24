@@ -28,9 +28,12 @@ def test_read_tool_uses_api_service_and_returns_bounded_event() -> None:
     api = ControlledApi()
     registry = ToolRegistry(api)
 
-    execution = registry.execute(call("read_calendar_event", {"event_id": "event-1"}))
+    execution = registry.execute(
+        call("read_calendar_event", {"event_id": "event-1"}), timeout_seconds=3
+    )
 
     assert api.event_ids == ["event-1"]
+    assert api.timeouts == [3]
     assert execution.proposal is None
     assert execution.observation.outcome == "succeeded"
     assert execution.observation.result == {

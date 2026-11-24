@@ -2,18 +2,22 @@
 
 from pathlib import Path
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event as ThreadEvent
 
 from calendar_contract import Event
 from pydantic import JsonValue
 
 from agent_service.contracts import (
     AgentRequest,
+    ModelContext,
     ModelDecision,
     ModelUsage,
     StoredRun,
 )
 from agent_service.model import ModelClientError, ScriptedModel
 from agent_service.service import AgentLimits, AgentService
+from agent_service.store import SQLiteRunStore
 from agent_service.tools import ApiToolError, ToolRegistry
 from tests.agent.conftest import ControlledApi, build_service
 from tests.agent.test_tools import KICKOFF_ARGUMENTS
@@ -116,6 +120,9 @@ def test_every_composed_write_stops_at_exact_approval_proposal(
     assert controlled_api.event_ids == []
     persisted = service.get_run(result.run_id)
     assert persisted is not None and persisted.result == result
+    assert service.cancel(result.run_id) is True
+    rejected = service.get_run(result.run_id)
+    assert rejected is not None and rejected.cancelled is True
 
 
 def test_unknown_and_malformed_tools_feed_safe_rejections_back_to_model(
@@ -254,7 +261,10 @@ def test_cost_budget_stops_before_model_completion_is_accepted(
 
 def test_api_failure_is_structured_for_model_correction(tmp_path: Path) -> None:
     class UnavailableApi:
-        def get_event(self, event_id: str) -> Event:
+        def get_event(
+            self, event_id: str, *, timeout_seconds: float | None = None
+        ) -> Event:
+            del event_id, timeout_seconds
             raise ApiToolError(code="api_unavailable", retryable=True)
 
     model = ScriptedModel(
@@ -314,6 +324,12 @@ class CancelOnSaveStore:
     def load(self, run_id: str) -> StoredRun | None:
         return self.run
 
+    def finish(self, run_id: str, run: StoredRun) -> bool:
+        if self.cancelled != run.cancelled:
+            return False
+        self.run = run
+        return True
+
     def cancel(self, run_id: str) -> bool:
         self.cancelled = True
         return self.run is not None
@@ -359,3 +375,99 @@ def test_elapsed_time_limit_stops_before_model_call(
     assert result.status == "limit_exhausted"
     assert "time limit" in result.message
     assert model.contexts == []
+
+
+def test_cancellation_during_model_call_wins_atomic_finalization(
+    tmp_path: Path, controlled_api: ControlledApi
+) -> None:
+    class BlockingModel:
+        provider = "controlled"
+        model_version = "blocking-v1"
+
+        def __init__(self) -> None:
+            self.started = ThreadEvent()
+            self.release = ThreadEvent()
+
+        def decide(
+            self, context: ModelContext, *, timeout_seconds: float | None = None
+        ) -> ModelDecision:
+            del context, timeout_seconds
+            self.started.set()
+            assert self.release.wait(timeout=2)
+            return decision("complete", "Must not overwrite cancellation")
+
+    class CapturingStore(SQLiteRunStore):
+        def __init__(self, database_path: Path) -> None:
+            super().__init__(database_path)
+            self.created = ThreadEvent()
+            self.run_id = ""
+
+        def save(self, run_id: str, run: StoredRun) -> None:
+            super().save(run_id, run)
+            self.run_id = run_id
+            self.created.set()
+
+    model = BlockingModel()
+    store = CapturingStore(tmp_path / "agent.sqlite3")
+    service = AgentService(
+        model=model,
+        tools=ToolRegistry(controlled_api),
+        store=store,
+        limits=AgentLimits(),
+    )
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(service.run, AgentRequest(goal="Cancel during model"))
+        assert store.created.wait(timeout=2)
+        assert model.started.wait(timeout=2)
+        assert service.cancel(store.run_id) is True
+        model.release.set()
+        result = future.result(timeout=2)
+
+    assert result.status == "cancelled"
+    persisted = service.get_run(result.run_id)
+    assert persisted is not None
+    assert persisted.cancelled is True
+    assert persisted.result is not None and persisted.result.status == "cancelled"
+    assert controlled_api.event_ids == []
+
+
+def test_model_decision_after_deadline_cannot_complete_or_start_tool(
+    tmp_path: Path, controlled_api: ControlledApi
+) -> None:
+    clock = [0.0]
+
+    class LateModel:
+        provider = "controlled"
+        model_version = "late-v1"
+
+        def __init__(self) -> None:
+            self.timeouts: list[float | None] = []
+
+        def decide(
+            self, context: ModelContext, *, timeout_seconds: float | None = None
+        ) -> ModelDecision:
+            del context
+            self.timeouts.append(timeout_seconds)
+            clock[0] = 2.0
+            return decision(
+                "tool_call",
+                "Late read",
+                tool_name="read_calendar_event",
+                arguments={"event_id": "event-1"},
+            )
+
+    model = LateModel()
+    service = AgentService(
+        model=model,
+        tools=ToolRegistry(controlled_api),
+        store=SQLiteRunStore(tmp_path / "agent.sqlite3"),
+        limits=AgentLimits(max_duration_seconds=1),
+        monotonic=lambda: clock[0],
+    )
+
+    result = service.run(AgentRequest(goal="Do not exceed the deadline"))
+
+    assert result.status == "limit_exhausted"
+    assert model.timeouts == [1.0]
+    assert controlled_api.event_ids == []

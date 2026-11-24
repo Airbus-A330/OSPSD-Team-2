@@ -17,9 +17,13 @@ class ControlledApi:
     def __init__(self, *, title: str = "Project kickoff") -> None:
         self.title = title
         self.event_ids: list[str] = []
+        self.timeouts: list[float | None] = []
 
-    def get_event(self, event_id: str) -> Event:
+    def get_event(
+        self, event_id: str, *, timeout_seconds: float | None = None
+    ) -> Event:
         self.event_ids.append(event_id)
+        self.timeouts.append(timeout_seconds)
         return Event(
             id=event_id,
             title=self.title,

@@ -1,7 +1,9 @@
 """Framework-independent bounded model/tool loop."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+import hashlib
+import json
 import time
 from uuid import uuid4
 
@@ -83,9 +85,12 @@ class AgentService:
                 observations=state.observations,
                 prompt_version=PROMPT_VERSION,
             )
+            remaining = self._remaining_seconds(started)
+            if remaining <= 0:
+                return self._time_limit_stop(run_id, conversation_id, request, state)
             call_started = self._monotonic()
             try:
-                decision = self._model.decide(context)
+                decision = self._model.decide(context, timeout_seconds=remaining)
             except ModelClientError as error:
                 self._append_trace(
                     state,
@@ -95,6 +100,11 @@ class AgentService:
                     duration_ms=self._duration_ms(call_started),
                     details={"code": error.code, "retryable": error.retryable},
                 )
+                boundary_stop = self._pre_step_stop(
+                    run_id, conversation_id, request, state, started
+                )
+                if boundary_stop is not None:
+                    return boundary_stop
                 return self._stop(
                     run_id,
                     conversation_id,
@@ -116,6 +126,11 @@ class AgentService:
                 duration_ms=self._duration_ms(call_started),
                 details={"model_version": self._model.model_version},
             )
+            boundary_stop = self._pre_step_stop(
+                run_id, conversation_id, request, state, started
+            )
+            if boundary_stop is not None:
+                return boundary_stop
             budget_stop = self._usage_stop(run_id, conversation_id, request, state)
             if budget_stop is not None:
                 return budget_stop
@@ -151,9 +166,12 @@ class AgentService:
             call = decision.tool_call
             if call is None:  # ModelDecision validation makes this unreachable.
                 raise AssertionError("tool_call decision has no call")
+            remaining = self._remaining_seconds(started)
+            if remaining <= 0:
+                return self._time_limit_stop(run_id, conversation_id, request, state)
             tool_started = self._monotonic()
             try:
-                execution = self._tools.execute(call)
+                execution = self._tools.execute(call, timeout_seconds=remaining)
             except ToolRejectedError as error:
                 observation = ToolObservation(
                     call_id=call.call_id,
@@ -170,6 +188,11 @@ class AgentService:
                     duration_ms=self._duration_ms(tool_started),
                     details={"tool_name": call.name, "code": str(error)},
                 )
+                boundary_stop = self._pre_step_stop(
+                    run_id, conversation_id, request, state, started
+                )
+                if boundary_stop is not None:
+                    return boundary_stop
                 continue
 
             state.observations.append(execution.observation)
@@ -179,8 +202,16 @@ class AgentService:
                 name=call.name,
                 outcome=execution.observation.outcome,
                 duration_ms=self._duration_ms(tool_started),
-                details={"call_id": call.call_id},
+                details={
+                    "call_id": call.call_id,
+                    "arguments_digest": _arguments_digest(call.arguments),
+                },
             )
+            boundary_stop = self._pre_step_stop(
+                run_id, conversation_id, request, state, started
+            )
+            if boundary_stop is not None:
+                return boundary_stop
             if execution.proposal is not None:
                 self._append_trace(
                     state,
@@ -242,15 +273,25 @@ class AgentService:
                 message="The run was cancelled; completed external actions are not undone.",
             )
         if self._monotonic() - started >= self._limits.max_duration_seconds:
-            return self._stop(
-                run_id,
-                conversation_id,
-                request,
-                state,
-                status="limit_exhausted",
-                message="The agent stopped after reaching its time limit.",
-            )
+            return self._time_limit_stop(run_id, conversation_id, request, state)
         return None
+
+    def _time_limit_stop(
+        self,
+        run_id: str,
+        conversation_id: str,
+        request: AgentRequest,
+        state: _RunState,
+    ) -> AgentRunResult:
+        """Finalize one run that exhausted its wall-clock budget."""
+        return self._stop(
+            run_id,
+            conversation_id,
+            request,
+            state,
+            status="limit_exhausted",
+            message="The agent stopped after reaching its time limit.",
+        )
 
     def _usage_stop(
         self,
@@ -289,14 +330,57 @@ class AgentService:
         message: str,
         proposal: Proposal | None = None,
     ) -> AgentRunResult:
-        self._append_trace(
+        result = self._result(
+            run_id,
+            conversation_id,
             state,
+            status=status,
+            message=message,
+            proposal=proposal,
+        )
+        stored = StoredRun(
+            request=request, result=result, cancelled=status == "cancelled"
+        )
+        if self._store.finish(run_id, stored):
+            return result
+        if status != "cancelled":
+            cancelled = self._result(
+                run_id,
+                conversation_id,
+                state,
+                status="cancelled",
+                message=(
+                    "The run was cancelled; completed external actions are not undone."
+                ),
+            )
+            if self._store.finish(
+                run_id, StoredRun(request=request, result=cancelled, cancelled=True)
+            ):
+                return cancelled
+        persisted = self._store.load(run_id)
+        if persisted is not None and persisted.result is not None:
+            return persisted.result
+        raise RuntimeError("Agent run could not be finalized")
+
+    def _result(
+        self,
+        run_id: str,
+        conversation_id: str,
+        state: _RunState,
+        *,
+        status: RunStatus,
+        message: str,
+        proposal: Proposal | None = None,
+    ) -> AgentRunResult:
+        """Construct one immutable final result without mutating candidate state."""
+        stop = TraceEntry(
+            sequence=len(state.trace) + 1,
             category="stop",
             name="run_stopped",
             outcome=status,
             duration_ms=0,
         )
-        result = AgentRunResult(
+        return AgentRunResult(
             run_id=run_id,
             conversation_id=conversation_id,
             status=status,
@@ -305,14 +389,13 @@ class AgentService:
             model_version=self._model.model_version,
             prompt_version=PROMPT_VERSION,
             proposal=proposal,
-            trace=state.trace,
+            trace=[*state.trace, stop],
             usage=state.usage,
         )
-        self._store.save(
-            run_id,
-            StoredRun(request=request, result=result, cancelled=status == "cancelled"),
-        )
-        return result
+
+    def _remaining_seconds(self, started: float) -> float:
+        """Return the timeout available to the next external call."""
+        return self._limits.max_duration_seconds - (self._monotonic() - started)
 
     def _duration_ms(self, started: float) -> int:
         return max(0, round((self._monotonic() - started) * 1_000))
@@ -347,3 +430,11 @@ def _add_usage(total: ModelUsage, current: ModelUsage) -> ModelUsage:
         total_tokens=total.total_tokens + current.total_tokens,
         cost_usd=sum(costs) if costs else None,
     )
+
+
+def _arguments_digest(arguments: Mapping[str, JsonValue]) -> str:
+    """Hash tool arguments for bounded evaluation evidence without raw identifiers."""
+    encoded = json.dumps(
+        arguments, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()

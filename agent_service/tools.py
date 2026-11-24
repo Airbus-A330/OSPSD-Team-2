@@ -62,7 +62,9 @@ class ProposalResult(BaseModel):
 class ApiServiceClient(Protocol):
     """Agent-facing API operations; never a provider implementation."""
 
-    def get_event(self, event_id: str) -> Event:
+    def get_event(
+        self, event_id: str, *, timeout_seconds: float | None = None
+    ) -> Event:
         """Read one event through the API service."""
 
 
@@ -81,7 +83,9 @@ class HttpApiServiceClient:
         self._timeout_seconds = timeout_seconds
         self._service_key = service_key
 
-    def get_event(self, event_id: str) -> Event:
+    def get_event(
+        self, event_id: str, *, timeout_seconds: float | None = None
+    ) -> Event:
         """Retrieve one event without exposing headers or provider responses."""
         headers = {"Accept": "application/json"}
         if self._service_key is not None:
@@ -92,7 +96,10 @@ class HttpApiServiceClient:
             method="GET",
         )
         try:
-            with urlopen(request, timeout=self._timeout_seconds) as response:  # noqa: S310
+            timeout = self._timeout_seconds
+            if timeout_seconds is not None:
+                timeout = min(timeout, timeout_seconds)
+            with urlopen(request, timeout=timeout) as response:  # noqa: S310
                 payload = response.read(_MAX_API_RESPONSE_BYTES + 1)
         except HTTPError as error:
             raise ApiToolError(
@@ -166,23 +173,31 @@ class ToolRegistry:
         """Return stable model-visible definitions in name order."""
         return [self._definitions[name] for name in sorted(self._definitions)]
 
-    def execute(self, call: ToolCall) -> ToolExecution:
+    def execute(
+        self, call: ToolCall, *, timeout_seconds: float | None = None
+    ) -> ToolExecution:
         """Validate and dispatch one registered call without trusting model fields."""
         if call.name not in self._definitions:
             raise ToolRejectedError("unknown_tool")
         if call.name == "read_calendar_event":
-            return self._read_event(call)
+            return self._read_event(call, timeout_seconds=timeout_seconds)
         if call.name == "propose_project_kickoff":
             return self._propose_kickoff(call)
         raise AssertionError("Registered tool has no dispatcher")
 
-    def _read_event(self, call: ToolCall) -> ToolExecution:
+    def _read_event(
+        self, call: ToolCall, *, timeout_seconds: float | None
+    ) -> ToolExecution:
         try:
             arguments = CalendarEventArguments.model_validate(call.arguments)
         except ValidationError:
             raise ToolRejectedError("invalid_tool_arguments") from None
         try:
-            result = CalendarEventResult(event=self._api.get_event(arguments.event_id))
+            result = CalendarEventResult(
+                event=self._api.get_event(
+                    arguments.event_id, timeout_seconds=timeout_seconds
+                )
+            )
         except ApiToolError as error:
             observation = ToolObservation(
                 call_id=call.call_id,
