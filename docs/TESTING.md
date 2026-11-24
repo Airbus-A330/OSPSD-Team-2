@@ -520,3 +520,15 @@ configuration failures, private ephemeral credential recovery, protected access
 and provider-independent readiness. Controlled integration with #73's real OTel
 runtime/middleware is recorded in [DEPLOYMENT.md](DEPLOYMENT.md); it is distinct
 from a full merge of #73 or real-provider/cloud acceptance.
+
+
+## Team 6 storage integration
+
+`tests/integration/test_team6_storage_package.py` runs the installed Team 6
+v0.2.0 adapter with controlled boto3 calls: exact create/download bytes, conflict
+without overwrite, nullable document IDs, fail-closed S3 configuration, safe
+error translation, network-free construction and HTTP partial progress. It does
+not simulate a second team by replacing the shared adapter with a fake.
+`tests/live/test_storage_workflow.py` accepts either supported selector and stays
+opt-in. See [STORAGE.md](STORAGE.md#automated-and-opt-in-verification) for live
+verification and the separate hosted same-image swap evidence still required.

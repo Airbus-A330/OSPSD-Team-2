@@ -1,4 +1,4 @@
-"""Opt-in package-to-Dropbox verification; this does not verify deployment."""
+"""Opt-in selected-storage verification; this does not verify deployment."""
 
 import os
 from contextlib import contextmanager
@@ -12,14 +12,14 @@ from app.storage_composition import get_document_storage
 
 pytestmark = pytest.mark.skipif(
     os.getenv("RUN_LIVE_STORAGE") != "1",
-    reason="Opt-in live Dropbox verification writes disposable test-account data",
+    reason="Opt-in live storage verification writes disposable test-account data",
 )
 
 
 def test_live_document_create_read_conflict_delete() -> None:
     """Verify exact content and no overwrite; clean up confirmed creations only."""
-    if os.getenv("STORAGE_IMPLEMENTATION") != "team3":
-        pytest.fail("Set STORAGE_IMPLEMENTATION=team3", pytrace=False)
+    if os.getenv("STORAGE_IMPLEMENTATION") not in {"team3", "team6"}:
+        pytest.fail("Set STORAGE_IMPLEMENTATION=team3 or team6", pytrace=False)
     path = "/ospsd-team2-verification-" + uuid4().hex + ".md"
     content = b"# HW3 Team 2 storage verification\nCalendar event: test-event\n"
     created = False

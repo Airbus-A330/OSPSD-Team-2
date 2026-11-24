@@ -15,12 +15,15 @@ flowchart TD
     W --> I[IssueProvider contract]
     C --> C2[Team 2 Google implementation]
     S --> S3[Team 3 Dropbox implementation]
+    S --> S6[Team 6 S3 implementation, configuration selected]
     I --> I4[Team 4 Trello implementation]
     C2 --> Google[Google Calendar]
     S3 --> Dropbox[Dropbox]
+    S6 --> OCI[OCI / S3 bucket]
     I4 --> Trello[Trello]
     Runtime[Render runtime secrets: provider credentials] -.-> C2
     Runtime -.-> S3
+    Runtime -.-> S6
     Runtime -.-> I4
     GH[GitHub Actions: Render key and HTTP bearer token] --> Render[Render deploy API]
     Render --> API
@@ -50,8 +53,9 @@ owned by an `ExitStack`; no write has happened at this point.
 
 The caller supplies the related text; this implementation does not automatically
 insert the returned Calendar ID into the document or the document ID into the
-card. Each result is preserved in the combined response. All request-scoped
-clients close when the dependency exits.
+card. Each result is preserved in the combined response. Calendar, Trello and Dropbox clients close when the dependency exits. Team 6
+currently exposes no public S3 client-close method; see the limitations in
+[STORAGE.md](STORAGE.md#upstream-limitations-retained-by-this-draft).
 
 If Storage fails after Calendar creation, the error names Storage, preserves the
 confirmed Calendar event, and leaves Issue Tracker unattempted. No automatic
@@ -86,6 +90,7 @@ No API consumer should infer exactly-once execution from these progress fields.
 | `WORKFLOW_IMPLEMENTATION` unset or `configured` | Real construction boundaries; no fake fallback |
 | `CALENDAR_IMPLEMENTATION` unset or `team2` | Existing #81 selection, unchanged |
 | `STORAGE_IMPLEMENTATION=team3` | Existing #82 package/credentials/retry policy, unchanged |
+| `STORAGE_IMPLEMENTATION=team6` | Tagged v0.2.0 shared adapter; requires S3 settings, never falls back to memory; see [storage integration](STORAGE.md#team-6-v020-integration-2026-11-23) |
 | `ISSUE_TRACKER_IMPLEMENTATION=team4-trello` | Tagged Team 4 provider with Trello configuration; see [handoff](ISSUE_TRACKER_HANDOFF.md) |
 | `WORKFLOW_IMPLEMENTATION=controlled` plus `WORKFLOW_FAIL_STEP=calendar`, `storage` or `issue_tracker` | Credential-free synthetic workflow; chosen step is rejected with 403, earlier synthetic results retained, later steps not attempted |
 
@@ -129,15 +134,13 @@ risk invisible; they are not a generic exception-swallowing policy.
 
 ### Genuine swap limitation and verification
 
-The shared contract remains tagged `0.3.1`; Team 3 remains `v0.3.0` with the
-existing lockfile. No new dependency, provider registry, Python/framework
-upgrade, HTTP call to another team's deployment or copied SDK implementation is
-introduced. [STORAGE.md](STORAGE.md#dependencies-and-selection) records the
-candidate compatibility findings. Rechecked Team 1 `v1.1.0` lacks installable
-project metadata, and Team 6 `v0.1.0` requires Python >=3.13 and incompatible
-FastAPI/Uvicorn ranges. Do not silently patch around them or count a controlled
-fake as another team's implementation. A compatible second package and its
-actual deployed config-only swap demonstration remain external acceptance work.
+The shared contract remains at tag `0.3.1` and Team 3 remains at `v0.3.0`.
+Team 6 `v0.2.0` is now installed and selectable without changing orchestration,
+Python or the HTTP framework. Its public shared adapter resolves the historical
+v0.1.0 packaging incompatibility. See [STORAGE.md](STORAGE.md) for pinned commits,
+configuration, controlled integration coverage, upstream retry/lifecycle/race
+limitations, and the same-image live swap procedure. The actual hosted swap
+remains unverified; installing two packages alone is not acceptance evidence.
 
 [TESTING.md](TESTING.md#hw3-workflow-failure-and-configuration-84) maps the
 credential-free checks. Team 4 installation, configuration, adapter behavior,
@@ -240,22 +243,27 @@ flowchart TD
     Workflow --> Create[create_document: service error translation]
     Create --> Storage[DocumentStorage shared contract]
     Storage --> Team3[Team 3 DropboxDocumentStorage package]
+    Storage --> Team6[Team 6 SharedDocumentStorage package]
+    Team6 --> S3Bucket[S3-compatible test bucket]
     Team3 --> Dropbox[Dropbox document/content]
     Workflow --> Issue[Issue shared contract]
     Issue --> Team4[Team 4 implementation]
     Config[External test-account credentials/configuration] --> Factory[Construction boundaries]
     Factory --> Team2
     Factory --> Team3
+    Factory --> Team6
     Factory --> Team4
 ```
 
-Storage consumes the authoritative contract at tag `0.3.1` and Team 3's
-implementation at `v0.3.0`. Package metadata differs from tag names; exact
+Storage consumes the authoritative contract at tag `0.3.1`, Team 3's
+implementation at `v0.3.0`, and Team 6's implementation at `v0.2.0`. Package metadata differs from tag names; exact
 commits, candidate evaluation, configuration, and verification procedures are
 canonical in [STORAGE.md](STORAGE.md).
 
 `app/storage_composition.py` selects `STORAGE_IMPLEMENTATION=team3`, builds the
 implementation, disables automatic SDK retries, and owns session cleanup.
+The `team6` branch uses the upstream public factory with S3 configuration;
+its built-in retries and missing public close method are documented in STORAGE.md.
 `app/storage.py` accepts only the shared interface, creates once, returns shared
 metadata, and translates typed storage errors into existing Team 2 errors.
 No Calendar interface behavior changes. The composed route attaches failed-step
@@ -281,9 +289,9 @@ remain external; workflow code does not import provider SDKs.
 
 | Constraint | Chosen approach | Credible alternative | Accepted tradeoff / revisit condition |
 |---|---|---|---|
-| Use another team's installable implementation on Python 3.12 | Team 3 `v0.3.0` through authoritative `DocumentStorage` | Team 1 or Team 6 package | Three package Git sources; revisit when another team's compatible package is available. Hosted HTTP is excluded by the TA clarification. |
-| Implementation choice must stay out of orchestration | Small environment-selected construction function | Generic plugin registry | Only one supported storage selection today; add a factory branch and dependency for the eventual swap, without changing orchestration. Revisit a registry only if concrete selection complexity warrants it. |
-| A write error does not prove no record exists | Create-only stable path, no automatic SDK/application retries, explicit uncertain-write exception | Blind replay or compensating deletion | Caller/workflow retains progress and reconciles before retry. No exactly-once guarantee; revisit if the shared contract adds idempotency/reconciliation guarantees. |
+| Use another team's installable implementation on Python 3.12 | Team 3 `v0.3.0` through authoritative `DocumentStorage` | Team 1 or Team 6 package | Team 6 v0.2.0 is now the compatible alternative; preserve the shared contract and inspect provider differences before deployment. Hosted HTTP is excluded by the TA clarification. |
+| Implementation choice must stay out of orchestration | Small environment-selected construction function | Generic plugin registry | Two explicit selection branches keep provider construction out of orchestration; Team 6 v0.2.0 adds the second package. Revisit a registry only if concrete selection complexity warrants it. |
+| A write error does not prove no record exists | Stable path, no application retries, explicit uncertain-write exception; Dropbox SDK retries disabled, Team 6 SDK retries retained | Blind replay or compensating deletion | Caller/workflow retains progress and reconciles before retry. No exactly-once guarantee; revisit if the shared contract adds idempotency/reconciliation guarantees. |
 
 ### Partial failure and evidence
 
