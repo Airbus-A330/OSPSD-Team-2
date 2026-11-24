@@ -4,9 +4,11 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from interface.agent_client import HTTPAgentClient
 from interface.clients import AgentView, Decision, HTTPWorkflowClient
 from interface.tests.support import FORM, FakeAccount, FakeAgent, Inputs, controlled_api
-from interface.web import create_app
+from interface.tests.test_clients import agent_run_payload
+from interface.web import create_app, create_environment_app
 
 
 def client_for(
@@ -179,6 +181,68 @@ def test_unfinished_services_are_explicit_and_fail_closed() -> None:
     assert calls == []
 
 
+def test_environment_composition_connects_agent_without_exposing_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("INTERFACE_AGENT_URL", "http://127.0.0.1:8001")
+    monkeypatch.setenv("INTERFACE_AGENT_TOKEN", "controlled-agent-secret")
+    monkeypatch.setenv("INTERFACE_SECURE_COOKIE", "1")
+
+    client = TestClient(create_environment_app(), base_url="https://testserver")
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Natural-language help is not connected yet" not in response.text
+    assert "controlled-agent-secret" not in response.text
+    assert "Secure" in response.headers["set-cookie"]
+
+
+def test_real_agent_adapter_displays_exact_proposal_and_rejects_via_cancel() -> None:
+    calls: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path))
+        if request.url.path.endswith("/cancel"):
+            return httpx.Response(200, json={"run_id": "run-1", "cancelled": True})
+        return httpx.Response(200, json=agent_run_payload())
+
+    client = TestClient(
+        create_app(
+            agent_factory=lambda: HTTPAgentClient(
+                "http://127.0.0.1:8001", transport=httpx.MockTransport(handler)
+            )
+        )
+    )
+
+    proposal = post(client, "agent_submit", message="Prepare my kickoff")
+    assert "a" * 64 in proposal.text
+    assert "POST /workflows/project-kickoff" in proposal.text
+    assert "Cloud Storage" in proposal.text
+    assert "Approve this exact version" not in proposal.text
+    assert "Reject proposal" in proposal.text
+    assert (
+        post(
+            client,
+            "approve",
+            proposal_id="proposal-1",
+            digest="a" * 64,
+        ).status_code
+        == 409
+    )
+
+    rejected = post(
+        client,
+        "reject_proposal",
+        proposal_id="proposal-1",
+        digest="a" * 64,
+    )
+    assert "Proposal rejected; nothing executed" in rejected.text
+    assert calls == [
+        ("POST", "/agent/requests"),
+        ("POST", "/agent/runs/run-1/cancel"),
+    ]
+
+
 @pytest.mark.parametrize(
     "action,expected",
     [("approve", "approve"), ("reject_proposal", "reject"), ("change", "change")],
@@ -194,22 +258,22 @@ def test_agent_decisions_bind_exact_proposal_revision(
     assert "<script>bad()" not in preview.text
     assert agent.decisions == []
     assert (
-        post(client, "approve", proposal_id="proposal-1", revision="wrong").status_code
+        post(client, "approve", proposal_id="proposal-1", digest="wrong").status_code
         == 409
     )
     response = post(
         client,
         action,
         proposal_id="proposal-1",
-        revision="rev-1",
+        digest="a" * 64,
         clarification="Use tomorrow",
     )
     assert response.status_code == 200
     assert agent.decisions == [
-        ("run-1", "proposal-1", "rev-1", expected, "Use tomorrow")
+        ("run-1", "proposal-1", "a" * 64, expected, "Use tomorrow")
     ]
     assert (
-        post(client, "approve", proposal_id="proposal-1", revision="rev-1").status_code
+        post(client, "approve", proposal_id="proposal-1", digest="a" * 64).status_code
         == 409
     )
 
@@ -231,25 +295,25 @@ def test_lost_agent_decision_disables_approval_until_service_refresh() -> None:
             self,
             run_id: str,
             proposal_id: str,
-            revision: str,
+            digest: str,
             decision: Decision,
             clarification: str,
         ) -> AgentView:
             self.decisions.append(
-                (run_id, proposal_id, revision, decision, clarification)
+                (run_id, proposal_id, digest, decision, clarification)
             )
             raise httpx.ReadTimeout("private service detail")
 
     agent = LostDecisionAgent()
     client = TestClient(create_app(agent_factory=lambda: agent))
     post(client, "agent_submit", message="Update meeting")
-    response = post(client, "approve", proposal_id="proposal-1", revision="rev-1")
+    response = post(client, "approve", proposal_id="proposal-1", digest="a" * 64)
     assert "Uncertain" in response.text
     assert "do not approve again" in response.text
     assert "private service detail" not in response.text
     assert "Approve this exact version" not in response.text
     assert (
-        post(client, "approve", proposal_id="proposal-1", revision="rev-1").status_code
+        post(client, "approve", proposal_id="proposal-1", digest="a" * 64).status_code
         == 409
     )
     assert len(agent.decisions) == 1

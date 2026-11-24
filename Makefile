@@ -31,7 +31,7 @@ interface-test:
 	uv run --locked python -m pytest interface/tests
 
 interface-run:
-	uv run --locked uvicorn interface.web:app --host 127.0.0.1 --port 8001 --no-access-log
+	uv run --locked uvicorn interface.web:app --host 127.0.0.1 --port 8002 --no-access-log
 
 check: format-check lint typecheck test build
 

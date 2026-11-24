@@ -25,6 +25,8 @@ State = Literal[
     "failed",
     "uncertain",
     "not attempted",
+    "needs clarification",
+    "cancelled",
 ]
 Decision = Literal["approve", "reject", "change"]
 
@@ -151,23 +153,7 @@ class HTTPWorkflowClient:
         *,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
-        url = urlsplit(base_url)
-        if (
-            url.username
-            or url.password
-            or url.query
-            or url.fragment
-            or not url.hostname
-        ):
-            raise ValueError(
-                "INTERFACE_API_URL must be a service URL without credentials, query or fragment"
-            )
-        if url.scheme != "https" and not (
-            url.scheme == "http" and url.hostname in {"localhost", "127.0.0.1", "::1"}
-        ):
-            raise ValueError(
-                "Use HTTPS for the API, or HTTP on loopback for local development"
-            )
+        validate_service_url(base_url, "INTERFACE_API_URL")
         self.base_url, self.token, self.transport = (
             base_url.rstrip("/"),
             token,
@@ -206,10 +192,13 @@ class ProposedChange:
 
 @dataclass(frozen=True)
 class Proposal:
-    """Immutable proposal revision that the backend must enforce on decision."""
+    """Exact agent proposal revision supplied by the agent service."""
 
-    id: str
-    revision: str
+    proposal_id: str
+    digest: str
+    method: str
+    target: str
+    effects: tuple[str, ...]
     changes: tuple[ProposedChange, ...]
 
 
@@ -222,11 +211,11 @@ class AgentView:
     message: str
     proposal: Proposal | None = None
     result: ExecutionView | None = None
-    can_request_change: bool = False
+    available_decisions: tuple[Decision, ...] = ()
 
 
 class AgentClient(Protocol):
-    """Provisional adapter contract, not a claim that HTTP endpoints exist."""
+    """UI boundary implemented for current request/status/cancel operations."""
 
     async def submit(self, message: str) -> AgentView: ...
     async def refresh(self, run_id: str) -> AgentView: ...
@@ -234,7 +223,7 @@ class AgentClient(Protocol):
         self,
         run_id: str,
         proposal_id: str,
-        revision: str,
+        digest: str,
         decision: Decision,
         clarification: str,
     ) -> AgentView: ...
@@ -265,3 +254,18 @@ class AccountClient(Protocol):
     async def act(
         self, action: Literal["sign_in", "reconnect", "disconnect"], provider: str
     ) -> AccountView: ...
+
+
+def validate_service_url(base_url: str, setting: str) -> None:
+    """Require an HTTPS or local-loopback service URL without embedded secrets."""
+    url = urlsplit(base_url)
+    if url.username or url.password or url.query or url.fragment or not url.hostname:
+        raise ValueError(
+            f"{setting} must be a service URL without credentials, query or fragment"
+        )
+    if url.scheme != "https" and not (
+        url.scheme == "http" and url.hostname in {"localhost", "127.0.0.1", "::1"}
+    ):
+        raise ValueError(
+            f"Use HTTPS for {setting}, or HTTP on loopback for local development"
+        )

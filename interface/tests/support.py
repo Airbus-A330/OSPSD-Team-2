@@ -98,7 +98,10 @@ class FakeAgent:
             "Review this change.",
             Proposal(
                 "proposal-1",
-                "rev-1",
+                "a" * 64,
+                "PUT",
+                "/events/event-123",
+                ("Replace one Calendar event.",),
                 (
                     ProposedChange(
                         "update",
@@ -109,7 +112,7 @@ class FakeAgent:
                     ),
                 ),
             ),
-            can_request_change=True,
+            available_decisions=("approve", "reject", "change"),
         )
 
     async def submit(self, message: str) -> AgentView:
@@ -122,11 +125,11 @@ class FakeAgent:
         self,
         run_id: str,
         proposal_id: str,
-        revision: str,
+        digest: str,
         decision: Decision,
         clarification: str,
     ) -> AgentView:
-        self.decisions.append((run_id, proposal_id, revision, decision, clarification))
+        self.decisions.append((run_id, proposal_id, digest, decision, clarification))
         self.view = AgentView(
             run_id,
             "preparing" if decision == "change" else "succeeded",

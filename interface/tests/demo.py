@@ -15,7 +15,7 @@ if failure not in {"", "storage", "issue_tracker", "calendar"}:
     raise ValueError("INTERFACE_DEMO_FAILURE must name a workflow step or be empty")
 api, _ = controlled_api(failure, os.getenv("INTERFACE_DEMO_UNCERTAIN") == "1")
 ui = create_app(
-    HTTPWorkflowClient("http://127.0.0.1:8002"),
+    HTTPWorkflowClient("http://127.0.0.1:8003"),
     agent_factory=FakeAgent,
     account_factory=FakeAccount,
     demo=True,

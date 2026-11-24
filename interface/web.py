@@ -20,6 +20,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
 
 from app.workflows import ProjectKickoffRequest
+from interface.agent_client import HTTPAgentClient
 from interface.clients import (
     AccountClient,
     AccountView,
@@ -307,8 +308,8 @@ def create_app(
                         )
                     proposal = view.proposal
                     if (
-                        form.get("proposal_id") != proposal.id
-                        or form.get("revision") != proposal.revision
+                        form.get("proposal_id") != proposal.proposal_id
+                        or form.get("digest") != proposal.digest
                     ):
                         raise HTTPException(
                             409,
@@ -321,10 +322,10 @@ def create_app(
                         if kind == "change"
                         else "approve"
                     )
-                    if decision == "change" and not view.can_request_change:
+                    if decision not in view.available_decisions:
                         raise HTTPException(
                             409,
-                            "This service does not support clarification for this proposal.",
+                            "This decision is not available for the current proposal.",
                         )
                     # Disable local replay before awaiting a possibly uncertain response.
                     session.agent_view = AgentView(
@@ -334,8 +335,8 @@ def create_app(
                     )
                     session.agent_view = await session.agent.decide(
                         view.run_id,
-                        proposal.id,
-                        proposal.revision,
+                        proposal.proposal_id,
+                        proposal.digest,
                         decision,
                         form.get("clarification", ""),
                     )
@@ -391,4 +392,21 @@ def create_app(
     return application
 
 
-app = create_app()
+def create_environment_app() -> FastAPI:
+    """Compose the UI from environment settings without inventing service APIs."""
+    agent_url = os.getenv("INTERFACE_AGENT_URL", "").strip()
+    agent_factory: Callable[[], AgentClient] | None = None
+    if agent_url:
+        token = os.getenv("INTERFACE_AGENT_TOKEN", "")
+
+        def configured_agent() -> AgentClient:
+            return HTTPAgentClient(agent_url, token)
+
+        agent_factory = configured_agent
+    return create_app(
+        agent_factory=agent_factory,
+        secure_cookie=os.getenv("INTERFACE_SECURE_COOKIE") == "1",
+    )
+
+
+app = create_environment_app()
