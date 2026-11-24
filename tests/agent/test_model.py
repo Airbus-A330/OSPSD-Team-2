@@ -77,6 +77,32 @@ def test_openai_adapter_sends_structured_context_and_parses_decision() -> None:
     assert decision.usage.total_tokens == 30
 
 
+def test_openai_adapter_sends_a_closed_strict_schema_for_every_tool() -> None:
+    model = OpenAIResponsesModel(
+        api_key="secret", model="controlled", timeout_seconds=30
+    )
+    body = response_body(
+        json.dumps({"action": "complete", "message": "Done", "tool_call": None})
+    )
+    with patch(
+        "agent_service.model.urlopen", return_value=ControlledResponse(body)
+    ) as send:
+        model.decide(context(), timeout_seconds=4)
+
+    payload = json.loads(send.call_args.args[0].data)
+    schema = payload["text"]["format"]["schema"]
+    assert schema["required"] == ["action", "message", "tool_call"]
+    assert schema["additionalProperties"] is False
+    variants = schema["properties"]["tool_call"]["anyOf"]
+    assert variants[0] == {"type": "null"}
+    assert {variant["properties"]["name"]["enum"][0] for variant in variants[1:]} == {
+        "propose_project_kickoff",
+        "read_calendar_event",
+    }
+    _assert_every_object_is_closed_and_required(schema)
+    assert send.call_args.kwargs["timeout"] == 4
+
+
 @pytest.mark.parametrize("text", ["not-json", "{}"])
 def test_invalid_real_model_output_is_sanitized(text: str) -> None:
     model = OpenAIResponsesModel(
@@ -101,3 +127,17 @@ def test_model_endpoint_must_be_https() -> None:
             timeout_seconds=2,
             endpoint="http://model.example.test/v1/responses",
         )
+
+
+def _assert_every_object_is_closed_and_required(value: object) -> None:
+    if isinstance(value, list):
+        for item in value:
+            _assert_every_object_is_closed_and_required(item)
+        return
+    if not isinstance(value, dict):
+        return
+    if value.get("type") == "object":
+        assert value.get("additionalProperties") is False
+        assert set(value.get("required", [])) == set(value.get("properties", {}))
+    for item in value.values():
+        _assert_every_object_is_closed_and_required(item)

@@ -1,9 +1,9 @@
 """Stable model boundary with scripted and OpenAI Responses implementations."""
 
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 import json
-from typing import Literal, Protocol
+from typing import Literal, Protocol, cast
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
@@ -44,7 +44,9 @@ class ModelClient(Protocol):
     def model_version(self) -> str:
         """Return the configured model/version identifier."""
 
-    def decide(self, context: ModelContext) -> ModelDecision:
+    def decide(
+        self, context: ModelContext, *, timeout_seconds: float | None = None
+    ) -> ModelDecision:
         """Return one structured decision for the current context."""
 
 
@@ -68,8 +70,11 @@ class ScriptedModel:
         """Return the scripted fixture version."""
         return self._model_version
 
-    def decide(self, context: ModelContext) -> ModelDecision:
+    def decide(
+        self, context: ModelContext, *, timeout_seconds: float | None = None
+    ) -> ModelDecision:
         """Return the next scripted decision or controlled failure."""
+        del timeout_seconds
         self.contexts.append(context)
         if not self._decisions:
             raise ModelClientError("script_exhausted", retryable=False)
@@ -117,7 +122,9 @@ class OpenAIResponsesModel:
         """Return the exact configured OpenAI model name."""
         return self._model
 
-    def decide(self, context: ModelContext) -> ModelDecision:
+    def decide(
+        self, context: ModelContext, *, timeout_seconds: float | None = None
+    ) -> ModelDecision:
         """Call Responses once and validate its structured decision."""
         payload = {
             "model": self._model,
@@ -137,7 +144,7 @@ class OpenAIResponsesModel:
                     "type": "json_schema",
                     "name": "agent_decision",
                     "strict": True,
-                    "schema": _DecisionPayload.model_json_schema(),
+                    "schema": _decision_schema(context),
                 }
             },
         }
@@ -151,7 +158,10 @@ class OpenAIResponsesModel:
             method="POST",
         )
         try:
-            with urlopen(request, timeout=self._timeout_seconds) as response:  # noqa: S310
+            timeout = self._timeout_seconds
+            if timeout_seconds is not None:
+                timeout = min(timeout, timeout_seconds)
+            with urlopen(request, timeout=timeout) as response:  # noqa: S310
                 body = response.read(_MAX_MODEL_RESPONSE_BYTES + 1)
         except HTTPError as error:
             raise ModelClientError(
@@ -205,3 +215,93 @@ def _extract_output_text(response: object) -> str:
     if not texts:
         raise ValueError("Response contains no output text")
     return "".join(texts)
+
+
+def _decision_schema(context: ModelContext) -> dict[str, object]:
+    """Build the closed strict schema sent to the Responses API."""
+    tool_calls: list[dict[str, object]] = [{"type": "null"}]
+    for tool in context.tools:
+        arguments = _inline_local_definitions(tool.arguments_schema)
+        _require_closed_objects(arguments)
+        tool_calls.append(
+            {
+                "type": "object",
+                "properties": {
+                    "call_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                    },
+                    "name": {"type": "string", "enum": [tool.name]},
+                    "arguments": arguments,
+                },
+                "required": ["call_id", "name", "arguments"],
+                "additionalProperties": False,
+            }
+        )
+    return {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["tool_call", "clarification", "complete", "blocked"],
+            },
+            "message": {"type": "string", "minLength": 1, "maxLength": 4_000},
+            "tool_call": {"anyOf": tool_calls},
+        },
+        "required": ["action", "message", "tool_call"],
+        "additionalProperties": False,
+    }
+
+
+def _inline_local_definitions(schema: Mapping[str, object]) -> dict[str, object]:
+    """Inline Pydantic's local definitions before nesting a tool schema."""
+    definitions = schema.get("$defs", {})
+    if not isinstance(definitions, dict):
+        raise ValueError("Tool argument schema has invalid definitions")
+
+    def expand(value: object, active: frozenset[str] = frozenset()) -> object:
+        if isinstance(value, list):
+            return [expand(item, active) for item in value]
+        if not isinstance(value, dict):
+            return value
+        reference = value.get("$ref")
+        if isinstance(reference, str):
+            prefix = "#/$defs/"
+            name = reference.removeprefix(prefix)
+            if (
+                not reference.startswith(prefix)
+                or name not in definitions
+                or name in active
+            ):
+                raise ValueError("Tool argument schema has an unsupported reference")
+            return expand(definitions[name], active | {name})
+        return {
+            key: expand(item, active) for key, item in value.items() if key != "$defs"
+        }
+
+    expanded = expand(schema)
+    if not isinstance(expanded, dict):
+        raise ValueError("Tool argument schema must be an object")
+    return cast(dict[str, object], expanded)
+
+
+def _require_closed_objects(schema: object) -> None:
+    """Reject tool schemas that the strict Structured Outputs API cannot accept."""
+    if isinstance(schema, list):
+        for item in schema:
+            _require_closed_objects(item)
+        return
+    if not isinstance(schema, dict):
+        return
+    if schema.get("type") == "object":
+        properties = schema.get("properties")
+        required = schema.get("required")
+        if not isinstance(properties, dict):
+            raise ValueError("Tool object schema must declare properties")
+        if schema.get("additionalProperties") is not False:
+            raise ValueError("Tool object schema must reject additional properties")
+        if not isinstance(required, list) or set(required) != set(properties):
+            raise ValueError("Every tool object field must be required")
+    for value in schema.values():
+        _require_closed_objects(value)
