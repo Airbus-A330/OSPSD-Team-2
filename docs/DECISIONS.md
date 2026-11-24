@@ -4,6 +4,53 @@ Record only decisions significant enough that a future contributor might reasona
 
 ---
 
+## 2026-11-23 — Separate model judgment from deterministic execution
+
+**Context**
+
+HW3 requires natural-language planning while preserving the existing API's
+validation, provider, and failure boundaries. Model output is nondeterministic
+and retrieved provider content may be adversarial, so neither can be an
+authorization or execution boundary.
+
+**Decision**
+
+Run the model/tool loop in a separate `agent_service`. Give it a small explicit
+registry containing an API-backed read and a multi-vertical proposal tool. A
+write-capable request produces an exact digest-bound proposal and stops at
+`approval_required`; this issue exposes no write execution tool. Code validates
+schemas, limits, cancellation, persistence, and tool policy.
+
+**Alternatives**
+
+- Embed the language model in the API service.
+- Let the model call provider packages directly.
+- Expose each provider endpoint as a separate tool.
+- Treat conversational confirmation as write approval.
+- Add a general agent or dependency-injection framework.
+
+**Why**
+
+This is the smallest inspectable design that keeps model judgment useful without
+moving deterministic application behavior or security policy into a prompt. It
+also permits deterministic CI through the same `ModelClient` contract used by
+the real model adapter.
+
+**Trade-offs**
+
+Deployment now has two processes, and proposal execution remains unavailable
+until authenticated exact-proposal approval is integrated. The development
+SQLite store proves restart persistence but is not the final shared multi-user
+database.
+
+**Revisit when**
+
+The identity/approval/database work supplies its authenticated execution seam,
+or measured real-model evaluation shows that the prompt or product-specific tool
+set needs a narrowly scoped change.
+
+---
+
 ## 2026-10-11 — Use a minimal provider-independent calendar interface
 
 **Context**

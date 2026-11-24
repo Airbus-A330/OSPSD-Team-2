@@ -208,8 +208,8 @@ uv run --locked ruff format --check .
 uv run --locked ruff check .
 uv run --locked mypy .
 uv run --locked python -m pytest
-uv run --locked python -m compileall app
-uv run --locked python -c "import app.main"
+uv run --locked python -m compileall app agent_service
+uv run --locked python -c "import app.main, agent_service.main"
 ```
 
 These automated checks use controlled dependencies and do not require Google credentials or live Google Calendar access.
@@ -235,6 +235,25 @@ FastAPI Swagger UI is available at:
 ```text
 http://127.0.0.1:8000/docs
 ```
+
+## Agent service
+
+The Milestone 2 agent is a separate FastAPI process. It accepts natural-language
+goals, uses a configured model through a stable interface, and may read only
+through this API service. Write requests stop at an exact proposal and cannot be
+executed until the authenticated approval layer is integrated.
+
+With the API service running on port 8000, configure `OPENAI_API_KEY` locally and
+start the agent on port 8001:
+
+```bash
+uv run --locked uvicorn agent_service.main:app --port 8001
+```
+
+See [Agent service](docs/AGENT.md) for its HTTP operations, model/API settings,
+tool contracts, limits, persistence seam, deterministic tests, and honest
+real-model evaluation status. Credentials are not part of the repository or
+runtime artifact.
 
 The canonical API contract is:
 
@@ -524,6 +543,7 @@ Testing evidence is documented in:
 |-- .github/workflows/   # CI workflows
 |-- app/                 # Application, composition, domain, cache, and provider code
 |   `-- api/             # Thin FastAPI routes and HTTP validation
+|-- agent_service/       # Separate model, tool, run-store, and agent-loop service
 |-- docs/                # Contract, design, provider, testing, and decision docs
 |-- tests/               # Credential-free automated tests
 |-- AGENTS.md            # Repository-wide contribution rules
@@ -549,6 +569,7 @@ The project intentionally favors clear boundaries and straightforward Python ove
 | [`docs/DESIGN.md`](docs/DESIGN.md) | HW2 shared-contract migration design |
 | [`docs/JOINT_CALENDAR_CONTRACT.md`](docs/JOINT_CALENDAR_CONTRACT.md) | Cross-team Calendar contract decision memo |
 | [`docs/TEAM_AGREEMENT.md`](docs/TEAM_AGREEMENT.md) | Team workflow and collaboration |
+| [`docs/AGENT.md`](docs/AGENT.md) | Agent-service operations, tools, safety boundaries, and evaluation procedure |
 | [`AGENTS.md`](AGENTS.md) | Repository-wide contribution rules |
 
 ---
@@ -568,8 +589,8 @@ uv run --locked ruff format --check .
 uv run --locked ruff check .
 uv run --locked mypy .
 uv run --locked python -m pytest
-uv run --locked python -m compileall app
-uv run --locked python -c "import app.main"
+uv run --locked python -m compileall app agent_service
+uv run --locked python -c "import app.main, agent_service.main"
 ```
 
 To automatically format source files:

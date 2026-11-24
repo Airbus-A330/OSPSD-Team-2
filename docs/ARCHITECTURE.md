@@ -375,6 +375,12 @@ FastAPI composition are implemented as described above.
 | `app/providers.py` | Provider-independent `EventProvider` protocol |
 | `app/models.py` | Public `Event` response and provider-independent request models |
 | `app/google_calendar.py` | Google authentication, client construction, event operations, translation, and concrete `GoogleCalendarProvider` |
+| `agent_service/main.py` | Separate FastAPI process and environment composition for natural-language requests |
+| `agent_service/service.py` | Framework-independent bounded model/tool loop and stopping policy |
+| `agent_service/model.py` | Stable real/scripted model interface and OpenAI Responses adapter |
+| `agent_service/tools.py` | Explicit product tool registry, API-service client, validation, and proposal construction |
+| `agent_service/store.py` | Replaceable run-store protocol and SQLite persistence for runs, proposals, and cancellation |
+| `agent_service/evaluation.py` | Executable scenario definitions and sanitized repeated-run records |
 
 Do not describe files here before they exist.
 
@@ -521,6 +527,52 @@ Controlled tests replace the composition dependency, so they require no provider
 credentials or network. Real package adapters, configuration selection,
 cross-vertical error translation, and partial-failure reporting are implemented
 at the composition boundary without changing this sequence.
+
+## Separate Agent Service
+
+Milestone 2 adds a second process with `agent_service.main:app` as its entry
+point. The interface sends natural-language goals to this process; it does not
+add model behavior to the stateless API service:
+
+```text
+Interface
+    -> POST /agent/requests
+Agent service
+    |- ModelClient (OpenAIResponsesModel or ScriptedModel)
+    |- ToolRegistry
+    |- RunStore (SQLite development implementation)
+    `- HttpApiServiceClient
+             -> HTTP only
+Team 2 API service
+    ->
+Calendar / Cloud Storage / Issue Tracker implementations
+```
+
+The agent package imports no provider implementation or provider SDK. Its only
+application execution client is the Team 2 API client. `read_calendar_event`
+uses the existing read route. The composed write tool validates the existing
+`ProjectKickoffRequest` but creates only an exact digest-bound proposal; no
+agent endpoint can apply that proposal. Level 4's authenticated approval and
+authorization layer must validate the acting user, proposal ID/digest, target,
+and exact changes at the API execution boundary.
+
+`ModelClient` keeps OpenAI-specific transport behind the model boundary and
+allows deterministic `ScriptedModel` tests. Every model decision and tool call
+is parsed through strict Pydantic models. The registry rejects unknown names,
+extra fields, invalid domain values, and model-supplied user IDs before an API
+call. Tool output is labeled `untrusted_tool_data` and remains separate from
+application instructions.
+
+The loop stops on completion, clarification, approval, policy block, model
+failure, cancellation, or explicit step/time/token/available-cost limits. It
+records sanitized model/tool/policy/stop events and reported usage, never chain
+of thought, credentials, authorization headers, or provider payload dumps.
+SQLite preserves stopped runs and pending proposals across restart. It is a
+development persistence implementation, not the final per-user database; the
+small `RunStore` seam exists for that integration.
+
+The complete HTTP/tool/configuration contract and evaluation procedure are in
+[AGENT.md](AGENT.md).
 
 ## Operation Cost Summary
 

@@ -528,6 +528,51 @@ and the unavailable second-team storage-package option are documented in
 Only explicit controlled mode uses synthetic providers; it is never a fallback,
 real-provider verification, or evidence of a different-team implementation swap.
 
+## Agent Service HTTP Contract
+
+The agent is a separate service from the deterministic API above. An interface
+submits a bounded natural-language request with:
+
+```http
+POST /agent/requests
+Content-Type: application/json
+```
+
+```json
+{
+  "goal": "Prepare the project kickoff and ask me before creating anything",
+  "conversation_id": "optional-interface-session",
+  "conversation": []
+}
+```
+
+`goal` must contain non-whitespace text and is limited to 4,000 characters.
+Conversation context contains at most 20 user/assistant messages of at most
+4,000 characters each. Unknown fields are rejected. The request contains no
+acting-user field; Level 4 identity must come from verified credentials.
+
+HTTP 200 returns a durable run identifier, status, user-visible message,
+model/prompt versions, exact proposal when applicable, sanitized trace, and
+reported model usage. Status is one of `completed`, `needs_clarification`,
+`approval_required`, `blocked`, `limit_exhausted`, `cancelled`, or `failed`.
+
+For `approval_required`, the response includes a proposal with a generated
+proposal ID, SHA-256 digest over the canonical action, tool name, HTTP method,
+API target, exact validated changes, and expected effects. For example, the
+composed tool targets `POST /workflows/project-kickoff` and contains all event,
+document, and issue fields.
+
+This response is not approval and causes no write. Changing any exact change,
+method, or target changes the digest and requires new approval. There is no
+write-execution endpoint in this issue.
+
+`GET /agent/runs/{run_id}` reads persisted state without rerunning the model or
+tools. `POST /agent/runs/{run_id}/cancel` prevents the next step of a known run;
+it cannot undo a completed external action. Unknown run IDs return 404.
+
+Tool schemas, runtime configuration, trust boundaries, and evaluation status
+are canonical in [AGENT.md](AGENT.md).
+
 ## Domain Models
 
 Public domain models belong here.

@@ -87,6 +87,7 @@ __pypackages__/
 !.pixi/config.toml
 
 # Service state
+.agent-state/
 celerybeat-schedule*
 celerybeat.pid
 *.rdb
