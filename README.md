@@ -8,6 +8,12 @@ The repository is designed so that another developer can clone it, install depen
 
 ---
 
+## HW3 Milestone 2 planning
+
+See the [Kickoff Handoff product brief](docs/HW3_MS2_PRODUCT_BRIEF.md),
+[implementation tracker](docs/HW3_MS2_TRACKER.md) and
+[submission index](docs/HW3_MS2_SUBMISSION.md).
+
 ## Team Members and Operation Ownership
 
 | Team Member | Public Operation |

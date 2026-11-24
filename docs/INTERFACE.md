@@ -1,9 +1,11 @@
 # Workspace getting started
 
-The web interface lets you prepare a kickoff document, a follow-up issue, and a
-calendar event, review their exact contents, and send one request to Team 2's
-API. Kickoff is the **temporary manual baseline**, not a finalized Milestone 2
-product scenario. The product owner will confirm the final wording and inputs.
+The web interface provides the manual S1 baseline for the
+[Kickoff Handoff product](HW3_MS2_PRODUCT_BRIEF.md). It lets you prepare a
+kickoff document, a follow-up issue, and a calendar event, review their exact
+contents, and send one request to Team 2's API. The current preview uses the
+selected scenario while identity, durable approval, and run-history integration
+remain separate workstreams.
 
 ## For the person using the interface
 

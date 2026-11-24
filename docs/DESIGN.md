@@ -94,14 +94,69 @@ read-back are not claimed yet. They require real model credentials and the Level
 4 identity/approval path. The current remaining design limitation is the
 single-process SQLite development store. See [AGENT.md](AGENT.md) for operations
 and exact evidence procedures.
+## HW3 Milestone 2: Kickoff Handoff planning design
+
+The [product brief](HW3_MS2_PRODUCT_BRIEF.md) defines a kickoff agent for
+student software team leads. S1 creates a Dropbox agenda, Trello follow-up
+and Google Calendar event after exact review. S2 answers what happened to
+an owned run after the user returns. This section describes planned behavior.
+The [Milestone 1 contract](CONTRACT.md#project-kickoff-composition-workflow)
+continues to describe the existing fixed workflow.
+
+- **Interface (#94):** Support manual entry and review for S1, conversational
+  entry through the agent, explicit approve/reject and cancellation controls,
+  and per-step results. S2 reopens an owned run and shows the evidence behind
+  each outcome. The interface reaches only the Agent Service and API Service.
+- **Separate Agent Service (#95):** Own intent, clarification, tool selection,
+  proposed action construction and status presentation. Call the configured
+  language model from this service with bounded steps, elapsed time, tokens
+  and cost. A scripted model supports deterministic tests. Treat model output
+  and retrieved provider content as untrusted. Pass only necessary content
+  to the model and keep credentials out of context. All app and provider
+  operations go through the API.
+- **Identity and connections (#96):** Derive the acting user from verified
+  credentials at service boundaries. Scope all domain reads and writes to
+  that user and resolve only that user's stored provider connections. Use
+  server-side credentials and bound identity context between services.
+- **Stateless API and database (#97):** The API validates, authorizes,
+  selects providers, and executes through the existing provider boundaries.
+  The database is authoritative for users, connections, conversations,
+  runs, exact proposals and approvals, cancellation and execution outcomes.
+  Define persistence ownership with #95 and #96. No required state may
+  depend on a single process or local cache.
+- **Approval and execution (#97):** Store an immutable version covering the
+  user, operation parameters and destinations. Accept explicit authenticated
+  approval for that version and require fresh approval after edits. At
+  dispatch validate policy, ownership, exact approval and cancellation in
+  code. Atomically claim execution before calling providers, persist step
+  outcomes and block replays. A conversational answer carries no execution
+  authority. Cancel before dispatching further work and surface any in-flight
+  effect as still pending verification.
+- **Provider verification and partial failures (#96/#97):** Preserve the
+  storage → tracker → calendar ordering and per-step reporting. Stop on
+  failure, retain completed references and keep ambiguous effects uncertain.
+  After restart, reconcile any in-flight action using authorized exact
+  provider lookups where available. Never replay an uncertain write. Where
+  an exact match cannot be established, preserve the uncertainty and show a
+  manual check. Distinguish a recorded success from a confirmed provider
+  lookup. Production routing must prevent the legacy single-account
+  mutation entrypoint from bypassing authenticated approval.
+
+The [tracker](HW3_MS2_TRACKER.md) records integration gates and implementation
+status. Owners of #94–#97 continue to coordinate the run reference, approval
+artifact, provider permissions, and status shape as their work integrates.
+Alexander Freedman reviewed the complete planning update on November 23, 2026,
+including its interface, agent, identity, approval, execution, provider, and
+partial-failure boundaries.
 
 ## HW3 Milestone 2: web client (#94)
 
 `interface/` is an independent Python-rendered web client of Team 2's HTTP API.
-The temporary manual scenario reuses the existing kickoff request and fixed
-Storage → Issue Tracker → Calendar operation. Product definition is still pending;
-this issue adds no new scenario or execution rule. [INTERFACE.md](INTERFACE.md)
-is canonical for setup, user steps, adapter handoff, and usability evidence.
+Its manual S1 baseline for Kickoff Handoff reuses the existing kickoff request
+and fixed Storage → Issue Tracker → Calendar operation. The
+[product brief](HW3_MS2_PRODUCT_BRIEF.md) is canonical for the scenario and scope;
+[INTERFACE.md](INTERFACE.md) is canonical for setup, user steps, adapter handoff,
+and usability evidence.
 
 ```text
 Browser forms + presentation-only JavaScript
