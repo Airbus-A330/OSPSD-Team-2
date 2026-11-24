@@ -1,9 +1,9 @@
-# Cloud Storage integration (#82)
+# Cloud Storage integration (#82 / #84)
 
 ## Dependencies and selection
 
-The API service installs Team 3's implementation as Python packages. It does
-not call Team 3's hosted API or contain a copy of its provider code. The
+The API service installs Team 3 Dropbox and Team 6 S3 implementations as Python packages. It does
+not call either team's hosted API or contain a copy of its provider code. The
 workflow-facing boundary is `cloud_storage_api.DocumentStorage` and its
 `FileInfo`, not Team 3's older `Client` interface or Dropbox SDK types.
 
@@ -12,16 +12,17 @@ workflow-facing boundary is `cloud_storage_api.DocumentStorage` and its
 | `cloud-storage-api` | [authoritative contract](https://github.com/Dayana20/ospsd26-cloud-storage/tree/0.3.1/src/cloud_storage_api) | `0.3.1` | `664afc92f7cc0b2ee51cde6ddfa088cc3b37206c` | `0.2.0` |
 | `dropbox-client-impl` | [Team 3 implementation](https://github.com/Shreyas191/OSPSD-Team-3/tree/v0.3.0/src/dropbox_client_impl) | `v0.3.0` | `fde60d4fb648df6defb918ff815fe940c525adc7` | `0.1.0` |
 | `cloud-storage-client-api` | [Team 3 internal dependency](https://github.com/Shreyas191/OSPSD-Team-3/tree/v0.3.0/src/cloud_storage_client_api) | `v0.3.0` | `fde60d4fb648df6defb918ff815fe940c525adc7` | `0.1.0` |
+| `storage-service` | [Team 6 implementation](https://github.com/FaizalJnu/OSPSD-TEAM-6/tree/v0.2.0) | `v0.2.0` | `b021b36f6084f3246cdd8ce628fa7380faad1876` | `0.2.0` |
 
 Tags were checked against Git refs, not inferred from package versions. All
-three support Python 3.12. Root `tool.uv.sources` explicitly locates the
+listed packages support Python 3.12. Root `tool.uv.sources` explicitly locates the
 transitive `cloud-storage-client-api`: a consumer cannot rely on the dependency
 repository's workspace source settings. `uv.lock` records exact commits and
 hashes, including Dropbox SDK `12.2.5`. Existing locked packages were retained.
 The existing Docker build installs these runtime dependencies via
 `uv sync --locked --no-dev --no-editable`; no delivery changes are needed here.
 
-Candidate review (2026-11-16):
+Historical candidate review (2026-11-16; Team 6 findings superseded by v0.2.0 below):
 
 - Team 3's default `main` contains the earlier interface. Tagged `v0.3.0`
   exports `DropboxDocumentStorage(DocumentStorage)` and is the selected release.
@@ -57,8 +58,8 @@ not a substitute. No upstream package or dependency constraints were modified.
 
 ## Construction and credentials
 
-Set `STORAGE_IMPLEMENTATION=team3` explicitly. This is the first storage selector
-in this repository and follows the existing `os.environ` configuration pattern.
+Set `STORAGE_IMPLEMENTATION=team3` (Dropbox) or `team6` (S3) explicitly.
+Selection follows the existing `os.environ` configuration pattern.
 Missing, blank, misspelled, or unsupported values fail before credential loading.
 There is no fallback to another account, provider, or in-memory implementation.
 
@@ -88,10 +89,9 @@ inside the deployed API. Constructor credential failures are sanitized
 Construction makes no provider call. The factory disables the SDK's built-in
 5xx and 429 retries through public `clone` arguments and closes its shared
 session on normal completion or failure. All SDK-specific construction stays
-in this file. To add a second conforming team later, add its package and a
-selector branch here; workflow code continues to consume `DocumentStorage`.
-Only `team3` is supported today. This does not establish the milestone's
-different-team live swap evidence.
+in this file. Team 6 construction uses a separate selector branch in the same
+file; workflow code continues to consume `DocumentStorage`. Installing both
+packages does not establish the milestone's different-team live swap evidence.
 
 ## Workflow handoff and errors
 
@@ -199,3 +199,94 @@ automated composition suite. This package-level run does not establish a hosted
 three-provider request or a genuine configuration-only swap to another team's
 storage package. Those evidence limits, along with the unrecorded external-team
 HW3 design review, are tracked in [HW3_DEPLOYMENT.md](HW3_DEPLOYMENT.md).
+
+
+## Team 6 v0.2.0 integration (2026-11-23)
+
+The v0.1.0 compatibility findings above are historical. Team 6 v0.2.0 adds the
+shared `SharedDocumentStorage` adapter, supports Python >=3.12, and makes its
+HTTP server dependencies optional. We install the base package without the
+`server` extra. No partner source is copied or patched. `uv.lock` retains the
+existing Calendar/Storage contracts and Team 3 package commits. The shared
+storage source uses `rev="0.3.1"` instead of `tag="0.3.1"` to match Team 6's
+published dependency reference; the resolved commit is unchanged.
+
+The selector calls the public `storage_service.wiring.document_storage_from_env`
+constructor. It requires `STORAGE_BACKEND=s3`; memory, missing settings and
+whitespace-only credentials fail before construction, with no Dropbox fallback.
+Upstream `ConfigError` is sanitized. Construction makes no network request, so
+it does not validate access to the real bucket. The workflow still creates
+Calendar, then Storage, then Issue Tracker; schemas and shared error mapping are
+unchanged. Team 6 returns `id=null` and a path, already permitted by our schema.
+
+| Runtime input | Required value / purpose |
+|---|---|
+| `STORAGE_IMPLEMENTATION` | `team6` |
+| `STORAGE_BACKEND` | `s3` (memory is deliberately rejected) |
+| `S3_ENDPOINT` | S3-compatible HTTPS endpoint; OCI format: `https://<namespace>.compat.objectstorage.<region>.oraclecloud.com` |
+| `S3_REGION` | Region identifier for that endpoint |
+| `S3_BUCKET` | Existing dedicated test bucket |
+| `S3_ACCESS_KEY` | Test-account S3 access key / OCI customer secret key ID |
+| `S3_SECRET_KEY` | Matching secret; external runtime secret only |
+| `MAX_UPLOAD_BYTES` | Optional positive integer; Team 6 defaults to 1 GiB |
+
+Use the storage owner's test-account setup and permissions for the dedicated
+bucket. Never commit real configuration. Keep Google and Trello configuration
+unchanged. See [upstream configuration](https://github.com/FaizalJnu/OSPSD-TEAM-6/blob/v0.2.0/.env.example).
+
+### Upstream limitations retained by this draft
+
+- Team 6 uses check-then-put for creation, not an atomic create-if-absent. A
+  sequential duplicate is rejected, but concurrent writes to the same path can
+  race. Use unique paths and serialized test requests; do not claim exactly-once
+  creation or unconditional no-overwrite under concurrency.
+- Team 6's boto3 configuration uses standard retries with `max_attempts=3`
+  (up to four attempts), 5 s connect and 60 s read timeouts. Our workflow calls
+  `create` once, but that does **not** mean one outbound write attempt. We do not
+  override private SDK state. An uncertain result remains non-retryable at our
+  workflow boundary and requires provider reconciliation before any resubmission.
+- The public adapter has no close/context-manager method for its underlying S3
+  client. We do not reach into private fields to close it. Explicit client
+  lifecycle support and configurable retry policy require upstream work before
+  claiming parity with the Dropbox request-scoped cleanup/retry guarantees.
+- No live OCI credentials, provider run, container deployment or hosted swap
+  evidence is included in this local draft.
+
+### Automated and opt-in verification
+
+`tests/integration/test_team6_storage_package.py` uses the installed Team 6
+adapter and domain service with only boto3 calls controlled. It checks exact
+bytes, nullable IDs, duplicate refusal, configuration rejection, sanitized
+errors, real constructor network isolation, and the unchanged HTTP workflow's
+success and partial-failure responses. These are integration tests, not real
+provider evidence. Existing Dropbox tests continue to run.
+
+After authorization for disposable test-bucket writes, supply the settings above
+and run the existing opt-in test:
+
+```bash
+STORAGE_IMPLEMENTATION=team6 RUN_LIVE_STORAGE=1 uv run --locked python -m pytest tests/live/test_storage_workflow.py -q -s
+```
+
+It verifies create/read/conflict/delete on the selected implementation. Failed
+or uncertain creations need reconciliation at the printed path. Do not run it
+against a production bucket or treat it as hosted three-provider evidence.
+
+### Configuration-only hosted swap
+
+1. Review and merge the integration, then build/deploy one image containing both
+   packages through Delivery. Record its commit, image digest and deployment ID.
+2. With `STORAGE_IMPLEMENTATION=team3`, use `make verify-kickoff` against the
+   hosted API. Preserve the report and verify the event, Dropbox file bytes and
+   Trello card directly. Reconcile and clean up those exact records.
+3. Keep that image digest and Calendar/Trello settings unchanged. Change only
+   storage configuration to `STORAGE_IMPLEMENTATION=team6`, `STORAGE_BACKEND=s3`
+   and the external S3 settings. Record the new deployment ID and selector.
+4. Use a fresh verification request/marker/path, then confirm Google Calendar,
+   the exact object bytes in the configured S3 bucket, and Trello. Preserve IDs,
+   paths and sanitized report; clean up only the exact records from this run.
+   Dropbox-specific verification/cleanup scripts cannot verify S3 objects.
+5. Link the two reports with the shared image digest and each non-secret
+   configuration selection. Only then mark the real configuration-only swap
+   complete in the evidence ledger. If a run is uncertain, stop and reconcile;
+   do not resend the whole workflow or switch providers to hide the failure.

@@ -127,7 +127,7 @@ def test_bad_document_path_does_not_reach_sdk(sdk: Mock, path: str) -> None:
     sdk.close.assert_called_once_with()
 
 
-@pytest.mark.parametrize("selection", [None, "", "team1", "team6", "TEAM3", "team3 "])
+@pytest.mark.parametrize("selection", [None, "", "team1", "unknown", "TEAM3", "team3 "])
 def test_invalid_selection_fails_before_credential_loading(
     monkeypatch: pytest.MonkeyPatch, selection: str | None
 ) -> None:

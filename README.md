@@ -23,7 +23,7 @@ Each operation is implemented through the shared provider-independent `EventProv
 
 Telemetry configuration, the golden-signals dashboard, and deployed verification
 are documented in [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
-HW3 issue #82 adds a configuration-selected Team 3 Cloud Storage package.
+HW3 storage supports configuration-selected Team 3 Dropbox and Team 6 S3 packages.
 [Storage integration](docs/STORAGE.md) documents tagged dependencies, external
 credentials, workflow handoff, error/retry behavior, and completed live-provider
 verification.
@@ -33,8 +33,9 @@ retains step-aware failure/progress information without retrying writes.
 distinguishes real construction from explicit synthetic failure verification;
 the [Issue Tracker handoff](docs/ISSUE_TRACKER_HANDOFF.md) documents the tagged
 Team 4 package, configuration, automated integration coverage, and direct Trello
-provider verification. No compatible second storage implementation was available
-for the assignment's configuration-only package-swap demonstration.
+provider verification. Team 6 `v0.2.0` is now installed as a second storage
+implementation; the hosted configuration-only swap is still pending. See
+[the swap procedure](docs/STORAGE.md#configuration-only-hosted-swap).
 The [operator quick reference](docs/OPERATIONS.md) identifies the running
 resources, health, release, telemetry, recovery path, costs, and blast radius.
 

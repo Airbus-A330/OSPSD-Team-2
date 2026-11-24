@@ -10,6 +10,8 @@ from dropbox_client_impl import (
     DropboxDocumentStorage,
     get_dropbox_client,
 )
+from storage_service.config import ConfigError  # type: ignore[import-untyped]
+from storage_service.wiring import document_storage_from_env  # type: ignore[import-untyped]
 
 from app.errors import ProviderFailureError, ProviderUnavailableError
 
@@ -18,16 +20,41 @@ def get_document_storage() -> Iterator[DocumentStorage]:
     """Supply shared-contract storage as a FastAPI generator dependency.
 
     Selection is explicit; unsupported or missing selections fail before auth.
-    Team 3 owns credential loading and provider behavior. Construction makes no
-    provider call, and the SDK session closes after the request, even on failure.
+    Each team owns credential loading and provider behavior. Construction makes
+    no provider call. Team 3's session is closed after the request; Team 6's
+    public adapter exposes no close operation (see docs/STORAGE.md).
 
     Raises:
         ProviderFailureError: If STORAGE_IMPLEMENTATION is not supported.
         ProviderUnavailableError: If credentials cannot be loaded before a write.
     """
-    if os.environ.get("STORAGE_IMPLEMENTATION") != "team3":
+    selection = os.environ.get("STORAGE_IMPLEMENTATION")
+    if selection == "team6":
+        # A memory backend must never masquerade as the real-provider swap.
+        required = (
+            "S3_ENDPOINT",
+            "S3_REGION",
+            "S3_BUCKET",
+            "S3_ACCESS_KEY",
+            "S3_SECRET_KEY",
+        )
+        if os.environ.get("STORAGE_BACKEND") != "s3" or any(
+            not os.environ.get(name, "").strip() for name in required
+        ):
+            raise ProviderUnavailableError(
+                "Team 6 storage configuration is incomplete", provider_involved=False
+            )
+        try:
+            storage = document_storage_from_env(os.environ)
+        except ConfigError:
+            raise ProviderUnavailableError(
+                "Team 6 storage configuration is invalid", provider_involved=False
+            ) from None
+        yield storage
+        return
+    if selection != "team3":
         raise ProviderFailureError(
-            "Set STORAGE_IMPLEMENTATION=team3", provider_involved=False
+            "Set STORAGE_IMPLEMENTATION=team3 or team6", provider_involved=False
         )
     try:
         sdk = get_dropbox_client()

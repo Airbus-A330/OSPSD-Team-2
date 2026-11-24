@@ -38,7 +38,7 @@ applying the template blindly.
 | --- | --- |
 | `WORKFLOW_IMPLEMENTATION` | `configured` |
 | `CALENDAR_IMPLEMENTATION` | `team2` |
-| `STORAGE_IMPLEMENTATION` | `team3` |
+| `STORAGE_IMPLEMENTATION` | `team3` for existing Dropbox deployment; `team6` for the new S3 selection, with [additional settings](STORAGE.md#team-6-v020-integration-2026-11-23) |
 | `ISSUE_TRACKER_IMPLEMENTATION` | `team4-trello` |
 | `DROPBOX_APP_KEY` | Dedicated test app, coordinate with Nicolas (#82) |
 | `DROPBOX_APP_SECRET` | External secret from the test app owner |
@@ -270,3 +270,15 @@ three-provider verification and cleanup are recorded above.
 | Hosted composed happy path with direct confirmation in all three providers | PASS — hosted verification | Sanitized HTTP 201 report, direct provider checks and confirmed cleanup linked above |
 | Genuine configuration-only swap between two real implementations | EVIDENCE LIMIT | Team 1 and Team 6 releases were not compatible installable alternatives |
 | External-team integration-design review | EVIDENCE LIMIT | No substantive external-team review record is retained |
+
+
+## Local Team 6 integration update (2026-11-23, not deployed)
+
+The earlier incompatible-release findings describe Team 6 v0.1.0. The local
+integration now pins v0.2.0 and adds `STORAGE_IMPLEMENTATION=team6` using the same
+shared contract. This updates package availability, not the retained November 18
+hosted evidence. No Render configuration or image has changed. Real S3 testing
+and the same-image hosted swap remain pending; follow the
+[storage swap procedure](STORAGE.md#configuration-only-hosted-swap) and retain
+its two reports before changing the acceptance status. Also review the upstream
+retry, concurrent-create and resource-lifecycle limitations before deployment.
