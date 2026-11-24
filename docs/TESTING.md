@@ -1,5 +1,25 @@
 # Testing Strategy
 
+## Web interface (#94)
+
+`interface/tests/` is a dedicated credential-free suite. `make interface-test`
+runs it explicitly in Tests CI; ordinary `make test` also collects it. Format,
+lint, and typing already cover the directory, and `make build` checks the web
+entry-point import. HTTP integration tests exercise native form submission through
+the Python HTTP client into actual Team 2 API routes, replacing only providers.
+They cover manual success, partial/uncertain failures, validation, retained
+references, unchanged request snapshots, stale/repeated confirmation rejection,
+CSRF/session separation, escaped content, safe response headers, and optional
+agent/account adapter decisions. Client tests cover all documented error codes,
+timeouts/malformed responses without retries, HTTPS selection, token handling,
+the real agent request/status/cancel schema, exact proposal digest mapping,
+fail-closed unsupported approval, and the no-provider/database import boundary.
+
+The explicit [controlled demo and usability procedure](INTERFACE.md#controlled-demo-and-usability-check)
+provides success/failure scenarios for independent browser use. Automated HTML
+tests do not establish visual quality, live provider execution, real user
+authentication, backend approval enforcement, or an uncoached usability session.
+
 For HW3 issue #82, `tests/test_storage.py` covers service-error mapping and
 `tests/integration/test_storage_package.py` exercises the installed Team 3
 package over a controlled SDK. Both run in default CI. The opt-in

@@ -39,3 +39,6 @@ jobs:
 
       - name: Shared Calendar conformance (controlled Python and HTTP)
         run: make conformance
+
+      - name: Interface contract and manual scenario checks
+        run: make interface-test

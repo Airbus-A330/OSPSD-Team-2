@@ -23,8 +23,15 @@ conformance:
 	uv run --locked python -m pytest tests/integration/test_shared_conformance.py
 
 build:
-	uv run --locked python -m compileall app
-	uv run --locked python -c "import app.main"
+	uv run --locked python -m compileall app interface
+	uv run --locked python -c "import app.main; import interface.web"
+
+.PHONY: interface-test interface-run
+interface-test:
+	uv run --locked python -m pytest interface/tests
+
+interface-run:
+	uv run --locked uvicorn interface.web:app --host 127.0.0.1 --port 8002 --no-access-log
 
 check: format-check lint typecheck test build
 
