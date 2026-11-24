@@ -1,0 +1,2 @@
+<div role="status" class="result"><p class="badge">{{ result.state|capitalize }}</p><h3>{{ result.message }}</h3>{% if result.code %}<p>Error: <code>{{ result.code }}</code></p>{% endif %}<p>{{ result.guidance }}</p></div>
+<ol class="steps">{% for step in result.steps %}<li><h4>{{ step.name }}</h4><p class="badge">{{ step.state|capitalize }}</p><dl>{% for key, value in step.details.items() %}<dt>{{ key }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></li>{% endfor %}</ol>

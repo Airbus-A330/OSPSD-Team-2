@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Team 2 · Workspace</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script defer src="/static/progress.js"></script>
+</head>
+<body>
+<header><a href="/" class="brand">TEAM 2 <span>WORKSPACE</span></a><nav aria-label="Main navigation"><a href="#manual">Manual scenario</a><a href="#assistant">Assistant</a><a href="#account">Account</a></nav></header>
+<main>
+  <div class="intro"><p class="eyebrow">PLAN IT. REVIEW IT. MAKE IT HAPPEN.</p><h1>Bring your next kickoff together.</h1><p>Create a document, a follow-up issue, and a calendar event in one reviewed request.</p><p class="muted">Preview · Temporary kickoff scenario while the product brief is finalized.</p></div>
+  <aside class="notice">{% if demo %}Controlled demo: all records, agent responses, and account states are synthetic. Nothing reaches real providers.{% else %}Single test-account preview. Sign-in is not integrated in the default client. Use only your team's designated test data.{% endif %}</aside>
+  {% if session.notice %}<p role="status" class="notice">{{ session.notice }}</p>{% endif %}
+  <section id="manual" class="card">
+    <p class="eyebrow">MANUAL SCENARIO</p><h2>Project kickoff</h2>
+    {% if session.result %}
+      {% set result = session.result %}{% include 'result.html' %}
+      <details open><summary>Your submitted request</summary><dl>{% for name, value in session.values.items() %}<dt>{{ name.replace('_', ' ') }}</dt><dd><pre>{{ value }}</pre></dd>{% endfor %}</dl></details>
+      <p>Keep this page or print it for your records. Results are temporary and expire after 30 minutes of inactivity or a client restart.</p>
+      <form method="post" action="/action"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button class="secondary" name="action" value="new">Start a different kickoff</button></form>
+    {% elif session.executing %}
+      <h3 role="status">Executing</h3><p>The service is processing your request. Per-step progress is not available until it responds. Do not resubmit.</p><a href="/">Check for the result</a>
+    {% elif session.draft %}
+      <h3>Awaiting approval · Review your exact changes</h3>
+      <p>These three actions will run in order. Existing work is not rolled back if a later step fails.</p>
+      <ol class="review">
+        <li><h4>Save document · Cloud Storage</h4><p>Destination: <strong>{{ session.draft.document_path }}</strong></p><pre>{{ session.draft.document_content }}</pre></li>
+        <li><h4>Create follow-up issue · Issue Tracker</h4><p>{{ session.draft.issue_title }}</p></li>
+        <li><h4>Schedule event · Calendar</h4><dl><dt>Title</dt><dd>{{ session.draft.event.title }}</dd><dt>Start</dt><dd>{{ session.draft.event.start }}</dd><dt>End</dt><dd>{{ session.draft.event.end }}</dd></dl></li>
+      </ol>
+      <p class="muted">Targets are the test account's server-configured document storage, issue list, and calendar. The current API does not report destination names.</p>
+      <p>This is a manual confirmation, not the future backend-enforced proposal approval system.</p>
+      <form method="post" action="/action" data-progress="Executing — waiting for the service to confirm all step outcomes.">
+        <input type="hidden" name="csrf" value="{{ session.csrf }}"><input type="hidden" name="review_id" value="{{ session.review_id }}">
+        <div class="buttons"><button name="action" value="execute">Confirm and create all three</button><button class="secondary" name="action" value="reject">Reject and edit</button></div>
+      </form>
+    {% else %}
+      <p class="badge">Preparing</p><p>Enter the details below. You will review everything before anything is created.</p>
+      {% if session.errors %}<div role="alert" class="error"><h3>Check these fields</h3><ul>{% for error in session.errors %}<li>{{ error }}</li>{% endfor %}</ul></div>{% endif %}
+      <form method="post" action="/action">
+        <input type="hidden" name="csrf" value="{{ session.csrf }}">
+        <div class="fields">{% for name, label, placeholder in fields %}<label for="{{ name }}">{{ label }}<input id="{{ name }}" name="{{ name }}" value="{{ session.values.get(name, '') }}" placeholder="{{ placeholder }}" required {% if name in ['start', 'end'] %}aria-describedby="time-help"{% endif %}></label>{% endfor %}</div>
+        <p id="time-help" class="muted">Include your UTC offset in each time, for example 2030-01-15T10:00:00-05:00. Use a new document path for a new kickoff; keep the same path when investigating an incomplete run.</p>
+        <label for="document_content">Document text<textarea id="document_content" name="document_content" rows="6" required placeholder="Agenda, project goals, and decisions to make">{{ session.values.get('document_content', '') }}</textarea></label>
+        <button name="action" value="review">Review changes</button>
+      </form>
+    {% endif %}
+    <div id="waiting" role="status" aria-live="polite" hidden><h3>Executing</h3><p id="waiting-message"></p><ul>{% for label in step_labels.values() %}<li>{{ label }} — awaiting backend confirmation</li>{% endfor %}</ul><p>Do not refresh or submit again. A slow response does not mean the operation failed.</p></div>
+  </section>
+  <section id="assistant" class="card">
+    <p class="eyebrow">ASSISTANT</p><h2>Describe what you need</h2>
+    {% if not session.agent %}<p>Natural-language help is not connected yet. You can use the manual scenario above.</p><button disabled>Agent service pending</button>
+    {% else %}
+      <form method="post" action="/action" data-progress="Retrieving context from the agent service."><input type="hidden" name="csrf" value="{{ session.csrf }}"><label for="message">Your request<textarea id="message" name="message" required rows="3"></textarea></label><button name="action" value="agent_submit">Send request</button></form>
+      {% if session.agent_view %}{% set view = session.agent_view %}
+        <h3 role="status">{{ view.state|capitalize }}</h3><p>{{ view.message }}</p>
+        {% if view.result %}{% set result = view.result %}{% include 'result.html' %}{% endif %}
+        {% if view.proposal and view.state == 'awaiting approval' %}
+          <h3>Review exact proposed changes</h3><p>Proposal digest: <code>{{ view.proposal.digest }}</code></p><p>API action: <code>{{ view.proposal.method }} {{ view.proposal.target }}</code></p>
+          {% for change in view.proposal.changes %}<article class="proposal"><h4>{{ change.operation|capitalize }} · {{ change.provider }}</h4><p>Target: {{ change.target }}</p><div class="fields"><div><h5>Before</h5>{% for key, value in change.before.items() %}<p><strong>{{ key }}</strong></p><pre>{{ value }}</pre>{% else %}<p>No existing value.</p>{% endfor %}</div><div><h5>After</h5>{% for key, value in change.after.items() %}<p><strong>{{ key }}</strong></p><pre>{{ value }}</pre>{% else %}<p>No resulting value.</p>{% endfor %}</div></div></article>{% endfor %}
+          <p>Expected effects:</p><ul>{% for effect in view.proposal.effects %}<li>{{ effect }}</li>{% endfor %}</ul>
+          {% if view.available_decisions %}<form method="post" action="/action" data-progress="Sending your decision; waiting for backend confirmation."><input type="hidden" name="csrf" value="{{ session.csrf }}"><input type="hidden" name="proposal_id" value="{{ view.proposal.proposal_id }}"><input type="hidden" name="digest" value="{{ view.proposal.digest }}"><div class="buttons">{% if 'approve' in view.available_decisions %}<button name="action" value="approve">Approve this exact version</button>{% endif %}{% if 'reject' in view.available_decisions %}<button class="secondary" name="action" value="reject_proposal">Reject proposal</button>{% endif %}</div>{% if 'change' in view.available_decisions %}<label for="clarification">What should change?<textarea id="clarification" name="clarification" rows="2"></textarea></label><button class="secondary" name="action" value="change">Request a change</button>{% endif %}</form>{% else %}<p class="notice">Approval execution is not connected yet. You can review this exact proposal, but no write can be approved from this interface.</p>{% endif %}
+        {% endif %}
+        <form method="post" action="/action"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button class="secondary" name="action" value="agent_refresh">Refresh run status</button></form>
+      {% endif %}
+    {% endif %}
+  </section>
+  <section id="account" class="card">
+    <p class="eyebrow">ACCOUNT & CONNECTIONS</p><h2>Your connected services</h2>
+    {% if not session.account %}<p>Sign-in and connection management are not integrated yet. Connection status is unknown; a successful page load does not confirm provider access.</p><button disabled>Sign-in pending</button><ul><li>Calendar — status unavailable</li><li>Cloud Storage — status unavailable</li><li>Issue Tracker — status unavailable</li></ul>
+    {% else %}
+      {% if session.account_view %}<p>{{ session.account_view.label }} · {{ 'Signed in' if session.account_view.signed_in else 'Signed out' }}</p>{% else %}<p>Refresh account status to check your sign-in and connections.</p>{% endif %}
+      <form method="post" action="/action"><input type="hidden" name="csrf" value="{{ session.csrf }}"><button name="action" value="account_status">Refresh account status</button>{% if not session.account_view or not session.account_view.signed_in %}<button class="secondary" name="action" value="sign_in">Sign in</button>{% endif %}</form>
+      {% if session.account_view and session.account_view.signed_in %}{% for connection in session.account_view.connections %}<article class="proposal"><h3>{{ connection.provider }} · {{ connection.state }}</h3><p>{{ connection.message }}</p><form method="post" action="/action"><input type="hidden" name="csrf" value="{{ session.csrf }}"><input type="hidden" name="provider" value="{{ connection.provider }}"><button class="secondary" name="action" value="reconnect">Reconnect</button><button class="secondary" name="action" value="disconnect">Disconnect</button></form></article>{% endfor %}{% endif %}
+    {% endif %}
+  </section>
+</main><footer>Team 2 · Manual preview · No automatic retries</footer>
+</body></html>

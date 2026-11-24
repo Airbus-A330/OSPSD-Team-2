@@ -2,7 +2,7 @@
 
 ## HW3 Milestone 2: Kickoff Handoff planning design
 
-The [product brief](HW3_MS2_PRODUCT_BRIEF.md) proposes a kickoff agent for
+The [product brief](HW3_MS2_PRODUCT_BRIEF.md) defines a kickoff agent for
 student software team leads. S1 creates a Dropbox agenda, Trello follow-up
 and Google Calendar event after exact review. S2 answers what happened to
 an owned run after the user returns. This section describes planned behavior.
@@ -52,6 +52,56 @@ The [tracker](HW3_MS2_TRACKER.md) records integration gates and the open
 PRs. Owners of #94–#97 should confirm the run reference, approval artifact,
 provider permissions and status shape before broadening implementation.
 Technical-owner sign-off on this planning update is pending.
+
+## HW3 Milestone 2: web client (#94)
+
+`interface/` is an independent Python-rendered web client of Team 2's HTTP API.
+Its manual S1 baseline for Kickoff Handoff reuses the existing kickoff request
+and fixed Storage → Issue Tracker → Calendar operation. The
+[product brief](HW3_MS2_PRODUCT_BRIEF.md) is canonical for the scenario and scope;
+[INTERFACE.md](INTERFACE.md) is canonical for setup, user steps, adapter handoff,
+and usability evidence.
+
+```text
+Browser forms + presentation-only JavaScript
+    -> interface.web (templates, transient browser drafts/results)
+    -> HTTPWorkflowClient -> Team 2 API -> existing vertical boundaries
+
+HTTPAgentClient -> separate agent request/status/cancel service -> API
+AccountClient adapter [integration pending] -> account/connection API
+Database / durable approvals / provider secrets remain backend responsibilities
+```
+
+The manual review uses the exact validated API request model. Confirmation sends
+that server-held snapshot once; editing replaces its review ID. Per-session CSRF
+tokens, HttpOnly/SameSite cookies, escaped templates, no-store responses, local
+Host restrictions, and a restrictive CSP protect the local preview. HTTP calls do
+not follow redirects or retry. Lost/malformed responses show uncertainty, never
+invented success or rollback. Per-step outcomes come only from the backend;
+the current API does not stream progress, so in-flight steps remain unconfirmed.
+
+Sessions are bounded, expire after 30 minutes of inactivity, and contain only
+disposable presentation state. They are not identity, durable approvals, replay
+protection across restarts, or a replacement for authoritative backend persistence.
+The default UI has no user login and supports the existing single test account;
+public deployment must wait for the authentication/approval workstreams.
+
+Python rendering reuses the API's request/result models and existing tools, avoiding
+a second-language API client and duplicated schemas. Browser JavaScript makes no
+service requests. The tradeoff is full-page form navigation and final rather than
+streamed step results. Revisit streaming once the backend publishes a run/progress
+contract. The agent adapter uses the implemented natural-language request,
+durable-status, and cancellation endpoints and maps the service's exact proposal
+ID/digest/action into the review screen. Until the approval workstream publishes
+authenticated execution, the real adapter exposes rejection through cancellation
+but never an approval button. The typed account adapter remains provisional and
+is injected per browser session; account fakes exist only in tests/demo. No
+speculative endpoint paths are called.
+
+The interface tests run through real API routes with controlled providers and
+exercise error display, review/replay safeguards, exact proposal decisions, and
+account states. Human usability and visual verification remain explicitly pending
+in the getting-started guide. Existing HW1/HW2/HW3-M1 contracts are unchanged.
 
 ## HW3 deployment and request trace (#85)
 

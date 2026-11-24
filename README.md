@@ -62,6 +62,15 @@ collected in [docs/FINAL_VERIFICATION.md](docs/FINAL_VERIFICATION.md).
 
 # Quick Start
 
+## Web interface preview (HW3 Milestone 2)
+
+The Python-rendered web client lives in `interface/`. See the
+[getting-started guide](docs/INTERFACE.md) for the manual kickoff scenario,
+controlled demo, error recovery, agent connection, and pending account/approval
+integration.
+After starting the API, run `make interface-run` and open http://127.0.0.1:8002.
+This is a local single-test-account preview, not a public multi-user release.
+
 ## Requirements
 
 - **Python 3.12**
