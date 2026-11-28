@@ -1,0 +1,221 @@
+{
+  "kind": "local_synthetic_only_not_deployed",
+  "telemetry_revision": "3c7980a54b01bf302b5fff8177365559353fb3ca",
+  "configured_window_seconds": 604800,
+  "full_window_coverage_verified": false,
+  "provider_calls": 0,
+  "actual_request_count": 27,
+  "warmup_batches": 1,
+  "measured_batches": 2,
+  "status_cases_per_batch": [
+    200,
+    404,
+    400,
+    422,
+    403,
+    502,
+    503,
+    401,
+    200
+  ],
+  "source_counters": {
+    "status": "success",
+    "data": {
+      "resultType": "vector",
+      "result": [
+        {
+          "metric": {
+            "__name__": "calendar_requests_total",
+            "job": "team2-calendar",
+            "operation": "Get",
+            "outcome": "success",
+            "release": "local-72-integration"
+          },
+          "value": [
+            1794279582.912,
+            "6"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "calendar_requests_total",
+            "job": "team2-calendar",
+            "operation": "Get",
+            "outcome": "not_found",
+            "release": "local-72-integration"
+          },
+          "value": [
+            1794279582.912,
+            "3"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "calendar_requests_total",
+            "job": "team2-calendar",
+            "operation": "Get",
+            "outcome": "invalid_input",
+            "release": "local-72-integration"
+          },
+          "value": [
+            1794279582.912,
+            "6"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "calendar_requests_total",
+            "job": "team2-calendar",
+            "operation": "Get",
+            "outcome": "access_denied",
+            "release": "local-72-integration"
+          },
+          "value": [
+            1794279582.912,
+            "3"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "calendar_requests_total",
+            "job": "team2-calendar",
+            "operation": "Get",
+            "outcome": "provider_error",
+            "release": "local-72-integration"
+          },
+          "value": [
+            1794279582.912,
+            "3"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "calendar_requests_total",
+            "job": "team2-calendar",
+            "operation": "Get",
+            "outcome": "provider_unavailable",
+            "release": "local-72-integration"
+          },
+          "value": [
+            1794279582.912,
+            "3"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "calendar_requests_total",
+            "job": "team2-calendar",
+            "operation": "Get",
+            "outcome": "client_error",
+            "release": "local-72-integration"
+          },
+          "value": [
+            1794279582.912,
+            "3"
+          ]
+        }
+      ]
+    }
+  },
+  "report": {
+    "status": "success",
+    "data": {
+      "resultType": "vector",
+      "result": [
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_eligible:increase7d"
+          },
+          "value": [
+            1794279582,
+            "21"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_good:increase7d"
+          },
+          "value": [
+            1794279582,
+            "9"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_fast:increase7d"
+          },
+          "value": [
+            1794279582,
+            "18"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_latency_eligible:increase7d"
+          },
+          "value": [
+            1794279582,
+            "21"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_availability:ratio7d"
+          },
+          "value": [
+            1794279582,
+            "0.42857142857142855"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_latency:ratio7d"
+          },
+          "value": [
+            1794279582,
+            "0.8571428571428571"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_availability_allowed:budget7d"
+          },
+          "value": [
+            1794279582,
+            "0.21"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_availability_remaining:budget7d"
+          },
+          "value": [
+            1794279582,
+            "-11.79"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_latency_allowed:budget7d"
+          },
+          "value": [
+            1794279582,
+            "1.05"
+          ]
+        },
+        {
+          "metric": {
+            "__name__": "team2_calendar:get_latency_remaining:budget7d"
+          },
+          "value": [
+            1794279582,
+            "-1.95"
+          ]
+        }
+      ]
+    }
+  },
+  "rules_healthy": true,
+  "report_command": "make reliability-report PROMETHEUS_URL=<ephemeral-loopback>",
+  "cleanup": "Prometheus terminated; temporary storage removed in finally"
+}

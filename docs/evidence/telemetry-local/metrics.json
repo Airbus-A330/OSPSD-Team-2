@@ -1,0 +1,342 @@
+{
+  "latency": {
+    "query": "histogram_quantile(0.95, sum by (le, operation, release) (rate(calendar_request_duration_seconds_bucket{release=\"local-restored-service-check\"}[5m])))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "operation": "Replace",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.097,
+              "0.00475"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Delete",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.097,
+              "0.00475"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Create",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.097,
+              "0.00475"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Get",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.097,
+              "19.999999999999982"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "counts": {
+    "query": "sum by (operation,outcome,release) (calendar_requests_total{release=\"local-restored-service-check\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "operation": "Create",
+              "outcome": "success",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.181,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Create",
+              "outcome": "invalid_input",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.181,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Create",
+              "outcome": "provider_error",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.181,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Get",
+              "outcome": "success",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.181,
+              "5"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Get",
+              "outcome": "invalid_input",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.181,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Get",
+              "outcome": "provider_unavailable",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.181,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Replace",
+              "outcome": "success",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.181,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Replace",
+              "outcome": "invalid_input",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.181,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Replace",
+              "outcome": "provider_error",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.181,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Delete",
+              "outcome": "success",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.181,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Delete",
+              "outcome": "invalid_input",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.181,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Delete",
+              "outcome": "provider_error",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.181,
+              "4"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "errors": {
+    "query": "sum by (operation,outcome,release) (calendar_errors_total{release=\"local-restored-service-check\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "operation": "Create",
+              "outcome": "invalid_input",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.213,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Create",
+              "outcome": "provider_error",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.213,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Get",
+              "outcome": "invalid_input",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.213,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Get",
+              "outcome": "provider_unavailable",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.213,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Replace",
+              "outcome": "invalid_input",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.213,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Replace",
+              "outcome": "provider_error",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.213,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Delete",
+              "outcome": "invalid_input",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.213,
+              "4"
+            ]
+          },
+          {
+            "metric": {
+              "operation": "Delete",
+              "outcome": "provider_error",
+              "release": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.213,
+              "4"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "saturation": {
+    "query": "max_over_time(calendar_worker_utilization_ratio{release=\"local-restored-service-check\"}[10m])",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "job": "team2-calendar",
+              "release": "local-restored-service-check",
+              "service_name": "team2-calendar",
+              "service_version": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.223,
+              "0.025"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "worker_capacity": {
+    "query": "calendar_worker_capacity{release=\"local-restored-service-check\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "__name__": "calendar_worker_capacity",
+              "job": "team2-calendar",
+              "release": "local-restored-service-check",
+              "service_name": "team2-calendar",
+              "service_version": "local-restored-service-check"
+            },
+            "value": [
+              1794284752.231,
+              "40"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "image": "ghcr.io/airbus-a330/ospsd-team-2@sha256:97e205b2532e5420035c1e57aa489b09d9efe96be1dbefda2452290f7b4f020c",
+  "workflow_sha": "7854d695cc2b8e84752ec3b4e4aacd2042125478",
+  "run_id": "43064300096",
+  "run_attempt": "1",
+  "outcome": "successful",
+  "smoke": "passed",
+  "cleanup": "confirmed",
+  "stage": "calendar_smoke",
+  "request_image": "ghcr.io/airbus-a330/ospsd-team-2@sha256:97e205b2532e5420035c1e57aa489b09d9efe96be1dbefda2452290f7b4f020c",
+  "reconciliation_required": false,
+  "initial_deploy_http_status": 400,
+  "platform": "live",
+  "deploy_id": "dep-dbqa03d6e07s73fhs110",
+  "deployment_tracking": "identified"
+}

@@ -1,0 +1,43 @@
+{
+  "kind": "live_grafana_screenshot_rounded_observation",
+  "evidence": "sli-dashboard-20261111-182750.jpg",
+  "capture_file_timestamp_utc": "2026-11-11T23:27:51.843590+00:00",
+  "exact_query_evaluation_timestamp": null,
+  "time_limitation": "File timestamp documents capture, not the precise instant-query evaluation time. Dashboard displays Last 7 days UTC.",
+  "dashboard_uid": "team2-calendar-sli-measurement",
+  "datasource_uid": "grafanacloud-prom",
+  "configured_window_seconds": 604800,
+  "full_window_coverage_verified": false,
+  "counts_are_display_rounded": true,
+  "displayed_counts": {
+    "availability_eligible_A": 59.0,
+    "availability_good_B": 43.0,
+    "latency_eligible_C": 59.0,
+    "latency_fast_D": 58.0
+  },
+  "displayed_source_age_seconds": 4.16,
+  "availability_approximate": {
+    "target": 0.99,
+    "ratio": 0.7288135593220338,
+    "bad_events": 16.0,
+    "allowed_bad_events": 0.59,
+    "remaining_bad_events": -15.41,
+    "target_met": false
+  },
+  "latency_approximate": {
+    "target": 0.95,
+    "ratio": 0.9830508474576272,
+    "bad_events": 1.0,
+    "allowed_bad_events": 2.95,
+    "remaining_bad_events": 1.95,
+    "target_met": true
+  },
+  "limitations": [
+    "Ratios and budgets are estimates calculated from rounded dashboard values; raw instant-query export is not retained.",
+    "Increase extrapolates cumulative counters; displayed values are not literal raw request counts.",
+    "The configured seven-day lookback is not proof of seven days of observed history.",
+    "The dataset includes verification traffic, including deliberate authentication rejection checks.",
+    "Freshness is verified for this captured observation only, not continuous exporter uptime or complete history.",
+    "This is not evidence of alert receipt/resolution, rollback, or a game day."
+  ]
+}

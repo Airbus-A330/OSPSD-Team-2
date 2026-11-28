@@ -1,0 +1,16 @@
+# Local/disposable verification backend; no Calendar credentials are mounted.
+services:
+  telemetry:
+    image: grafana/otel-lgtm:0.40.0
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:4318:4318"
+    mem_limit: 2g
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./collector.yaml:/otel-lgtm/otelcol-config.yaml:ro
+      - ./datasources.yaml:/otel-lgtm/grafana/conf/provisioning/datasources/grafana-datasources.yaml:ro
+      - ./dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/calendar.yaml:ro
+      - ./calendar-dashboard.json:/otel-lgtm/calendar-dashboard.json:ro

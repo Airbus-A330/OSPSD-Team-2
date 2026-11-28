@@ -4,17 +4,25 @@ version = "0.1.0"
 description = "Backend calendar service for NYU's Open Source and Professional Software Development course."
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "calendar-contract",
+    "cloud-storage-api",
+    "dropbox-client-impl",
+    "issue-tracker-contract==1.1.0",
+    "team-4-issue-tracker-trello==1.0.0",
     "fastapi==0.124.4",
+    "httpx==0.28.1",
+    "jinja2==3.1.6",
     "google-api-python-client==2.201.0",
     "google-auth-httplib2==0.4.4",
     "google-auth-oauthlib==1.5.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.2",
+    "opentelemetry-sdk>=1.45.2",
     "pydantic==2.12.5",
     "uvicorn[standard]==0.42.0",
 ]
 
 [dependency-groups]
 dev = [
-    "httpx==0.28.1",
     "mypy==2.4.0",
     "pytest==9.1.1",
     "ruff==0.15.9",
@@ -22,4 +30,12 @@ dev = [
 
 [tool.uv]
 package = false
-required-version = "==0.12.17"
+required-version = ">=0.12.17"
+
+[tool.uv.sources]
+calendar-contract = { git = "https://github.com/Airbus-A330/OSPSD-Calendar.git", rev = "v0.1.0-rc.1" }
+cloud-storage-api = { git = "https://github.com/Dayana20/ospsd26-cloud-storage", tag = "0.3.1", subdirectory = "src/cloud_storage_api" }
+dropbox-client-impl = { git = "https://github.com/Shreyas191/OSPSD-Team-3", tag = "v0.3.0", subdirectory = "src/dropbox_client_impl" }
+cloud-storage-client-api = { git = "https://github.com/Shreyas191/OSPSD-Team-3", tag = "v0.3.0", subdirectory = "src/cloud_storage_client_api" }
+issue-tracker-contract = { git = "https://github.com/Tyler-Arciniaga/OSPSD-Team-4.git", rev = "issue-tracker-contract-v1.1.0", subdirectory = "contract" }
+team-4-issue-tracker-trello = { git = "https://github.com/Tyler-Arciniaga/OSPSD-Team-4.git", rev = "team-4-issue-tracker-trello-v1.0.0", subdirectory = "team-4-trello-impl" }
