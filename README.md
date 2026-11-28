@@ -11,8 +11,9 @@ The repository is designed so that another developer can clone it, install depen
 ## HW3 Milestone 2 planning
 
 See the [Kickoff Handoff product brief](docs/HW3_MS2_PRODUCT_BRIEF.md),
-[implementation tracker](docs/HW3_MS2_TRACKER.md) and
-[submission index](docs/HW3_MS2_SUBMISSION.md).
+[implementation tracker](docs/HW3_MS2_TRACKER.md),
+[reader-first design](docs/DESIGN.md), and canonical
+[readiness ledger](docs/READINESS.md).
 
 ## Team Members and Operation Ownership
 
@@ -46,19 +47,19 @@ resources, health, release, telemetry, recovery path, costs, and blast radius.
 
 ---
 
-## Automated delivery
+## Historical delivery foundation
 
-[Delivery and rollback](docs/DELIVERY.md) uses the existing container and Render
-Blueprint on `hw3-ms1-submission`. See [HW3 deployment and verification](docs/HW3_DEPLOYMENT.md)
-for new runtime configuration and the distinction between Calendar smoke and
-three-provider acceptance evidence. PR checks include Infrastructure validation
-and explicit controlled shared conformance. The retained Delivery evidence records
-a successful immutable deployment, real-provider smoke/cleanup, and the bounded
-game-day recovery. Leon Liu deployed and tested the Render service, and Nicolas
-Ollivier independently exercised the integrated hosted application and telemetry.
+[Delivery and rollback](docs/DELIVERY.md) documents the existing container and
+Render foundation. Its automatic trigger currently targets `hw3-ms1-submission`;
+the release owner must review and update that trigger for the eventual Milestone 2
+release branch. [HW3 deployment and verification](docs/HW3_DEPLOYMENT.md) records
+the prior three-provider integration, while [READINESS.md](docs/READINESS.md)
+distinguishes historical evidence from the new release gates.
 
-The final exact-commit CI, tag, release, and submission evidence fields are
-collected in [docs/FINAL_VERIFICATION.md](docs/FINAL_VERIFICATION.md).
+Historical HW2 verification is retained in
+[docs/FINAL_VERIFICATION.md](docs/FINAL_VERIFICATION.md). Current Milestone 2
+release gates and evidence links are collected in
+[docs/READINESS.md](docs/READINESS.md).
 
 # Quick Start
 
@@ -546,7 +547,9 @@ The project intentionally favors clear boundaries and straightforward Python ove
 | [`docs/PROVIDER.md`](docs/PROVIDER.md) | Google Calendar configuration and real-provider verification |
 | [`docs/TESTING.md`](docs/TESTING.md) | Test strategy, coverage, and regression evidence |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Engineering decisions and trade-offs |
-| [`docs/DESIGN.md`](docs/DESIGN.md) | HW2 shared-contract migration design |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | Current product architecture, trust boundaries, and design decisions |
+| [`docs/READINESS.md`](docs/READINESS.md) | Canonical HW3 Milestone 2 evidence ledger and manual gates |
+| [`docs/evidence/README.md`](docs/evidence/README.md) | Evidence format, location, and privacy rules |
 | [`docs/JOINT_CALENDAR_CONTRACT.md`](docs/JOINT_CALENDAR_CONTRACT.md) | Cross-team Calendar contract decision memo |
 | [`docs/TEAM_AGREEMENT.md`](docs/TEAM_AGREEMENT.md) | Team workflow and collaboration |
 | [`AGENTS.md`](AGENTS.md) | Repository-wide contribution rules |
