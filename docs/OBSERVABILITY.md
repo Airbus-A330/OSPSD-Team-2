@@ -216,7 +216,7 @@ OTLP collector and persistent backends, and imports the dashboard using matching
 data source UIDs (`prometheus`, `loki`, `tempo`). Pin artifact digests and configure
 backend retention within that owner's deployment workflow.
 
-## Deployed verification and retained evidence
+## Historical deployed verification and retained evidence
 
 The service exported deployed telemetry to the retained
 [public Grafana dashboard](https://gianthamster2577.grafana.net/public-dashboards/94e9aa89613d4e1faea770e897d47f37),
@@ -257,14 +257,14 @@ correlation fields in logs and traces only; they are not metric dimensions. The
 inspection included collector-added resource fields and found no sensitive
 Calendar or provider data.
 
-Dorien Zhang, Nicolas Ollivier, and Leon Liu (`LeonLiu0204`) completed the human
-telemetry verification session. They reviewed deployed success, provider/service-
-failure, and invalid-request cases and used the dashboard, logs, and traces to
-identify operation, status, outcome, release, request/trace correlation, and
-provider-span behavior. They also manually inspected an exported structured log
-and corresponding trace and confirmed that no credentials, tokens, provider
-payloads, or event contents were present and that metric labels were bounded and
-excluded raw event IDs and URLs. No exact session timestamp is asserted.
+Team records state that Dorien Zhang, Nicolas Ollivier, and Leon Liu
+(`LeonLiu0204`) completed a human telemetry session covering deployed success,
+provider/service failure, invalid input, correlation, and sensitive-data review.
+No exact timestamp, deployed run IDs, participant walkthrough notes, or exported
+deployed log/trace were retained. The linked local export supports signal-shape
+and privacy checks only. Consequently, this statement is historical context and
+does not satisfy the Milestone 2 deployed walkthrough gate in
+[READINESS.md](READINESS.md).
 
 ## Automated verification
 

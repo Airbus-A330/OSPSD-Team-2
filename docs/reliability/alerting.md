@@ -1,6 +1,11 @@
 # Get failure alert
 
-**The Get reliability condition was exercised during the bounded game-day failure. The repository retains the rule definition, SLI/SLO measurements, public dashboard, and game-day evidence below. Alert delivery and resolution status are recorded from the actual exercise rather than inferred from configuration.** An existing dashboard is not a configured alert.
+**The Get reliability condition was exercised during the bounded HW2 game-day
+failure. The repository retains the rule definition, SLI/SLO measurements,
+public dashboard, and game-day narrative. It does not retain the delivered
+notification screenshot/provider record or exact transition and receipt
+timestamps. The reported delivery therefore cannot be reused as complete HW3
+Milestone 2 alert evidence.** An existing dashboard is not a configured alert.
 
 ## Condition and why it is symptom-based
 
@@ -21,8 +26,8 @@ resolution by the five-minute lookback and evaluation/notification intervals.
 - [Live public metrics dashboard](https://gianthamster2577.grafana.net/public-dashboards/94e9aa89613d4e1faea770e897d47f37)
 - [Private dashboard/log/trace access](https://gianthamster2577.grafana.net/d/team2-calendar-shared)
 - [Runbook](runbook.md)
-- Destination owner: Airbus; **email is acceptable per his latest team message**.
-  Recipient/contact-point identity and successful receipt: successful execution.
+- Historical destination owner: Alexander Freedman. The exact redacted contact
+  point identity and proof of successful receipt were **NOT RETAINED**.
   Do not put webhook credentials or account passwords in Git or ordinary evidence.
 
 ## Activation and verification
@@ -123,11 +128,11 @@ https://gianthamster2577.grafana.net/public-dashboards/94e9aa89613d4e1faea770e89
 Recovery used the documented immutable rollback workflow and canonical
 real-provider smoke/cleanup procedure.
 
-The end-to-end exercise completed the full alert lifecycle: the rule entered
-Pending and then Firing, the configured real destination received the firing
-notification, recovery restored known-good behavior, the rule resolved, and the
-destination received the resolved notification. Exact transition timestamps were
-not retained in repository evidence.
+Team records report that the rule entered Pending and Firing, the configured
+destination received firing and resolved notifications, and recovery restored
+known-good behavior. Exact transition/receipt timestamps and delivered-message
+artifacts were not retained. Treat delivery as **INCOMPLETE EVIDENCE**, not as a
+new-milestone pass.
 
 See [game-day.md](game-day.md) and [postmortem.md](postmortem.md) for the
 complete exercise record.

@@ -1,5 +1,11 @@
 # Team 2 Calendar Game-Day Record
 
+> **Historical evidence limitation:** this HW2 record retains the fault source
+> SHA and known-good digest, but not the faulty image digest, recovery Delivery
+> run URL, exact fault/recovery timestamps, or delivered alert artifacts. It
+> documents a reported exercise and its limits; it is not complete Milestone 2
+> recovery evidence.
+
 **Date:** November 11–12, 2026  
 **Service:** Team 2 Calendar  
 **Representative operation:** `GET /events/{event_id}` (`operation="Get"`)  

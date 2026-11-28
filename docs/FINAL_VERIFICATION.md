@@ -1,4 +1,10 @@
-# Final verification record
+# Historical HW2 final verification record
+
+This file records Team 2's HW2 reconciliation. It is not the readiness ledger for
+HW3 Milestone 2. Several human-session statements below were recorded without an
+exact timestamp or raw walkthrough transcript; they remain historical claims with
+that limitation and must not be reused as Milestone 2 evidence. Use
+[READINESS.md](READINESS.md) for the current release.
 
 This record reconciles the retained implementation, deployment, observability,
 reliability, and completed human verification evidence before release. Never add

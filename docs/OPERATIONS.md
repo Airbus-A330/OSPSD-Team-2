@@ -4,14 +4,18 @@ This page is the short operational index. It links to the canonical deployment,
 delivery, observability, and reliability documents rather than duplicating their
 procedures.
 
+This page describes the existing HW2 operational foundation. Milestone 2 release
+costs, retention dates, and operator evidence remain open until they are recorded
+for the exact candidate in [READINESS.md](READINESS.md).
+
 ## Actual resources and ownership
 
 | Resource | Purpose | What breaks without it | Cost/tier | Owner and cleanup |
 | --- | --- | --- | --- | --- |
-| Render Free web service `ospsd-team-2-calendar` | Runs `app.hosting:app`, validates runtime configuration, and serves the protected Calendar API and health probes | The shared API is unreachable; Google data remains in Google Calendar | Render Free: no compute charge within documented quotas, no disk; cold starts and quota suspension apply | Leon Liu / `LeonLiu0204`; remove the disposable service after submission evidence is secured unless an extension is recorded |
+| Render Free web service `ospsd-team-2-calendar` | Runs `app.hosting:app`, validates runtime configuration, and serves the protected Calendar API and health probes | The shared API is unreachable; Google data remains in Google Calendar | Render Free: no compute charge within documented quotas, no disk; cold starts and quota suspension apply | Leon Liu / `LeonLiu0204` |
 | GHCR immutable image `ghcr.io/airbus-a330/ospsd-team-2@sha256:…` | Preserves the exact tested artifact used for deployment and rollback | A release cannot be reproduced or safely restored by digest | Uses the GitHub organization's existing package allowance; no separate paid registry resource is documented | Team 2 GitHub organization administrators; retain submission/current/known-good evidence digests through review, then apply the documented retention decision |
 | GitHub Actions Delivery workflow and protected environments | Gates the exact artifact on checks, supplies scoped deployment credentials, deploys, smokes, and records evidence | Releases become manual and undocumented; unreviewed code could receive deployment access if protections are removed | Uses the repository's GitHub Actions allowance; no separate paid runner is configured | Dorien Zhang and Leon Liu, with Team 2 repository administrators; revoke temporary deployment credentials after the exercise/release |
-| Grafana Cloud/OTLP telemetry path | Stores and displays bounded metrics, logs, traces, release identity, SLI data, and alerts | Operators lose request correlation, provider timing, golden signals, and alert delivery; API behavior continues because telemetry is fail-open | Existing Grafana Cloud account/tier; no separate paid upgrade or billing amount is documented | Nicolas Ollivier; retain submission evidence through review, then follow the account retention policy |
+| Grafana Cloud/OTLP telemetry path | Stores and displays bounded metrics, logs, traces, release identity, SLI data, and alerts | Operators lose request correlation, provider timing, golden signals, and alert delivery; API behavior continues because telemetry is fail-open | Exact plan, ingestion, free-tier limit, and observed charge must be recorded for the Milestone 2 release | Nicolas Ollivier |
 
 Render's platform-managed Blueprint/resource configuration is the infrastructure
 state. The Hobby workspace's direct provider access belongs to Leon; versioned
@@ -90,3 +94,42 @@ is unknown, never healthy; check exporter freshness and run the canonical smoke.
 
 Canonical details: [DEPLOYMENT.md](DEPLOYMENT.md), [DELIVERY.md](DELIVERY.md),
 [OBSERVABILITY.md](OBSERVABILITY.md), and [RELIABILITY.md](RELIABILITY.md).
+
+## Milestone 2 cost record
+
+The repository does not yet contain a billing export or measured model and
+telemetry usage for the future Milestone 2 release. These values must not be
+inferred from an advertised tier.
+
+| Resource | Plan / unit | Measured usage | Observed charge | Date checked | Status |
+| --- | --- | --- | --- | --- | --- |
+| Render hosting | Free plan in current Blueprint | NOT RETAINED for Milestone 2 | NOT RETAINED | NOT RETAINED | MANUAL EVIDENCE REQUIRED |
+| Durable database | Implementation/plan not integrated on this branch | NOT APPLICABLE YET | NOT APPLICABLE YET | NOT RETAINED | PENDING INTEGRATION |
+| Model provider | Model/version not integrated on this branch | Tokens and tasks NOT RETAINED | NOT RETAINED | NOT RETAINED | MANUAL EVIDENCE REQUIRED |
+| Grafana/OTLP | Existing account; exact plan not retained | Ingestion/retention NOT RETAINED | NOT RETAINED | NOT RETAINED | MANUAL EVIDENCE REQUIRED |
+| Google/Dropbox/Trello test APIs | Provider test accounts | Request/storage usage NOT RETAINED | NOT RETAINED | NOT RETAINED | MANUAL EVIDENCE REQUIRED |
+
+The release owner must replace these placeholders with provider-visible usage,
+plan limits, observed charge (including `$0` when verified), and the date checked.
+Model evidence must also record tokens and approximate cost per task and across
+the evaluation set.
+
+## Resource retention and teardown
+
+No team-approved Milestone 2 teardown dates are retained yet. Choosing dates is a
+human operational decision because resources may be needed by later course
+milestones. The table is therefore an explicit release blocker rather than an
+invented schedule.
+
+| Resource | Owner | Keep through | Planned teardown/review date | Action |
+| --- | --- | --- | --- | --- |
+| Render service | Leon Liu / `LeonLiu0204` | NOT SET | NOT SET — REQUIRED BEFORE RELEASE | Delete or scale down after the approved retention period |
+| Durable database and backups | Persistence owner | NOT SET | NOT SET — REQUIRED BEFORE RELEASE | Take required backup, verify retention, then delete disposable data/service |
+| Grafana/OTLP stack | Nicolas Ollivier | NOT SET | NOT SET — REQUIRED BEFORE RELEASE | Export evidence, then remove or retain under an approved account policy |
+| GHCR images | GitHub organization administrators | NOT SET | NOT SET — REQUIRED BEFORE RELEASE | Retain submitted and known-good digests; remove unneeded exercise images |
+| OAuth/test users and provider data | Connection owners | NOT SET | NOT SET — REQUIRED BEFORE RELEASE | Delete owned test records and revoke test grants/users |
+| Model/deployment API keys | Release and model owners | NOT SET | NOT SET — REQUIRED BEFORE RELEASE | Revoke or rotate after the approved retention period |
+
+Record approved dates and completion evidence using
+[the evidence template](evidence/README.md). Vague phrases such as “after evidence
+is secured” do not satisfy this gate.

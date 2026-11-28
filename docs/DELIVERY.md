@@ -188,8 +188,9 @@ disposable service/calendar. Do not weaken normal required checks.
 4. Dispatch the original known-good digest back to `disposable`. Require the
    same smoke and confirmed cleanup. Record restoration of the exact digest,
    resource identities and absence of remaining smoke data.
-5. Retain all three run artifacts before their 90-day expiry. Coordinate
-   disposable teardown with #68 after submission evidence is secured.
+5. Retain all three run artifacts before their 90-day expiry. Follow the dated
+   resource-retention decision in [OPERATIONS.md](OPERATIONS.md) for disposable
+   teardown.
 
 ## Evidence
 

@@ -1,5 +1,10 @@
 # Team 2 Calendar Game-Day Postmortem
 
+> **Evidence limitation:** the exercise narrative does not retain the faulty
+> image digest, recovery workflow URL, exact timeline timestamps, or delivered
+> alert artifacts. Those omissions are explicit release gates for future game
+> days in [the readiness ledger](../READINESS.md).
+
 ## Summary
 
 On November 11–12, 2026, Team 2 conducted a scheduled reliability game day against its disposable Calendar deployment.
